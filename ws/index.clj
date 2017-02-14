@@ -10,6 +10,7 @@
 ;; @@
 (ns agiladmin.term
   (:require
+   [clojure.repl :refer :all]
    [clojure.string :as string]
    [clojure.data.json :as json]
    [clojure.contrib.humanize :refer :all]
