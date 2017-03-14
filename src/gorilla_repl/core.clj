@@ -56,7 +56,3 @@
       (spit (doto gorilla-port-file .deleteOnExit) webapp-port)
       (println (str "Running at http://" ip ":" webapp-port "/index.html"))
       (println "Ctrl+C to exit."))))
-
-(defn -main
-  [& args]
-  (run-gorilla-server {:port 8990}))

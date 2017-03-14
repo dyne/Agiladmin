@@ -1,8 +1,29 @@
+;; Agiladmin - spreadsheet based time and budget administration
+
+;; Copyright (C) 2016-2017 Dyne.org foundation
+
+;; Sourcecode written and maintained by Denis Roio <jaromil@dyne.org>
+;; designed in cooperation with Manuela Annibali <manuela@dyne.org>
+
+;; This program is free software: you can redistribute it and/or modify
+;; it under the terms of the GNU Affero General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU Affero General Public License for more details.
+
+;; You should have received a copy of the GNU Affero General Public License
+;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 (ns agiladmin.core
   (:require [clojure.string :as string]
             [clojure.walk :refer :all]
             [clojure.java.io :as io]
             [gorilla-repl.table :refer :all]
+            [gorilla-repl.core  :refer [run-gorilla-server]]
             [clojure.contrib.humanize :refer :all]
             [dk.ative.docjure.spreadsheet :refer :all])
   (:import (org.apache.poi.ss.usermodel Workbook Row CellStyle IndexedColors Font CellValue)
@@ -11,6 +32,9 @@
            (java.io FileInputStream))
   (:gen-class)
   )
+
+(defn -main [& args]
+  (run-gorilla-server {:port 8990}))
 
 ;; (def total-hours (atom []))
 

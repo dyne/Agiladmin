@@ -26,11 +26,13 @@
                            [dk.ative/docjure "1.11.0"]
                            [org.apache.poi/poi "3.15"]
                            [org.apache.poi/poi-ooxml "3.15"]
+
+                           [clj-jgit "0.8.9"]
                            ]
   :source-paths ["src"]
   :resource-paths ["resources"]
   :template-additions ["ws/index.clj"]
-  :main ^:skip-aot gorilla-repl.core
+  :main ^:skip-aot agiladmin.core
   :profiles {:uberjar {:aot [gorilla-repl.core agiladmin.core]}}
   :target-path "target/%s"
   )
