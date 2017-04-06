@@ -22,8 +22,8 @@
   (:require [clojure.string :as string]
             [clojure.walk :refer :all]
             [clojure.java.io :as io]
-            [gorilla-repl.table :refer :all]
-            [gorilla-repl.core  :refer [run-gorilla-server]]
+            ;; [gorilla-repl.table :refer :all]
+            ;; [gorilla-repl.core  :refer [run-gorilla-server]]
             [clojure.contrib.humanize :refer :all]
             [dk.ative.docjure.spreadsheet :refer :all])
   (:import (org.apache.poi.ss.usermodel Workbook Row CellStyle IndexedColors Font CellValue)
@@ -40,7 +40,11 @@
 
 (defn load-timesheet [path]
   (let [ts (load-workbook path)
-        year (first (string/split (read-cell (select-cell "B2" (first (sheet-seq ts)))) #"-"))]
+        year (first (string/split (->> (sheet-seq ts)
+                                (first)
+                                (select-cell "B2")
+                                (read-cell)) #"-"))]
+
     {:name (read-cell (select-cell "B3" (first (sheet-seq ts))))
      :file path
      :year year
@@ -110,7 +114,7 @@
 (defn load-all-timesheets
   "load all timesheets in a directory matching a certain filename pattern"
   [path regex]
-  (let [ts (list-files-matching path #"timesheet.*xls")]
+  (let [ts (list-files-matching path regex)]
     (for [l (map #(.getName %) ts)]
       (load-timesheet (str path l)))))
 

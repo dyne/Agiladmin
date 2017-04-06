@@ -9,10 +9,19 @@
                            [cheshire "5.6.3"]
                            [clojure-humanize "0.2.2"]
 
+                           ;; compojure, ring and middleware
+                           [compojure "1.5.2"]
+                           [ring/ring-defaults "0.2.3"]
+                           [ring-middleware-accept "2.0.3"]
+                           ;; aux web stuff
+                           [formidable "0.1.10"]
+                           [markdown-clj "0.9.98"]
+                           [json-html "0.4.0"]
+
                            ;; gorilla-repl deps
                            [http-kit "2.2.0"]
                            [ring/ring-json "0.4.0"]
-                           [compojure "1.5.1"]
+                           ;; [compojure "1.5.1"]
                            [org.slf4j/slf4j-api "1.7.22"]
                            [ch.qos.logback/logback-classic "1.1.8"]
                            [gorilla-renderable "2.0.0"]
@@ -27,7 +36,9 @@
                            [org.apache.poi/poi "3.15"]
                            [org.apache.poi/poi-ooxml "3.15"]
 
-                           [clj-jgit "0.8.9"]
+                           ;; git
+                           [clj-jgit "0.9.1-SNAPSHOT"]
+
                            ]
   :source-paths ["src"]
   :resource-paths ["resources"]
@@ -35,4 +46,7 @@
   :main ^:skip-aot agiladmin.core
   :profiles {:uberjar {:aot [gorilla-repl.core agiladmin.core]}}
   :target-path "target/%s"
+  :plugins [[lein-ring "0.9.7"]]
+  :ring {:handler agiladmin.handlers/app}
+
   )
