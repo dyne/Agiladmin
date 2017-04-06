@@ -129,7 +129,11 @@
                                (into [["Name" "Date" "Task" "Hours"]])))]
           (write-project-hours (str "budgets/" projfile) hours)
 
-          (web/render [:h1 projname [:div (present/edn->html hours)]])))
+          (web/render [:h1 projname
+                       [:div (present/edn->html
+                              (-> (load-repo "budgets")
+                                  (git-status)))]
+                       [:div (present/edn->html hours)]])))
 
 
   ;; TODO: detect cryptographical conversion error: returned is the first share

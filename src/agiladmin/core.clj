@@ -72,9 +72,7 @@
               ;; take lowest in row totals starting from 42 (as month lenght varies)
               hours  (first (for [i [42 41 40 39 38]
                                   :let  [cell (read-cell (select-cell (str n i) sheet))]
-                                  :when (not (nil? cell))]
-                              cell))]
-              ;; hours  (read-cell (select-cell (str n "42") sheet))]
+                                  :when (not (nil? cell))] cell))]
 
         :when (and (not= hours "0")
                    (not (str/blank? pcell))
@@ -138,8 +136,6 @@
                 s
                 (add-sheet! wb "Personnel hours"))]
     (remove-all-rows! sheet)
-    ;; (print project-hours)
-    ;; doall?
     (add-rows! sheet project-hours)
     (save-workbook! budget-file wb)
     wb))
