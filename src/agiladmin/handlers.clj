@@ -68,7 +68,7 @@
     (web/render [:div {:class "row-fluid"}
 
                  [:div {:class "projects col-lg-6"}
-                  (for [f (->> (list-files-matching "budgets" #"budget.*xlsx")
+                  (for [f (->> (list-files-matching "budgets" #"budget.*xlsx$")
                                (map #(.getName %)))]
                     [:div {:class "row"}
                      [:div {:class "col-lg-4"} f]
@@ -119,17 +119,17 @@
                                (git-clone (:git config) "budgets"))]))))
 
   (POST "/update" request
-        (if-let [config (web/check-session request)]
-          (conj {:session
-                 (conj {:hours
-                        (if (empty? (:hours config))
-                          (->> (load-all-timesheets "budget" #".*_timesheet_.*xlsx$")
-                               (load-project-hours "Dowse")
-                               (into [["Name" "Date" "Task" "Hours"]]))
-                          ; else
-                          (:hours config))}
-                        config)}
-                (web/render [:div (present/edn->html request)]))))
+        (let [config (web/check-session request)
+              projfile (get-in request [:params :project])
+              projname (-> (str/split projfile #"_") (second)
+                           (str/split #"\.") (first))
+              hours (if-let [hs (:hours config)]
+                      hs (->> (load-all-timesheets "budgets/" #".*_timesheet_.*xlsx$")
+                               (load-project-hours projname)
+                               (into [["Name" "Date" "Task" "Hours"]])))]
+          (write-project-hours (str "budgets/" projfile) hours)
+
+          (web/render [:h1 projname [:div (present/edn->html hours)]])))
 
 
   ;; TODO: detect cryptographical conversion error: returned is the first share

@@ -19,11 +19,9 @@
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 (ns agiladmin.core
-  (:require [clojure.string :as string]
+  (:require [clojure.string :as str]
             [clojure.walk :refer :all]
             [clojure.java.io :as io]
-            ;; [gorilla-repl.table :refer :all]
-            ;; [gorilla-repl.core  :refer [run-gorilla-server]]
             [clojure.contrib.humanize :refer :all]
             [dk.ative.docjure.spreadsheet :refer :all])
   (:import (org.apache.poi.ss.usermodel Workbook Row CellStyle IndexedColors Font CellValue)
@@ -33,18 +31,12 @@
   (:gen-class)
   )
 
-(defn -main [& args]
-  (run-gorilla-server {:port 8990}))
-
-;; (def total-hours (atom []))
-
 (defn load-timesheet [path]
   (let [ts (load-workbook path)
-        year (first (string/split (->> (sheet-seq ts)
+        year (first (str/split (->> (sheet-seq ts)
                                 (first)
                                 (select-cell "B2")
                                 (read-cell)) #"-"))]
-
     {:name (read-cell (select-cell "B3" (first (sheet-seq ts))))
      :file path
      :year year
@@ -66,7 +58,7 @@
   (let [dir   (io/file directory)
         files (file-seq dir)]
     (remove nil?
-            (map #(let [f (string/lower-case (.getName %))]
+            (map #(let [f (str/lower-case (.getName %))]
                     (if (re-find regex f) %)) files))))
 
 (defn iter-project-hours
@@ -76,16 +68,24 @@
   (for [n ["B" "C" "D" "E" "F" "G"]
 
         :let [sheet  (select-sheet (:month entry) (:xls timesheet))
-              pcell  (select-cell (str n "7") sheet)
-              hours  (read-cell (select-cell (str n "42") sheet))]
+              pcell  (read-cell (select-cell (str n "7")  sheet))
+              ;; take lowest in row totals starting from 42 (as month lenght varies)
+              hours  (first (for [i [42 41 40 39 38]
+                                  :let  [cell (read-cell (select-cell (str n i) sheet))]
+                                  :when (not (nil? cell))]
+                              cell))]
+              ;; hours  (read-cell (select-cell (str n "42") sheet))]
 
-        :when (and (not= hours "0") (= (read-cell pcell) project))]
+        :when (and (not= hours "0")
+                   (not (str/blank? pcell))
+                   ;; case insensitive match
+                   (some? (re-matches (java.util.regex.Pattern/compile
+                                       (str "(?i)" project)) pcell)))]
 
     [(:name timesheet)
      (:month entry)
      (if-let [task (read-cell (select-cell (str n "8") sheet))] task "")
-     hours]
-    ))
+     hours]))
 
 (defn get-project-hours
   "gets all project hours into a lazy-seq of vectors"
@@ -138,7 +138,8 @@
                 s
                 (add-sheet! wb "Personnel hours"))]
     (remove-all-rows! sheet)
-    (print project-hours)
+    ;; (print project-hours)
     ;; doall?
     (add-rows! sheet project-hours)
+    (save-workbook! budget-file wb)
     wb))
