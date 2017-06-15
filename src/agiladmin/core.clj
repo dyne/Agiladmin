@@ -61,28 +61,37 @@
             (map #(let [f (str/lower-case (.getName %))]
                     (if (re-find regex f) %)) files))))
 
+(defn get-cell
+  "return the value of cell in sheet at column and row position"
+  [sheet col row]
+  (read-cell (select-cell (str col row) sheet)))
+
 (defn iter-project-hours
   "to be used in a map iterating on timesheets,
   matches the project string and returns a row with [name month task hours]"
   [timesheet project entry]
+  ;; columns containing hours for each project
   (for [n ["B" "C" "D" "E" "F" "G"]
 
         :let [sheet  (select-sheet (:month entry) (:xls timesheet))
-              pcell  (read-cell (select-cell (str n "7")  sheet))
+              proj  (get-cell sheet n "7") ;; row project
+              task  (get-cell sheet n "8") ;; row task
+              tag   (get-cell sheet n "9") ;; row tag(s) (TODO: support multiple tags)
               ;; take lowest in row totals starting from 42 (as month lenght varies)
               hours  (first (for [i [42 41 40 39 38]
-                                  :let  [cell (read-cell (select-cell (str n i) sheet))]
+                                  :let  [cell (get-cell sheet n i)]
                                   :when (not (nil? cell))] cell))]
 
         :when (and (not= hours "0")
-                   (not (str/blank? pcell))
+                   (not (str/blank? proj))
+                   (not= tag "vol")
                    ;; case insensitive match
                    (some? (re-matches (java.util.regex.Pattern/compile
-                                       (str "(?i)" project)) pcell)))]
+                                       (str "(?i)" project)) proj)))]
 
     [(:name timesheet)
      (:month entry)
-     (if-let [task (read-cell (select-cell (str n "8") sheet))] task "")
+     task
      hours]))
 
 (defn get-project-hours
