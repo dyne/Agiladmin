@@ -1,0 +1,94 @@
+@font-face { font-family: 'granjon';
+			 src: url('granjon.woff') format('woff'); }
+
+body {
+	font-family: "granjon";
+	font-size: 22px;
+	font-smooth: always;
+	-webkit-font-smoothing: antialiased;
+}
+
+code {
+	font-size: .8em;
+	/* display: block; */
+	white-space: pre-wrap;
+}
+
+h1, h2, h3, h4 { }
+
+p {
+	letter-spacing: 0.01rem;
+	font-style: normal;
+	line-height: 1.5;
+}
+
+img {
+	width: auto;
+	height: auto;
+	max-width: 100%;
+	vertical-align: middle;
+	overflow: hidden;
+}
+
+.input-form {
+	clear: right;
+}
+
+li {
+    /* padding: .5em; */
+}
+
+.secrets {
+	padding: 1em;
+}
+
+.password {
+	font-size: 1.5;
+	padding: 1em;
+	/* display: inline-block; */
+}
+
+.navbar-text {
+	margin-top: 22px;
+}
+
+.password .content {
+	font-size: 1em;
+}
+
+.slices {
+
+}
+
+.slices ul {
+	list-style: none;
+}
+
+.slices .content {
+	font-size: .5em;
+}
+
+.qrcode {
+    float: left;
+    margin-left: -19px;
+}
+
+
+.card {
+    border: solid 3px #888;
+    border-radius: 5px;
+    padding: 1.5em 2.2em .8em 2.2em;
+}
+
+.card .gravatar {
+    margin-top: 19px;
+}
+
+.balance {
+    font-size: 2em;
+    margin: 1em 0;
+}
+
+.wallet-details {
+    display: inline-block;
+}

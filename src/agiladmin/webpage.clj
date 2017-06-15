@@ -137,9 +137,9 @@
   [:nav {:class "navbar navbar-default navbar-static-top"}
    [:div {:class "container"}
     [:ul {:class "nav navbar-nav"}
-     [:li [:a {:href "/about"} "About Agiladmin"]]
+     [:li [:a {:href "/"} "About Agiladmin"]]
      [:li {:role "separator" :class "divider"} ]
-     [:li [:a {:href "/update"} "Update Timesheets"]]
+     [:li [:a {:href "/log"} "Log of changes"]]
      ]]])
 
 (defn render-footer []
