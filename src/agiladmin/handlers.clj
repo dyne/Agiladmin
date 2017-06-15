@@ -56,12 +56,12 @@
 
 (defn button
   ([config url text] (button config url text [:p]))
-  
+
   ([config url text fields]
-  (hf/form-to [:post url]
-              (hf/hidden-field "__anti-forgery-token" (config "__anti-forgery-token"))
-              fields
-              (hf/submit-button text))))
+   (hf/form-to [:post url]
+               (hf/hidden-field "__anti-forgery-token" (config "__anti-forgery-token"))
+               fields
+               (hf/submit-button text))))
 
 (defn project-log-view [config request]
   (let [repo (load-repo "budgets")]
@@ -76,11 +76,11 @@
                                                        (hf/hidden-field "project" f))]])]
 
                  [:div {:class "commitlog col-lg-6"}
-                 (button config "/pull" "Pull")
-                 (present/edn->html
-                  (->> (git-log repo)
-                       (map #(commit-info repo %))
-                       (map #(select-keys % [:author :message :time :changed_files]))))
+                  (button config "/pull" "Pull")
+                  (present/edn->html
+                   (->> (git-log repo)
+                        (map #(commit-info repo %))
+                        (map #(select-keys % [:author :message :time :changed_files]))))
                   ]])))
 
 (defroutes app-routes
@@ -88,12 +88,12 @@
   (GET "/log" request
        (let [config (web/check-session request)]
          (conj {:session config}
-                 (cond
-                   (.isDirectory (io/file "budgets")) (project-log-view config request)
-                   (.exists (io/file "budgets")) (web/render-error config [:h1 "Invalid budgets directory."])
-                   :else
-                   (web/render [:div "Budgets not yet imported" (button config "/import" "Import")
-                                (web/show-config config)])))))
+               (cond
+                 (.isDirectory (io/file "budgets")) (project-log-view config request)
+                 (.exists (io/file "budgets")) (web/render-error config [:h1 "Invalid budgets directory."])
+                 :else
+                 (web/render [:div "Budgets not yet imported" (button config "/import" "Import")
+                              (web/show-config config)])))))
 
   (POST "/pull" request
         (let [config (web/check-session request)
@@ -125,8 +125,8 @@
                            (str/split #"\.") (first))
               hours (if-let [hs (:hours config)]
                       hs (->> (load-all-timesheets "budgets/" #".*_timesheet_.*xlsx$")
-                               (load-project-hours projname)
-                               (into [["Name" "Date" "Task" "Hours"]])))]
+                              (load-project-hours projname)
+                              (into [["Name" "Date" "Task" "Hours"]])))]
           (write-project-hours (str "budgets/" projfile) hours)
 
           (web/render [:h1 projname
@@ -150,5 +150,3 @@
                                "it" :qs 1
                                "nl" :qs 1
                                "hr" :qs 1]})))
-
-

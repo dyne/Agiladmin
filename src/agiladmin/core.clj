@@ -34,9 +34,9 @@
 (defn load-timesheet [path]
   (let [ts (load-workbook path)
         year (first (str/split (->> (sheet-seq ts)
-                                (first)
-                                (select-cell "B2")
-                                (read-cell)) #"-"))]
+                                    (first)
+                                    (select-cell "B2")
+                                    (read-cell)) #"-"))]
     {:name (read-cell (select-cell "B3" (first (sheet-seq ts))))
      :file path
      :year year
