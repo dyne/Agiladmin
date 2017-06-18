@@ -22,6 +22,7 @@
   (:require [clojure.string :as str]
             [clojure.walk :refer :all]
             [clojure.java.io :as io]
+            [agiladmin.utils :refer :all]
             [clojure.contrib.humanize :refer :all]
             [dk.ative.docjure.spreadsheet :refer :all])
   (:import (org.apache.poi.ss.usermodel Workbook Row CellStyle IndexedColors Font CellValue)
@@ -86,8 +87,7 @@
                    (not (str/blank? proj))
                    (not= tag "vol")
                    ;; case insensitive match
-                   (some? (re-matches (java.util.regex.Pattern/compile
-                                       (str "(?i)" project)) proj)))]
+                   (strcasecmp project proj))]
 
     [(:name timesheet)
      (:month entry)
