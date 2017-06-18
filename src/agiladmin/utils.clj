@@ -20,7 +20,8 @@
 
 (ns agiladmin.utils
   (:require [clojure.string :refer [split]]
-;;            [clojure.walk :refer :all]
+            [clojure.pprint :refer :all]
+            [clojure.walk :refer :all]
 ;;            [clojure.java.io :as io]))
 ))
 
@@ -30,12 +31,18 @@
   (some? (re-matches (java.util.regex.Pattern/compile
                       (str "(?i)" str1)) str2)))
 
+(defn compress
+  "Compress a collection removing empty elements"
+  [coll]
+  (postwalk #(if (coll? %) (into (empty %) (remove empty? %)) %) coll))
+
 (defn namecmp
-  "compare two strings to be matching names (with or without
-  punctuation of first name, case insensitive"
-  [name1 name2]
-  (if (strcasecmp name1 name2) true
-      (let [firstdot (str (first (str name1)) ".")
-            namedot  (str firstdot " " (second (split name1 #" ")))]
-        ;;        [namedot name2])))
-        (strcasecmp namedot name2))))
+  "dotted comparison of two name strings, assuming only two names"
+  [str1 str2]
+  (let [toks1 (compress (split str1 #" "))
+        toks2 (compress (split str2 #" "))
+        dot1  (first (first toks1))
+        dot2  (first (first toks2))
+        min1  (str dot1 " " (second toks1))
+        min2  (str dot2 " " (second toks2))]
+    (strcasecmp min1 min2)))

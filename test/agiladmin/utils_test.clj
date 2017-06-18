@@ -3,39 +3,39 @@
   (:require [agiladmin.utils :refer :all]
             [clojure.pprint :refer :all]))
 
-(def name     "Luca Pacioli")
+(def nameorig "Luca Pacioli")
 (def namecase "luca pacioli")
 (def namedot  "L. Pacioli")
 (def namecasedot "l. pacioli")
-(def namespace " Luca    Pacioli ")
+(def namesspace " Luca    Pacioli ")
 (def namespacedot "L.  Pacioli ")
 (def namespacecase " luca   pacioli")
 (def namespacecasedot "l.   pacioli")   
 
 (fact "Case insensitive string compare"
-      (strcasecmp name namecase) => true
-      (strcasecmp name "luca")   => false
-      (strcasecmp namecase name) => true
-      (strcasecmp "luca" name)   => false)
+      (strcasecmp nameorig namecase) => true
+      (strcasecmp nameorig "luca")   => false
+      (strcasecmp namecase nameorig) => true
+      (strcasecmp "luca" nameorig)   => false)
 
 
 (fact "Dotted name comparison"
-      (fact " - case" (namecmp name namecase) => true)
-      (fact " - dotted" (namecmp name namedot)  => true)
-      (fact " - case dotted" (namecmp name namecasedot) => true)
-      (fact " - space" (namecmp name namespace) => true)
-      (fact " - space dotted" (namecmp name namespacedot) => true)
-      (fact " - space case" (namecmp name namespacecase) => true)
-      (fact " - space case dot" (namecmp name namespacecasedot) => true)
+      (fact "case" (namecmp nameorig namecase) => true)
+      (fact "dotted" (namecmp nameorig namedot)  => true)
+      (fact "case dotted" (namecmp nameorig namecasedot) => true)
+      (fact "space" (namecmp nameorig namesspace) => true)
+      (fact "space dotted" (namecmp nameorig namespacedot) => true)
+      (fact "space case" (namecmp nameorig namespacecase) => true)
+      (fact "space case dot" (namecmp nameorig namespacecasedot) => true)
       )
 
 (fact "Dotted name comparison - reverse"
-      (fact " - case" (namecmp  namecase name) => true)
-      (fact " - dotted" (namecmp namedot name )  => true)
-      (fact " - case dotted" (namecmp namecasedot name) => true)
-      (fact " - space" (namecmp namespace name) => true)
-      (fact " - space dotted" (namecmp namespacedot name) => true)
-      (fact " - space case" (namecmp namespacecase name) => true)
-      (fact " - space case dot" (namecmp namespacecasedot name) => true)
+      (fact "case" (namecmp  namecase nameorig) => true)
+      (fact "dotted" (namecmp namedot nameorig)  => true)
+      (fact "case dotted" (namecmp namecasedot nameorig) => true)
+      (fact "space" (namecmp namesspace nameorig) => true)
+      (fact "space dotted" (namecmp namespacedot nameorig) => true)
+      (fact "space case" (namecmp namespacecase nameorig) => true)
+      (fact "space case dot" (namecmp namespacecasedot nameorig) => true)
       )
 
