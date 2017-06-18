@@ -122,7 +122,13 @@
   [path regex]
   (let [ts (list-files-matching path regex)]
     (for [l (map #(.getName %) ts)]
-      (load-timesheet (str path l)))))
+      (if (not= (first l) '\.)
+        (load-timesheet (str path l))))))
+
+(defn load-person-hours
+  ;; TODO: implement load-person-hours
+  "load all timesheets from a person and return a bidimensional vector"
+  [path regex])
 
 (defn load-project-hours
   "load the named project hours from a sequence of timesheets and
