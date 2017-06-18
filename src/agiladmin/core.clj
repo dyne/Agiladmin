@@ -19,8 +19,7 @@
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 (ns agiladmin.core
-  (:require [clojure.string :as str]
-            [clojure.walk :refer :all]
+  (:require [clojure.string :refer [blank? split lower-case]]
             [clojure.java.io :as io]
             [agiladmin.utils :refer :all]
             [clojure.contrib.humanize :refer :all]
@@ -34,7 +33,7 @@
 
 (defn load-timesheet [path]
   (let [ts (load-workbook path)
-        year (first (str/split (->> (sheet-seq ts)
+        year (first (split (->> (sheet-seq ts)
                                     (first)
                                     (select-cell "B2")
                                     (read-cell)) #"-"))]
@@ -59,7 +58,7 @@
   (let [dir   (io/file directory)
         files (file-seq dir)]
     (remove nil?
-            (map #(let [f (str/lower-case (.getName %))]
+            (map #(let [f (lower-case (.getName %))]
                     (if (re-find regex f) %)) files))))
 
 (defn get-cell
@@ -84,7 +83,7 @@
                                   :when (not (nil? cell))] cell))]
 
         :when (and (not= hours "0")
-                   (not (str/blank? proj))
+                   (not (blank? proj))
                    (not= tag "vol")
                    ;; case insensitive match
                    (strcasecmp project proj))]

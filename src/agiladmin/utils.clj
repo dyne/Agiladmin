@@ -19,11 +19,9 @@
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 (ns agiladmin.utils
-  (:require [clojure.string :refer [split]]
+  (:require [clojure.string :refer [split blank?]]
             [clojure.pprint :refer :all]
-            [clojure.walk :refer :all]
-;;            [clojure.java.io :as io]))
-))
+            [clojure.walk :refer :all]))
 
 (defn strcasecmp
   "case insensitive comparison of two strings"
@@ -34,7 +32,7 @@
 (defn compress
   "Compress a collection removing empty elements"
   [coll]
-  (postwalk #(if (coll? %) (into (empty %) (remove empty? %)) %) coll))
+  (postwalk #(if (coll? %) (into (empty %) (remove blank? %)) %) coll))
 
 (defn namecmp
   "dotted comparison of two name strings, assuming only two names"

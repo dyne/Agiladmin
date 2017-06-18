@@ -40,8 +40,7 @@
 
    [agiladmin.core :refer :all]
    [agiladmin.webpage :as web]
-   [agiladmin.config :refer :all]
-   [agiladmin.form_helpers :as fh])
+   [agiladmin.config :refer :all])
   (:import java.io.File))
 
 (defn readme [request]

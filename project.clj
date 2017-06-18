@@ -1,10 +1,11 @@
-(defproject agiladmin "0.1.0-SNAPSHOT"
+(defproject agiladmin "0.2.0-SNAPSHOT"
   :description "Agile Administration for SME"
   :url "http://agiladmin.dyne.org"
   :license {:name "Affero GPL v3"}
   :dependencies ^:replace [[org.clojure/clojure "1.8.0"]
                            [org.clojure/data.json "0.2.6"]
                            [org.clojure/data.csv "0.1.3"]
+                           [org.clojure/tools.nrepl "0.2.12"]
                            [clj-http "3.4.1"]
                            [cheshire "5.6.3"]
                            [clojure-humanize "0.2.2"]

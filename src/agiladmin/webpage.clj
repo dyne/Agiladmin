@@ -17,8 +17,7 @@
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 (ns agiladmin.webpage
-  (:require [agiladmin.form_helpers :as fh]
-            [agiladmin.config :refer :all]
+  (:require [agiladmin.config :refer :all]
             [hiccup.page :as page]
             [json-html.core :as present]))
 
@@ -38,18 +37,6 @@
 
 
 
-(defn check-input [session params form-spec]
-  (if (nil? (:total session)) (render-error "Error: no Session.")
-      (if (nil? (:secret params)) (render-error session "Error: no Params.")
-          (let [input (fh/validate-form
-                       (form-spec session) params)]
-            (if (= (:status input) :error)
-              (render-error session [:div [:h2 "form validation"]
-                                     (:problems input)])
-              (if (empty? (get-in input [:data :secret]))
-                (render-error session "No input.")
-                {:config session
-                 :params (:data input)}))))))
 
 (defn check-session [request]
   (let [session (:session request)]
@@ -58,11 +45,6 @@
     (string?  (:config session)) session
     (false? (:config session)) default-settings
     )))
-
-(defn check-params [request form-spec]
-  (fh/validate-form
-   (form-spec (:session request))
-   (:params request)))
 
 (defn render [body]
   {:headers {"Content-Type"
