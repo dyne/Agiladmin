@@ -98,6 +98,33 @@
   [timesheet project]
   (map #(iter-project-hours timesheet project %) (:sheets timesheet)))
 
+(defn get-billable-month
+  "gets all hours of each projects in a month, multiply by the rate of
+  each project and calculate total billable amount for that month"
+  [timesheet year month]
+  (if-let [sheet (select-sheet (str year "-" month) (:xls timesheet))]
+    (loop [[c & cols] ["B" "C" "D" "E" "F" "G"]
+           res []]
+      (let [proj  (get-cell sheet c "7") ;; row project
+            task  (get-cell sheet c "8") ;; row task
+            tag   (get-cell sheet c "9") ;; row tag(s) (TODO: support multiple tags)
+            hours  (first (for [i [42 41 40 39 38]
+                                :let  [cell (get-cell sheet c i)]
+                                :when (not (nil? cell))] cell))
+            entry  (if (and (not= hours "0")
+                            (not (blank? proj))
+                            (not= tag "vol"))
+                     (conj res
+                           {:name (:name timesheet)
+                            :month (str year "-" month)
+                            :project proj
+                            :task task
+                            :hours hours})
+                     res)]
+
+        (if (empty? cols) entry
+            (recur cols entry))))))
+
 ;; (defn push-total-hours
 ;;   "push the collected hours in the atom"
 ;;   [lazy-list-hours]
