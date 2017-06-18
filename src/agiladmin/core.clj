@@ -20,7 +20,6 @@
 
 (ns agiladmin.core
   (:require [clojure.string :refer [blank? split lower-case]]
-            [clojure.java.io :as io]
             [agiladmin.utils :refer :all]
             [clojure.contrib.humanize :refer :all]
             [dk.ative.docjure.spreadsheet :refer :all])
@@ -51,15 +50,41 @@
         :hours h}
        )}))
 
-(defn list-files-matching
-  "returns a sequence of files found in a directory whose names match
-  a regexp"
-  [directory regex]
-  (let [dir   (io/file directory)
-        files (file-seq dir)]
-    (remove nil?
-            (map #(let [f (lower-case (.getName %))]
-                    (if (re-find regex f) %)) files))))
+
+(defn load-all-timesheets
+  "load all timesheets in a directory matching a certain filename pattern"
+  [path regex]
+  (let [ts (list-files-matching path regex)]
+    (for [l (map #(.getName %) ts)]
+      (if (not= (first l) '\.)
+        (load-timesheet (str path l))))))
+
+(defn load-project [path projects]
+  (if-let [pj (load-workbook path)]
+    (let [sheet (select-sheet "Personnel totals" pj)]
+      (conj projects
+            {(keyword (proj-name-from-path path))
+             {:xls pj
+              :file path
+              :rates (loop [[r & rows] (range 3 30)
+                            res {}]
+                       (let [rates
+                             (if-let [n (str (get-cell sheet "E" r))]
+                               (if (or (blank? n) (= n "TOTALS")) {}
+                                   {n (get-cell sheet "G" r)}))]
+                         (if (empty? rows) (conj rates res)
+                             (recur rows   (conj rates res)))))}}))))
+
+(defn load-all-projects [path]
+  "load all Budget_ projects in a directory"
+  (let [ts (list-files-matching path #"^budget_.*xlsx$")]
+    (loop [[f & files] (map #(.getName %) ts)
+           res {}]
+                                      ;; eliminate locked turds
+      (let [nproj (conj res (if (and (not= (first f) '\.) (not (blank? f)))
+                              (load-project (str path f) res) {}))]
+        (if (empty? files) (conj res nproj)
+            (recur files   (conj res nproj)))))))
 
 (defn get-cell
   "return the value of cell in sheet at column and row position"
@@ -98,6 +123,13 @@
   [timesheet project]
   (map #(iter-project-hours timesheet project %) (:sheets timesheet)))
 
+(defn get-project-rate
+  "gets the rate per hour for a person in a project"
+  [projects person projname]
+  ;; TODO: make sure that project_file has no case sensitive
+  ;; complicaition
+  (get-in projects [(keyword projname) :rates person]))
+
 (defn get-billable-month
   "gets all hours of each projects in a month, multiply by the rate of
   each project and calculate total billable amount for that month"
@@ -107,20 +139,24 @@
            res []]
       (let [proj  (get-cell sheet c "7") ;; row project
             task  (get-cell sheet c "8") ;; row task
-            tag   (get-cell sheet c "9") ;; row tag(s) (TODO: support multiple tags)
-            hours  (first (for [i [42 41 40 39 38]
-                                :let  [cell (get-cell sheet c i)]
-                                :when (not (nil? cell))] cell))
-            entry  (if (and (not= hours "0")
-                            (not (blank? proj))
-                            (not= tag "vol"))
-                     (conj res
-                           {:name (:name timesheet)
-                            :month (str year "-" month)
-                            :project proj
-                            :task task
-                            :hours hours})
-                     res)]
+            tag   (get-cell sheet c "9") ;; row tag(s)
+            ;; TODO: support multiple tags
+            hours (first (for [i [42 41 40 39 38]
+                               :let  [cell (get-cell sheet c i)]
+                               :when (not (nil? cell))] cell))
+            rate  (get-project-rate (:name timesheet) (str proj))
+            entry (if (and (not= hours "0")
+                           (not (blank? proj))
+                           (not= tag "vol"))
+                    (conj res
+                          {:name (:name timesheet)
+                           :month (str year "-" month)
+                           :project proj
+                           :task task
+                           :hours hours
+                           :rate  rate
+                           :billable (* hours rate)})
+                    res)]
 
         (if (empty? cols) entry
             (recur cols entry))))))
@@ -143,14 +179,6 @@
 ;;     ;; doall?
 ;;     (add-rows! sheet (into [["Name" "Date" "Task" "Hours"]] @total-hours))
 ;;     wb))
-
-(defn load-all-timesheets
-  "load all timesheets in a directory matching a certain filename pattern"
-  [path regex]
-  (let [ts (list-files-matching path regex)]
-    (for [l (map #(.getName %) ts)]
-      (if (not= (first l) '\.)
-        (load-timesheet (str path l))))))
 
 (defn load-person-hours
   ;; TODO: implement load-person-hours

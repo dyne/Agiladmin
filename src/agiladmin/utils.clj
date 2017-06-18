@@ -19,8 +19,9 @@
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 (ns agiladmin.utils
-  (:require [clojure.string :refer [split blank?]]
+  (:require [clojure.string :refer [split blank? lower-case upper-case]]
             [clojure.pprint :refer :all]
+            [clojure.java.io :as io]
             [clojure.walk :refer :all]))
 
 (defn strcasecmp
@@ -44,3 +45,22 @@
         min1  (str dot1 " " (second toks1))
         min2  (str dot2 " " (second toks2))]
     (strcasecmp min1 min2)))
+
+(defn list-files-matching
+  "returns a sequence of files found in a directory whose names match
+  a regexp"
+  [directory regex]
+  (let [dir   (io/file directory)
+        files (file-seq dir)]
+    (remove nil?
+            (map #(let [f (lower-case (.getName %))]
+                    (if (re-find regex f) %)) files))))
+
+(defn proj-name-from-path
+  "get a project name from path"
+  [path]
+  (let [filename (last   (split path #"/"))
+        projext  (second (split filename #"_"))
+        projname (first  (split projext #"\."))]
+    projname))
+                         
