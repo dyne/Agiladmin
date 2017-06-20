@@ -59,30 +59,28 @@
       (if (not= (first l) '\.)
         (load-timesheet (str path l))))))
 
-(defn load-project [path projects]
+(defn load-project [path]
   (if-let [pj (load-workbook path)]
     (let [sheet (select-sheet "Personnel totals" pj)]
-      (conj projects
-            {(keyword (proj-name-from-path path))
-             {:xls pj
-              :file path
-              :rates (loop [[r & rows] (range 3 30)
-                            res {}]
-                       (let [rates
-                             (if-let [n (str (get-cell sheet "E" r))]
-                               (if (or (blank? n) (= n "TOTALS")) {}
-                                   {n (get-cell sheet "G" r)}))]
-                         (if (empty? rows) (conj rates res)
-                             (recur rows   (conj rates res)))))}}))))
+      {(keyword (proj-name-from-path path))
+       {:file path
+        :rates (loop [[r & rows] (range 3 30)
+                      res {}]
+                 (let [rates
+                       (if-let [n (str (get-cell sheet "E" r))]
+                         (if (or (blank? n) (= n "TOTALS")) {}
+                             {n (get-cell sheet "G" r)}))]
+                   (if (empty? rows) (conj rates res)
+                       (recur rows   (conj rates res)))))}})))
 
 (defn load-all-projects [path]
-  "load all Budget_ projects in a directory"
+  "load all project budgets in a directory"
   (let [ts (list-files-matching path #"^budget_.*xlsx$")]
     (loop [[f & files] (map #(.getName %) ts)
            res {}]
-                                      ;; eliminate locked turds
-      (let [nproj (conj res (if (and (not= (first f) '\.) (not (blank? f)))
-                              (load-project (str path f) res) {}))]
+                            ;; eliminate locked turds
+      (let [nproj (if (and (not= (first f) '\.) (not (blank? f)))
+                    (load-project (str path f)) {})]
         (if (empty? files) (conj res nproj)
             (recur files   (conj res nproj)))))))
 
@@ -133,7 +131,7 @@
 (defn get-billable-month
   "gets all hours of each projects in a month, multiply by the rate of
   each project and calculate total billable amount for that month"
-  [timesheet year month]
+  [projects timesheet year month]
   (if-let [sheet (select-sheet (str year "-" month) (:xls timesheet))]
     (loop [[c & cols] ["B" "C" "D" "E" "F" "G"]
            res []]
@@ -144,7 +142,7 @@
             hours (first (for [i [42 41 40 39 38]
                                :let  [cell (get-cell sheet c i)]
                                :when (not (nil? cell))] cell))
-            rate  (get-project-rate (:name timesheet) (str proj))
+            rate  (get-project-rate projects (:name timesheet) (str proj))
             entry (if (and (not= hours "0")
                            (not (blank? proj))
                            (not= tag "vol"))
