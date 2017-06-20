@@ -35,16 +35,17 @@
   [coll]
   (postwalk #(if (coll? %) (into (empty %) (remove blank? %)) %) coll))
 
+(defn dotname
+  "Shorten up a name and surname tuple into initial and surname format"
+  [inname]
+  (let [toks (compress (split inname #" "))
+        dot  (first (first toks))]
+    (str dot " " (second toks))))
+
 (defn namecmp
   "dotted comparison of two name strings, assuming only two names"
   [str1 str2]
-  (let [toks1 (compress (split str1 #" "))
-        toks2 (compress (split str2 #" "))
-        dot1  (first (first toks1))
-        dot2  (first (first toks2))
-        min1  (str dot1 " " (second toks1))
-        min2  (str dot2 " " (second toks2))]
-    (strcasecmp min1 min2)))
+  (strcasecmp (dotname str1) (dotname str2)))
 
 (defn list-files-matching
   "returns a sequence of files found in a directory whose names match

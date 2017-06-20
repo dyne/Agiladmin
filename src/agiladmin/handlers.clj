@@ -39,6 +39,7 @@
    [clj-jgit.querying  :refer :all]
 
    [agiladmin.core :refer :all]
+   [agiladmin.utils :refer :all]
    [agiladmin.webpage :as web]
    [agiladmin.config :refer :all])
   (:import java.io.File))
@@ -134,14 +135,30 @@
                                   (git-status)))]
                        [:div (present/edn->html hours)]])))
 
+  (POST "/person" request
+        (let [config (web/check-session request)
+              person (get-in request [:params :person])]
+              (web/render [:div
+                           [:h1 person]
+                           [:div (select-person-month
+                                  config "/invoice" "Calculate Invoice" person)]
+                           (present/edn->html
+                            (load-timesheet (str "budgets/" person)))])))
 
-  ;; TODO: detect cryptographical conversion error: returned is the first share
+  (POST "/invoice" request)
+  
   (route/resources "/")
   (route/not-found "Not Found"))
 
+(def app-defaults
+  (-> site-defaults
+      (assoc-in [:cookies] false)
+      (assoc-in [:security :anti-forgery] false)
+      (assoc-in [:security :ssl-redirect] false)
+      (assoc-in [:security :hsts] true)))
 
 (def app
-  (-> (wrap-defaults app-routes site-defaults)
+  (-> (wrap-defaults app-routes app-defaults)
       (wrap-session)
       (wrap-accept {:mime ["text/html"]
                     ;; preference in language, fallback to english

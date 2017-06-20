@@ -30,6 +30,11 @@
   (:gen-class)
   )
 
+(defn get-cell
+  "return the value of cell in sheet at column and row position"
+  [sheet col row]
+  (read-cell (select-cell (str col row) sheet)))
+
 (defn load-timesheet [path]
   (let [ts (load-workbook path)
         year (first (split (->> (sheet-seq ts)
@@ -84,10 +89,6 @@
         (if (empty? files) (conj res nproj)
             (recur files   (conj res nproj)))))))
 
-(defn get-cell
-  "return the value of cell in sheet at column and row position"
-  [sheet col row]
-  (read-cell (select-cell (str col row) sheet)))
 
 (defn iter-project-hours
   "to be used in a map iterating on timesheets,
