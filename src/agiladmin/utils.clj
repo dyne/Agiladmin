@@ -19,7 +19,7 @@
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 (ns agiladmin.utils
-  (:require [clojure.string :refer [split blank? lower-case upper-case]]
+  (:require [clojure.string :refer [split replace blank? lower-case upper-case]]
             [clojure.pprint :refer :all]
             [clojure.java.io :as io]
             [clojure.walk :refer :all]))
@@ -38,9 +38,9 @@
 (defn dotname
   "Shorten up a name and surname tuple into initial and surname format"
   [inname]
-  (let [toks (compress (split inname #" "))
+  (let [toks (-> (replace inname #"-" " ") (split #"\s") compress)
         dot  (first (first toks))]
-    (str dot " " (second toks))))
+    (str dot ". " (second toks))))
 
 (defn namecmp
   "dotted comparison of two name strings, assuming only two names"
@@ -57,11 +57,17 @@
             (map #(let [f (lower-case (.getName %))]
                     (if (re-find regex f) %)) files))))
 
+(def regex-timesheet-to-name (re-pattern "^\\d+_\\w+_(.*).xlsx$"))
+(def regex-budget-to-project-name (re-pattern "^.udget_(.*).xlsx$"))
+
 (defn proj-name-from-path
   "get a project name from path"
   [path]
-  (let [filename (last   (split path #"/"))
-        projext  (second (split filename #"_"))
-        projname (first  (split projext #"\."))]
-    projname))
-                         
+  (->> (split path #"/") last
+       (re-find regex-budget-to-project-name) second))
+
+(defn timesheet-to-name
+  "get a timesheet filename and extract a dotname"
+  [path]
+  (-> (re-find regex-timesheet-to-name path)
+      second dotname))

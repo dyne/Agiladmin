@@ -27,15 +27,20 @@
       (fact "space dotted" (namecmp nameorig namespacedot) => true)
       (fact "space case" (namecmp nameorig namespacecase) => true)
       (fact "space case dot" (namecmp nameorig namespacecasedot) => true)
-      )
 
-(fact "Dotted name comparison - reverse"
-      (fact "case" (namecmp  namecase nameorig) => true)
-      (fact "dotted" (namecmp namedot nameorig)  => true)
-      (fact "case dotted" (namecmp namecasedot nameorig) => true)
-      (fact "space" (namecmp namesspace nameorig) => true)
-      (fact "space dotted" (namecmp namespacedot nameorig) => true)
-      (fact "space case" (namecmp namespacecase nameorig) => true)
-      (fact "space case dot" (namecmp namespacecasedot nameorig) => true)
-      )
+      (fact "reverse"
+            (fact "case" (namecmp  namecase nameorig) => true)
+            (fact "dotted" (namecmp namedot nameorig)  => true)
+            (fact "case dotted" (namecmp namecasedot nameorig) => true)
+            (fact "space" (namecmp namesspace nameorig) => true)
+            (fact "space dotted" (namecmp namespacedot nameorig) => true)
+            (fact "space case" (namecmp namespacecase nameorig) => true)
+            (fact "space case dot" (namecmp namespacecasedot nameorig) => true)
+            ))
 
+(fact "Timesheet to name conversion"
+      (fact "filename only"
+            (timesheet-to-name "2017_timesheet_Luca-Pacioli.xlsx") => "L. Pacioli")
+      (fact "full path"
+            (timesheet-to-name "2017_timesheet_Luca-Pacioli.xlsx") => "L. Pacioli")
+      )
