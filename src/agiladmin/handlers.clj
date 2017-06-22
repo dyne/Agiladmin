@@ -69,7 +69,7 @@
               (hf/submit-button text)
 
               "Year:"  [:select "year" (hf/select-options (range 2016 2020))]
-              "Month:" [:select "month" (hf/select-options (range 1 12))]
+                                        ; "Month:" [:select "month" (hf/select-options (range 1 12))]
               (hf/hidden-field "person" person)
               ))
 
@@ -100,7 +100,7 @@
                              [:div {:class "col-lg-4"}
                               (button config "/person" f
                                       (list (hf/hidden-field "person" f)
-                                            (hf/hidden-field "year" "2017")))]])
+                                            (hf/hidden-field "year" 2017)))]])
                   ]
 
                  [:div {:class "commitlog col-lg-6"}
@@ -172,31 +172,32 @@
         (let [config (web/check-session request)
               person (get-in request [:params :person])
               year   (get-in request [:params :year])]
+
           (web/render [:div
-                       [:h1 year " - " (dotname person)]
-                       [:div (select-person-month
-                              config "/invoice" "Calculate Invoice" person)]
-                       (let [ts (load-timesheet
-                                 (str "budgets/" year
-                                      "_timesheet_" person ".xlsx"))
-                             rates (load-all-project-rates "budgets/")]
+                       [:h1 (dotname person)]
+                       [:div {class "row"}
+                        [:h2 year]
 
-                         ;; (get-billable-month rates ts year 1)
+                        (let [ts (load-timesheet
+                                  (str "budgets/" year
+                                       "_timesheet_" person ".xlsx"))
+                              rates (load-all-project-rates "budgets/")]
 
-                         (for [m (range 1 12)
-                               :let [worked (get-billable-month rates ts year m)]
-                               :when (not (empty? worked))]
-                           [:h2 {:class "month-total"}
-                            (month-name m) " total: "
-                            [:strong (loop [[b & bills] worked
-                                   tot 0]
-                                (if (empty? bills) (+ tot (:billable b))
-                                    (recur  bills  (+ tot (:billable b)))))]
-                            [:div {:class "month-detail"}
-                             (present/edn->html worked)]])
-
-                         ;(present/edn->html rates)
-                         )])))
+                          (for [m (range 1 12)
+                                :let [worked (get-billable-month rates ts year m)]
+                                :when (not (empty? worked))]
+                            [:h2 {:class "month-total"}
+                             (month-name m) " total: "
+                             [:strong (loop [[b & bills] worked
+                                             tot 0]
+                                        (if (empty? bills) (+ tot (:billable b))
+                                            (recur  bills  (+ tot (:billable b)))))]
+                             [:div {:class "month-detail"}
+                              (present/edn->html worked)]]))
+                        [:div {class "col-lg-2"} (button config "/person" "Previous year"
+                                                         (list
+                                                          (hf/hidden-field "year" (dec (Integer. year)))
+                                                          (hf/hidden-field "person" person)))]]])))
 
 
   ;; (POST "/invoice" request

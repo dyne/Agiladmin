@@ -30,6 +30,11 @@ code {
 	padding: 1em;
 }
 
+.select-year {
+	padding: .1em;
+	margin: .5em;
+}
+
 h1, h2, h3, h4 { }
 
 p {
