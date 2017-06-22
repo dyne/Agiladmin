@@ -57,23 +57,51 @@
 (defn button
   ([config url text] (button config url text [:p]))
 
-  ([config url text fields]
+  ([config url text field]
    (hf/form-to [:post url]
                (hf/hidden-field "__anti-forgery-token" (config "__anti-forgery-token"))
-               fields
+               field ;; can be an hidden key/value field (project, person, etc)
                (hf/submit-button text))))
+
+(defn select-person-month [config url text person]
+  (hf/form-to [:post url]
+              (hf/hidden-field "__anti-forgery-token" (config "__anti-forgery-token"))
+              (hf/submit-button text)
+
+              "Year:"  [:select "year" (hf/select-options (range 2016 2020))]
+              "Month:" [:select "month" (hf/select-options (range 1 12))]
+              (hf/hidden-field "person" person)
+              ))
 
 (defn project-log-view [config request]
   (let [repo (load-repo "budgets")]
     (web/render [:div {:class "row-fluid"}
 
-                 [:div {:class "projects col-lg-6"}
+                 [:div {:class "projects col-lg-4"}
+
+                  [:h2 "Projects"]
+                  ;; list all projects
                   (for [f (->> (list-files-matching "budgets" #"budget.*xlsx$")
                                (map #(.getName %)))]
-                    [:div {:class "row"}
-                     [:div {:class "col-lg-4"} f]
-                     [:div {:class "col-lg-2"} (button config "/update" "Update"
-                                                       (hf/hidden-field "project" f))]])]
+                    [:div {:class "row log-project"}
+                     [:div {:class "col-lg-4"}
+                      (button config "/project" (proj-name-from-path f)
+                              (hf/hidden-field "project" f))]])
+
+                  [:h2 "People"]
+                  ;; list all people
+                  (for [f (->> (list-files-matching
+                                "budgets" #".*_timesheet_.*xlsx$")
+                               (map #(second
+                                      (re-find regex-timesheet-to-name
+                                               (.getName %)))) sort distinct)]
+;                               (map #(.getName %)) distinct)]
+                            [:div {:class "row log-person"}
+                             [:div {:class "col-lg-4"}
+                              (button config "/person" f
+                                      (list (hf/hidden-field "person" f)
+                                            (hf/hidden-field "year" "2017")))]])
+                  ]
 
                  [:div {:class "commitlog col-lg-6"}
                   (button config "/pull" "Pull")
@@ -83,17 +111,23 @@
                         (map #(select-keys % [:author :message :time :changed_files]))))
                   ]])))
 
+(defn person-year-view [config request]
+  
+  )
+
 (defroutes app-routes
   (GET "/" request (readme request))
   (GET "/log" request
        (let [config (web/check-session request)]
          (conj {:session config}
                (cond
-                 (.isDirectory (io/file "budgets")) (project-log-view config request)
+                 (.isDirectory (io/file "budgets"))
+                 ;; renders the /log webpage into this call
+                 (project-log-view config request)
                  (.exists (io/file "budgets")) (web/render-error config [:h1 "Invalid budgets directory."])
-                 :else
-                 (web/render [:div "Budgets not yet imported" (button config "/import" "Import")
-                              (web/show-config config)])))))
+                 :else (web/render [:div "Budgets not yet imported"
+                                    (button config "/import" "Import")
+                                    (web/show-config config)])))))
 
   (POST "/pull" request
         (let [config (web/check-session request)
@@ -118,11 +152,10 @@
                                              :exclusive true}
                                (git-clone (:git config) "budgets"))]))))
 
-  (POST "/update" request
+  (POST "/project" request
         (let [config (web/check-session request)
               projfile (get-in request [:params :project])
-              projname (-> (str/split projfile #"_") (second)
-                           (str/split #"\.") (first))
+              projname (proj-name-from-path projfile)
               hours (if-let [hs (:hours config)]
                       hs (->> (load-all-timesheets "budgets/" #".*_timesheet_.*xlsx$")
                               (load-project-hours projname)
@@ -137,15 +170,44 @@
 
   (POST "/person" request
         (let [config (web/check-session request)
-              person (get-in request [:params :person])]
-              (web/render [:div
-                           [:h1 person]
-                           [:div (select-person-month
-                                  config "/invoice" "Calculate Invoice" person)]
-                           (present/edn->html
-                            (load-timesheet (str "budgets/" person)))])))
+              person (get-in request [:params :person])
+              year   (get-in request [:params :year])]
+          (web/render [:div
+                       [:h1 year " - " (dotname person)]
+                       [:div (select-person-month
+                              config "/invoice" "Calculate Invoice" person)]
+                       (let [ts (load-timesheet
+                                 (str "budgets/" year
+                                      "_timesheet_" person ".xlsx"))
+                             rates (load-all-project-rates "budgets/")]
 
-  (POST "/invoice" request)
+                         ;; (get-billable-month rates ts year 1)
+
+                         (for [m (range 1 12)
+                               :let [worked (get-billable-month rates ts year m)]
+                               :when (not (empty? worked))]
+                           [:h2 {:class "month-total"}
+                            (month-name m) " total: "
+                            [:strong (loop [[b & bills] worked
+                                   tot 0]
+                                (if (empty? bills) (+ tot (:billable b))
+                                    (recur  bills  (+ tot (:billable b)))))]
+                            [:div {:class "month-detail"}
+                             (present/edn->html worked)]])
+
+                         ;(present/edn->html rates)
+                         )])))
+
+
+  ;; (POST "/invoice" request
+  ;;       (let [config (web/check-session request)
+  ;;             person (get-in request [:params :person])
+  ;;             year   (get-in request [:params :year])
+  ;;             month  (get-in request [:parans :month])]
+  ;;         (web/render [:div
+  ;;                      [:h1 person]
+                       
+
   
   (route/resources "/")
   (route/not-found "Not Found"))

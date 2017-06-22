@@ -14,6 +14,22 @@ code {
 	white-space: pre-wrap;
 }
 
+.log-person {
+	padding: .5em;
+}
+
+.log-project {
+	padding: .5em;
+}
+
+.month-total {
+	padding: 1em;
+}
+
+.month-detail {
+	padding: 1em;
+}
+
 h1, h2, h3, h4 { }
 
 p {

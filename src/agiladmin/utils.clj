@@ -57,17 +57,37 @@
             (map #(let [f (lower-case (.getName %))]
                     (if (re-find regex f) %)) files))))
 
-(def regex-timesheet-to-name (re-pattern "^\\d+_\\w+_(.*).xlsx$"))
+(def regex-timesheet-to-name      (re-pattern "^\\d+_\\w+_(.*).xlsx$"))
 (def regex-budget-to-project-name (re-pattern "^.udget_(.*).xlsx$"))
 
 (defn proj-name-from-path
   "get a project name from path"
   [path]
   (->> (split path #"/") last
-       (re-find regex-budget-to-project-name) second))
+       (re-find regex-budget-to-project-name) second upper-case))
 
 (defn timesheet-to-name
   "get a timesheet filename and extract a dotname"
   [path]
   (-> (re-find regex-timesheet-to-name path)
       second dotname))
+
+(def month-names
+  "A vector of abbreviations for the twelve months, in order."
+  ["January"
+   "February"
+   "March"
+   "April"
+   "May"
+   "June"
+   "July"
+   "August"
+   "September"
+   "October"
+   "November"
+   "December"])
+
+(defn month-name
+  "Returns the abbreviation for a month in the range [1..12]."
+  [month]
+  (get month-names (dec month)))

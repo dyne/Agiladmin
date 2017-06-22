@@ -19,7 +19,7 @@
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 (ns agiladmin.core
-  (:require [clojure.string :refer [blank? split lower-case]]
+  (:require [clojure.string :refer [blank? split lower-case upper-case]]
             [agiladmin.utils :refer :all]
             [clojure.contrib.humanize :refer :all]
             [dk.ative.docjure.spreadsheet :refer :all])
@@ -37,11 +37,9 @@
 
 (defn load-timesheet [path]
   (let [ts (load-workbook path)
-        year (first (split (->> (sheet-seq ts)
-                                    (first)
-                                    (select-cell "B2")
-                                    (read-cell)) #"-"))]
-    {:name (read-cell (select-cell "B3" (first (sheet-seq ts))))
+        shs (first (sheet-seq ts))
+        year (first (split (read-cell (select-cell "B2" shs)) #"-"))]
+    {:name (dotname (read-cell (select-cell "B3" shs)))
      :file path
      :year year
      :xls ts
@@ -64,7 +62,7 @@
       (if (not= (first l) '\.)
         (load-timesheet (str path l))))))
 
-(defn load-project [path]
+(defn load-project-rates [path]
   (if-let [pj (load-workbook path)]
     (let [sheet (select-sheet "Personnel totals" pj)]
       {(keyword (proj-name-from-path path))
@@ -78,14 +76,14 @@
                    (if (empty? rows) (conj rates res)
                        (recur rows   (conj rates res)))))}})))
 
-(defn load-all-projects [path]
+(defn load-all-project-rates [path]
   "load all project budgets in a directory"
   (let [ts (list-files-matching path #"^budget_.*xlsx$")]
     (loop [[f & files] (map #(.getName %) ts)
            res {}]
                             ;; eliminate locked turds
       (let [nproj (if (and (not= (first f) '\.) (not (blank? f)))
-                    (load-project (str path f)) {})]
+                    (load-project-rates (str path f)) {})]
         (if (empty? files) (conj res nproj)
             (recur files   (conj res nproj)))))))
 
@@ -124,15 +122,15 @@
 
 (defn get-project-rate
   "gets the rate per hour for a person in a project"
-  [projects person projname]
+  [rates person projname]
   ;; TODO: make sure that project_file has no case sensitive
   ;; complicaition
-  (get-in projects [(keyword projname) :rates person]))
+  (get-in rates [(keyword (upper-case projname)) :rates person]))
 
 (defn get-billable-month
   "gets all hours of each projects in a month, multiply by the rate of
   each project and calculate total billable amount for that month"
-  [projects timesheet year month]
+  [rates timesheet year month]
   (if-let [sheet (select-sheet (str year "-" month) (:xls timesheet))]
     (loop [[c & cols] ["B" "C" "D" "E" "F" "G"]
            res []]
@@ -140,25 +138,30 @@
             task  (get-cell sheet c "8") ;; row task
             tag   (get-cell sheet c "9") ;; row tag(s)
             ;; TODO: support multiple tags
-            hours (first (for [i [42 41 40 39 38]
-                               :let  [cell (get-cell sheet c i)]
-                               :when (not (nil? cell))] cell))
-            rate  (get-project-rate projects (:name timesheet) (str proj))
-            entry (if (and (not= hours "0")
+            hours (if-let [h (first
+                              (for [i [42 41 40 39 38]
+                                    :let  [cell (get-cell sheet c i)]
+                                    :when (not (nil? cell))] cell))]
+                    (Double. h) 0)
+
+            rate  (if-let
+                      [r (get-project-rate
+                          rates (:name timesheet) (str proj))] r 0)
+
+            entry (if (and (> hours 0)
+                           ;(> rate 0)
                            (not (blank? proj))
                            (not= tag "vol"))
-                    (conj res
-                          {:name (:name timesheet)
-                           :month (str year "-" month)
-                           :project proj
-                           :task task
-                           :hours hours
-                           :rate  rate
-                           :billable (* hours rate)})
-                    res)]
+                    {:name (:name timesheet)
+                     :month (str year "-" month)
+                     :project (upper-case proj)
+                     :task task
+                     :hours hours
+                     :rate  rate
+                     :billable (* hours rate)} nil)]
 
-        (if (empty? cols) entry
-            (recur cols entry))))))
+        (if (empty? cols) (if (nil? entry) res (conj res entry))
+            (recur cols   (if (nil? entry) res (conj res entry))))))))
 
 ;; (defn push-total-hours
 ;;   "push the collected hours in the atom"
@@ -186,7 +189,7 @@
 
 (defn load-project-hours
   "load the named project hours from a sequence of timesheets and
-  return a bidimensional vector"
+  return a bidimensional vector: [\"Name\" \"Date\" \"Task\" \"Hours\"]"
   [pname timesheets]
   (vec (mapcat identity
                (for [t timesheets]
