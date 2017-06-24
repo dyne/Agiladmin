@@ -19,6 +19,7 @@
 (ns agiladmin.graphics
   (:import  [org.jfree.chart ChartUtilities]) ; experiment on inline images
   (:require [clojure.data.codec.base64 :as b64]
+            [hiccup.element :refer :all]
             [incanter.charts :refer :all]
             [incanter.core :refer :all]))
 
@@ -97,7 +98,7 @@
 
   ;; trying to render in memory to png base64
 
-(defn plot ; chart->byte-array
+(defn to-image
   [chart & {:keys [plot-size aspect-ratio]
             :or   {plot-size 800
                    aspect-ratio 1.618}}]
@@ -107,4 +108,6 @@
     (->> (.toByteArray ba)
          b64/encode
          (map char)
-         clojure.string/join)))
+         clojure.string/join
+         (str "data:image/png;base64,")
+         image)))

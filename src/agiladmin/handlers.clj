@@ -174,9 +174,9 @@
                        [:div (present/edn->html
                               (-> (load-repo "budgets") git-status))]
                        [:div
-                        (ele/image (str "data:image/png;base64," (with-data project-hours
-                          (plot (time-series-plot (date-to-ts ($order :month :asc) :month)
-                                                                 ($ :hours))))))]
+                        (with-data project-hours
+                          (to-image (time-series-plot (date-to-ts ($order :month :asc) :month)
+                                                      ($ :hours))))]
 
                        [:div {:class "project-hours-usage"}
                         [:h2 "Project hours usage"]
