@@ -110,6 +110,7 @@
     [:meta {:name "twitter:image" :content (str url "/static/img/secret_ladies.jpg") }]
 
     [:title title]
+    (page/include-js  "/static/js/sorttable.js")
     (page/include-css "/static/css/bootstrap.min.css")
     (page/include-css "/static/css/bootstrap-theme.min.css")
     (page/include-css "/static/css/json-html.css")

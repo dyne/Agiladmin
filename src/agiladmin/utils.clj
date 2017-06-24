@@ -91,3 +91,10 @@
   "Returns the abbreviation for a month in the range [1..12]."
   [month]
   (get month-names (dec month)))
+
+(defn month-to-time-series
+  "Takes a column of months and returns a sequence of epoch dates for time-series"
+  [mseq]  
+  (map
+   #(.getTime (.parse (java.text.SimpleDateFormat. "yyyy-MM") %))
+   mseq))

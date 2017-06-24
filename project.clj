@@ -5,6 +5,7 @@
   :dependencies ^:replace [[org.clojure/clojure "1.8.0"]
                            [org.clojure/data.json "0.2.6"]
                            [org.clojure/data.csv "0.1.4"]
+                           [org.clojure/data.codec "0.1.0"]
                            [org.clojure/tools.nrepl "0.2.13"]
                            [clj-http "3.6.1"]
                            [cheshire "5.7.1"]
@@ -27,6 +28,8 @@
                            ;; git
                            [clj-jgit "0.9.1-SNAPSHOT"]
 
+                           ;; graphical visualization
+                           [incanter "1.5.7"]
                            ]
   :source-paths ["src"]
   :resource-paths ["resources"]

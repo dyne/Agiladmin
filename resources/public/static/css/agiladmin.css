@@ -51,6 +51,19 @@ img {
 	overflow: hidden;
 }
 
+/* Sortable tables */
+table.sortable thead {
+    background-color:#eee;
+    color:#666666;
+    font-weight: bold;
+    cursor: default;
+}
+
+table.sortable td {
+	font-size: .8em;
+	font-family: "arial"
+}
+
 .input-form {
 	clear: right;
 }

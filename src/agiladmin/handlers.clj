@@ -38,9 +38,15 @@
    [clj-jgit.porcelain :refer :all]
    [clj-jgit.querying  :refer :all]
 
+   [incanter.core :refer :all]
+   [incanter.stats :refer :all]
+   [incanter.charts :refer :all]
+   [incanter.datasets :refer :all]
+
    [agiladmin.core :refer :all]
    [agiladmin.utils :refer :all]
    [agiladmin.webpage :as web]
+   [agiladmin.graphics :refer :all]
    [agiladmin.config :refer :all])
   (:import java.io.File))
 
@@ -156,17 +162,18 @@
         (let [config (web/check-session request)
               projfile (get-in request [:params :project])
               projname (proj-name-from-path projfile)
-              hours (if-let [hs (:hours config)]
-                      hs (->> (load-all-timesheets "budgets/" #".*_timesheet_.*xlsx$")
-                              (load-project-hours projname)
-                              (into [["Name" "Date" "Task" "Hours"]])))]
-          (write-project-hours (str "budgets/" projfile) hours)
+              project-hours (load-all-project-hours "budgets/" projname)]
 
-          (web/render [:h1 projname
+          (write-project-hours (str "budgets/" projfile)
+                               (to-excel ($order :month :asc project-hours)))
+
+          (web/render [:div
+                       [:h1 projname]
                        [:div (present/edn->html
-                              (-> (load-repo "budgets")
-                                  (git-status)))]
-                       [:div (present/edn->html hours)]])))
+                              (-> (load-repo "budgets") git-status))]
+                       [:div {:class "project-hours-usage"}
+                        [:h2 "Project hours usage"]
+                        (to-table ($order :month :desc project-hours))]])))
 
   (POST "/person" request
         (let [config (web/check-session request)
@@ -175,7 +182,7 @@
 
           (web/render [:div
                        [:h1 (dotname person)]
-                       [:div {class "row"}
+                       [:div {:class "row"}
                         [:h2 year]
 
                         (let [ts (load-timesheet
@@ -194,7 +201,7 @@
                                             (recur  bills  (+ tot (:billable b)))))]
                              [:div {:class "month-detail"}
                               (present/edn->html worked)]]))
-                        [:div {class "col-lg-2"} (button config "/person" "Previous year"
+                        [:div {:class "col-lg-2"} (button config "/person" "Previous year"
                                                          (list
                                                           (hf/hidden-field "year" (dec (Integer. year)))
                                                           (hf/hidden-field "person" person)))]]])))

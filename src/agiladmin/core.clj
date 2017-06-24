@@ -21,6 +21,7 @@
 (ns agiladmin.core
   (:require [clojure.string :refer [blank? split lower-case upper-case]]
             [agiladmin.utils :refer :all]
+            [incanter.core :refer :all]
             [clojure.contrib.humanize :refer :all]
             [dk.ative.docjure.spreadsheet :refer :all])
   (:import (org.apache.poi.ss.usermodel Workbook Row CellStyle IndexedColors Font CellValue)
@@ -87,6 +88,10 @@
         (if (empty? files) (conj res nproj)
             (recur files   (conj res nproj)))))))
 
+(defn load-all-project-hours [path project-name]
+  "load all hours billed to a project according to current timesheets"
+  (->> (load-all-timesheets path #".*_timesheet_.*xlsx$")
+       (load-project-hours project-name) to-dataset))
 
 (defn iter-project-hours
   "to be used in a map iterating on timesheets,
@@ -102,7 +107,8 @@
               ;; take lowest in row totals starting from 42 (as month lenght varies)
               hours  (first (for [i [42 41 40 39 38]
                                   :let  [cell (get-cell sheet n i)]
-                                  :when (not (nil? cell))] cell))]
+                                  :when (not (nil? cell))] cell))
+              ]
 
         :when (and (not= hours "0")
                    (not (blank? proj))
@@ -110,10 +116,10 @@
                    ;; case insensitive match
                    (strcasecmp project proj))]
 
-    [(:name timesheet)
-     (:month entry)
-     task
-     hours]))
+    {:name (:name timesheet)
+     :month (:month entry)
+     :task task
+     :hours hours}))
 
 (defn get-project-hours
   "gets all project hours into a lazy-seq of vectors"
