@@ -27,6 +27,7 @@
 
    [hiccup.page :as page]
    [hiccup.form :as hf]
+   [hiccup.element :as ele]
    [hiccup.middleware :refer [wrap-base-url]]
    [json-html.core :as present]
    [markdown.core :as md]
@@ -168,9 +169,15 @@
                                (to-excel ($order :month :asc project-hours)))
 
           (web/render [:div
+                       [:div ($map date-to-ts :month ($order :month :asc))]
                        [:h1 projname]
                        [:div (present/edn->html
                               (-> (load-repo "budgets") git-status))]
+                       [:div
+                        (ele/image (str "data:image/png;base64," (with-data project-hours
+                          (plot (time-series-plot (date-to-ts ($order :month :asc) :month)
+                                                                 ($ :hours))))))]
+
                        [:div {:class "project-hours-usage"}
                         [:h2 "Project hours usage"]
                         (to-table ($order :month :desc project-hours))]])))
