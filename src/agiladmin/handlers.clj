@@ -173,10 +173,12 @@
                        [:h1 projname]
                        [:div (present/edn->html
                               (-> (load-repo "budgets") git-status))]
+                       ;; TODO: make rollup work
                        [:div
                         (with-data project-hours
-                          (to-image (time-series-plot (date-to-ts ($order :month :asc) :month)
-                                                      ($ :hours))))]
+                          (let [ts (date-to-ts ($order :month :asc ($rollup :count :hours :month)) :month)
+                                hs (->> ($rollup :sum :hours :month)  ($order :month :asc) ($ :hours))]
+                              (to-image (time-series-plot ts hs))))]
 
                        [:div {:class "project-hours-usage"}
                         [:h2 "Project hours usage"]
