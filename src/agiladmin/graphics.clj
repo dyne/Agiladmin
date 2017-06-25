@@ -40,7 +40,8 @@
 )
 
 (defn to-excel
-  "Takes a dataset and converts it in a format read to be written to an excel sheet"
+  "Takes a dataset and converts it in a format read to be written to
+  an excel sheet"
   [data]
   (into [(map name (:column-names data))] (to-list data)))
 
@@ -54,57 +55,14 @@
     #(.getTime (.parse (java.text.SimpleDateFormat. fmt) %))
     column data)))
 
-
-(defn project-hours-time-series
-  "shows a time-sries-plot of all project hours per month"
-  [project-hours]
-  (let [data (dataset [:name :date :task :hours] project-hours)
-        grouped ($group-by :name data)
-        graph (time-series-plot
-                ($map date-to-ts :date ($order :date :asc data))
-               (repeat (count ($ :hours data)) 0))]
-    (clojure.pprint/pprint "---- DATA")
-    (clojure.pprint/pprint data)
-    (clojure.pprint/pprint "---- GROUPED")
-    (clojure.pprint/pprint grouped)
-    (for [g grouped]
-      (with-data (second g)
-        (and (clojure.pprint/pprint "OK")
-             (add-lines graph ($map date-to-ts :date)
-             ($ :hours)))))
-    (view graph)))
-
-  ;; (for [p $data
-  ;;       :let [ph ($where {:name (:name p)})]]
-  ;;   ; (pprint (:name ph))
-  ;;   (add-lines graph
-  ;;              (month-to-time-series ($ :date ph))
-  ;;              ($ :hours ph)))
-  ;; (view graph)))
-
-                                        ;                                          ($order :date :asc))
-
-                                        ;(to-matrix $data)
-                                        ;                           (view (bar-chart :date :hours :group-by :date :legend true))
-
-  ;; (view (bar-chart :type :uptake
-  ;;                  :title (str projname)
-  ;;                  :group-by :date
-  ;;                  :x-label "month"
-  ;;                  :y-label "hours"
-  ;;                  :legend true
-  ;;                  ($ [:date :hours] ($order :date :hours ($rollup :sum :hours [:date :task] data)))))
-
-
-  ;; trying to render in memory to png base64
-
-(defn to-image
+(defn chart-to-image
   [chart & {:keys [plot-size aspect-ratio]
             :or   {plot-size 800
                    aspect-ratio 1.618}}]
   (let [width (/ plot-size aspect-ratio)
         ba (java.io.ByteArrayOutputStream.)
-        _ (org.jfree.chart.ChartUtilities/writeChartAsPNG ba chart plot-size width)]
+        _ (org.jfree.chart.ChartUtilities/writeChartAsPNG
+           ba chart plot-size width)]
     (->> (.toByteArray ba)
          b64/encode
          (map char)

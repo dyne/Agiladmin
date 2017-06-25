@@ -59,20 +59,19 @@
                        readme "public/static/README-"
                        lang (:language accept)
                        locale (io/resource (str readme lang ".md"))]
-                   (if (nil? locale) (io/resource "public/static/README.md") locale)))))))
+                   (if (nil? locale) (io/resource "public/static/README.md")
+                       locale)))))))
 
 (defn button
   ([config url text] (button config url text [:p]))
 
   ([config url text field]
    (hf/form-to [:post url]
-               (hf/hidden-field "__anti-forgery-token" (config "__anti-forgery-token"))
                field ;; can be an hidden key/value field (project, person, etc)
                (hf/submit-button text))))
 
 (defn select-person-month [config url text person]
   (hf/form-to [:post url]
-              (hf/hidden-field "__anti-forgery-token" (config "__anti-forgery-token"))
               (hf/submit-button text)
 
               "Year:"  [:select "year" (hf/select-options (range 2016 2020))]
@@ -102,12 +101,12 @@
                                (map #(second
                                       (re-find regex-timesheet-to-name
                                                (.getName %)))) sort distinct)]
-;                               (map #(.getName %)) distinct)]
-                            [:div {:class "row log-person"}
-                             [:div {:class "col-lg-4"}
-                              (button config "/person" f
-                                      (list (hf/hidden-field "person" f)
-                                            (hf/hidden-field "year" 2017)))]])
+                                        ;                               (map #(.getName %)) distinct)]
+                    [:div {:class "row log-person"}
+                     [:div {:class "col-lg-4"}
+                      (button config "/person" f
+                              (list (hf/hidden-field "person" f)
+                                    (hf/hidden-field "year" 2017)))]])
                   ]
 
                  [:div {:class "commitlog col-lg-6"}
@@ -119,7 +118,7 @@
                   ]])))
 
 (defn person-year-view [config request]
-  
+
   )
 
 (defroutes app-routes
@@ -169,79 +168,96 @@
                                (to-excel ($order :month :asc project-hours)))
 
           (web/render [:div
-                       [:div ($map date-to-ts :month ($order :month :asc))]
                        [:h1 projname]
-                       [:div (present/edn->html
-                              (-> (load-repo "budgets") git-status))]
-                       ;; TODO: make rollup work
-                       [:div
-                        (with-data project-hours
-                          (let [ts (date-to-ts ($order :month :asc ($rollup :count :hours :month)) :month)
-                                hs (->> ($rollup :sum :hours :month)  ($order :month :asc) ($ :hours))]
-                              (to-image (time-series-plot ts hs))))]
+                       [:div {:class "row-fluid"}
 
-                       [:div {:class "project-hours-usage"}
-                        [:h2 "Project hours usage"]
-                        (to-table ($order :month :desc project-hours))]])))
+                        ;;;;; --- CHARTS
 
-  (POST "/person" request
-        (let [config (web/check-session request)
-              person (get-in request [:params :person])
-              year   (get-in request [:params :year])]
+                        ;; time series
+                        (with-data
+                          (->> ($rollup :sum :hours :month project-hours)
+                               ($order :month :asc))
+                            [:div {:class "col-lg-6"}
+                             (chart-to-image (time-series-plot
+                                        (date-to-ts $data :month)
+                                        ($ :hours)))])
 
-          (web/render [:div
-                       [:h1 (dotname person)]
-                       [:div {:class "row"}
-                        [:h2 year]
+                        ;; pie chart
+                        (with-data ($rollup :sum :hours :name project-hours)
+                          [:div {:class "col-lg-6"}
+                           (chart-to-image
+                            (pie-chart ($ :name)
+                                       ($ :hours)
+                                       :legend true
+                                       :title (str projname " hours used")))])
 
-                        (let [ts (load-timesheet
-                                  (str "budgets/" year
-                                       "_timesheet_" person ".xlsx"))
-                              rates (load-all-project-rates "budgets/")]
+                        [:div {:class "project-hours-usage"}
+                         [:h2 "Project hours usage"]
+                         (to-table ($order :month :desc project-hours))]
 
-                          (for [m (range 1 12)
-                                :let [worked (get-billable-month rates ts year m)]
-                                :when (not (empty? worked))]
-                            [:h2 {:class "month-total"}
-                             (month-name m) " total: "
-                             [:strong (loop [[b & bills] worked
-                                             tot 0]
-                                        (if (empty? bills) (+ tot (:billable b))
-                                            (recur  bills  (+ tot (:billable b)))))]
-                             [:div {:class "month-detail"}
-                              (present/edn->html worked)]]))
-                        [:div {:class "col-lg-2"} (button config "/person" "Previous year"
-                                                         (list
-                                                          (hf/hidden-field "year" (dec (Integer. year)))
-                                                          (hf/hidden-field "person" person)))]]])))
+                        [:div [:h2 "State of budget repository"]
+                         (present/edn->html
+                          (-> (load-repo "budgets") git-status))]
+                        ]])))
+
+        (POST "/person" request
+              (let [config (web/check-session request)
+                    person (get-in request [:params :person])
+                    year   (get-in request [:params :year])]
+
+                (web/render [:div
+                             [:h1 (dotname person)]
+                             [:div {:class "row"}
+                              [:h2 year]
+
+                              (let [ts (load-timesheet
+                                        (str "budgets/" year
+                                             "_timesheet_" person ".xlsx"))
+                                    rates (load-all-project-rates "budgets/")]
+
+                                (for [m (range 1 12)
+                                      :let [worked (get-billable-month rates ts year m)]
+                                      :when (not (empty? worked))]
+                                  [:h2 {:class "month-total"}
+                                   (month-name m) " total: "
+                                   [:strong (loop [[b & bills] worked
+                                                   tot 0]
+                                              (if (empty? bills) (+ tot (:billable b))
+                                                  (recur  bills  (+ tot (:billable b)))))]
+                                   [:div {:class "month-detail"}
+                                    (present/edn->html worked)]]))
+                              [:div {:class "col-lg-2"} (button config "/person" "Previous year"
+                                                                (list
+                                                                 (hf/hidden-field "year" (dec (Integer. year)))
+                                                                 (hf/hidden-field "person" person)))]]])))
 
 
-  ;; (POST "/invoice" request
-  ;;       (let [config (web/check-session request)
-  ;;             person (get-in request [:params :person])
-  ;;             year   (get-in request [:params :year])
-  ;;             month  (get-in request [:parans :month])]
-  ;;         (web/render [:div
-  ;;                      [:h1 person]
-                       
+        ;; (POST "/invoice" request
+        ;;       (let [config (web/check-session request)
+        ;;             person (get-in request [:params :person])
+        ;;             year   (get-in request [:params :year])
+        ;;             month  (get-in request [:parans :month])]
+        ;;         (web/render [:div
+        ;;                      [:h1 person]
 
-  
-  (route/resources "/")
-  (route/not-found "Not Found"))
 
-(def app-defaults
-  (-> site-defaults
-      (assoc-in [:cookies] false)
-      (assoc-in [:security :anti-forgery] false)
-      (assoc-in [:security :ssl-redirect] false)
-      (assoc-in [:security :hsts] true)))
 
-(def app
-  (-> (wrap-defaults app-routes app-defaults)
-      (wrap-session)
-      (wrap-accept {:mime ["text/html"]
-                    ;; preference in language, fallback to english
-                    :language ["en" :qs 0.5
-                               "it" :qs 1
-                               "nl" :qs 1
-                               "hr" :qs 1]})))
+        (route/resources "/")
+        (route/not-found "Not Found"))
+
+  (def app-defaults
+    (-> site-defaults
+        (assoc-in [:cookies] false)
+        (assoc-in [:security :anti-forgery] false)
+        (assoc-in [:security :ssl-redirect] false)
+        (assoc-in [:security :hsts] true)))
+
+  (def app
+    (-> (wrap-defaults app-routes app-defaults)
+        (wrap-session)
+        (wrap-accept {:mime ["text/html"]
+                      ;; preference in language, fallback to english
+                      :language ["en" :qs 0.5
+                                 "it" :qs 1
+                                 "nl" :qs 1
+                                 "hr" :qs 1]})))
