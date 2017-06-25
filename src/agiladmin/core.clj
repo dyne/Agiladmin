@@ -50,7 +50,7 @@
               task  (get-cell sheet n "8") ;; row task
               tag   (get-cell sheet n "9") ;; row tag(s) (TODO: support multiple tags)
               ;; take lowest in row totals starting from 42 (as month lenght varies)
-              hours  (first (for [i [42 41 40 39 38]
+              hours  (first (for [i [43 42 41 40 39 38]
                                   :let  [cell (get-cell sheet n i)]
                                   :when (not (nil? cell))] cell))
               ]
