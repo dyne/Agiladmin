@@ -209,8 +209,8 @@
               projname (proj-name-from-path projfile)
               project-hours (load-all-project-hours "budgets/" projname)]
 
-          (write-project-hours (str "budgets/" projfile)
-                               (to-excel ($order :month :asc project-hours)))
+          (write-workbook-sheet (str "budgets/" projfile) "Personnel hours"
+                                ($order :month :asc project-hours))
 
           (web/render [:div
                        [:h1 projname]

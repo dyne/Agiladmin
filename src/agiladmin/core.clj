@@ -33,6 +33,22 @@
   )
 
 
+(defn repl
+  "load all deps for repl"
+  []
+  (require '[agiladmin.core :refer :all]
+           '[agiladmin.graphics :refer :all]
+           '[agiladmin.utils :refer :all]
+           '[agiladmin.config :refer :all]
+           '[incanter.core :refer :all]
+           '[incanter.charts :refer :all]
+           '[json-html.core :as present]
+           '[clojure.string :refer :all]
+           '[clojure.java.io :as io]
+           '[clojure.pprint :reder :all]
+           :reload)
+)
+
 (defn get-cell
   "return the value of cell in sheet at column and row position"
   [sheet col row]
@@ -140,25 +156,24 @@
   "load the named project hours from a sequence of timesheets and
   return a bidimensional vector: [\"Name\" \"Date\" \"Task\" \"Hours\"]"
   [pname timesheets]
-  (vec (mapcat identity
+  (to-dataset (vec (mapcat identity
                (for [t timesheets]
                  (for [i (get-project-hours t pname)
                        :let [f (first i)]
                        :when (not-empty f)]
-                   (first i))))))
+                   (first i)))))))
 
-(defn write-project-hours
-  "takes a bidimensional vector (produced by to-excel from a dataset)
-  and writes it to file"
-  [budget-file project-hours]
-  (let [wb (load-workbook budget-file)
+(defn write-workbook-sheet
+  "takes a dataset and writes it to file"
+  [file sheet-name data]
+  (let [wb (load-workbook file)
         ;; or use add-sheet!
-        sheet (if-let [s (select-sheet "Personnel hours" wb)]
+        sheet (if-let [s (select-sheet sheet-name wb)]
                 s
                 (add-sheet! wb "Personnel hours"))]
     (remove-all-rows! sheet)
-    (add-rows! sheet (to-excel ($order :month :asc project-hours)))
-    (save-workbook! budget-file wb)
+    (add-rows! sheet (to-excel ($order :month :asc data)))
+    (save-workbook! file wb)
     wb))
 
 (defn load-all-timesheets
@@ -197,7 +212,7 @@
 (defn load-all-project-hours [path project-name]
   "load all hours billed to a project according to current timesheets"
   (->> (load-all-timesheets path #".*_timesheet_.*xlsx$")
-       (load-project-hours project-name) to-dataset))
+       (load-project-hours project-name)))
 
 ;; (defn push-total-hours
 ;;   "push the collected hours in the atom"
