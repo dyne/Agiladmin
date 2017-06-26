@@ -68,7 +68,7 @@
   ([config url text field]
    (hf/form-to [:post url]
                field ;; can be an hidden key/value field (project, person, etc)
-               (hf/submit-button text))))
+               (hf/submit-button {:class "btn btn-secondary btn-lg"} text))))
 
 (defn select-person-month [config url text person]
   (hf/form-to [:post url]
@@ -110,16 +110,13 @@
                   ]
 
                  [:div {:class "commitlog col-lg-6"}
-                  (button config "/pull" "Pull")
+                  (button config "/pull" (str "Pull updates from " (:git config)))
                   (present/edn->html
                    (->> (git-log repo)
                         (map #(commit-info repo %))
                         (map #(select-keys % [:author :message :time :changed_files]))))
                   ]])))
 
-(defn person-year-view [config request]
-
-  )
 
 (defroutes app-routes
   (GET "/" request (readme request))
@@ -134,6 +131,54 @@
                  :else (web/render [:div "Budgets not yet imported"
                                     (button config "/import" "Import")
                                     (web/show-config config)])))))
+
+  (GET "/config" request
+       (let [config (web/check-session request)]
+         (web/render
+          (let [conf (merge default-settings config)]
+            [:div
+
+             [:div
+              [:h2 "Configuration"]
+              (if (false? (:config conf))
+                [:div {:class "alert alert-warning"}
+                 [:strong " Warning! "] "No config file found in
+                            'config.json'. Generate one with your
+                            values, example:"
+                 [:pre "
+{
+    \"git\" : \"ssh://git@gogs.dyne.org/dyne/budgets\",
+    \"ssh-pass\" : \"secret\",
+    \"ssh-pub\" : \"ssh.key.pub\"
+}"]]
+                ;;else
+                (present/edn->html (dissoc conf :ssh-pass)))]
+
+             (let [ssh-pub  (:ssh-pub conf)
+                   ssh-priv (:ssh-priv conf)]
+               [:div
+                [:h2 "SSH authentication keys"]
+                (if (.exists (io/as-file ssh-pub))
+                  [:div "Public: " [:pre (slurp ssh-pub)]]
+                  ;; else
+                  [:div {:class "alert alert-warning"}
+                   [:strong " Warning! "] "No ssh keys are
+                            found in agiladmin dir. Generate a keypair
+                            using `ssh-keygen -t rsa -b 4096` and
+                            place the public key inside the agiladmin
+                            source directory base, named 'ssh.key.pub'"])
+
+                (if (not (.exists (clojure.java.io/as-file ssh-priv)))
+                  [:div {:class "alert alert-warning"}
+                   [:strong " Warning! "] "No ssh keys are
+                            found in agiladmin dir. Generate a keypair
+                            using `ssh-keygen -t rsa -b 4096` and
+                            place the private key inside the agiladmin
+                            source directory base, named 'ssh.key'"])])
+
+             [:div [:h2 "Session configuration"] (present/edn->html conf)]
+
+             ]))))
 
   (POST "/pull" request
         (let [config (web/check-session request)
@@ -177,10 +222,10 @@
                         (with-data
                           (->> ($rollup :sum :hours :month project-hours)
                                ($order :month :asc))
-                            [:div {:class "col-lg-6"}
-                             (chart-to-image (time-series-plot
-                                        (date-to-ts $data :month)
-                                        ($ :hours)))])
+                          [:div {:class "col-lg-6"}
+                           (chart-to-image (time-series-plot
+                                            (date-to-ts $data :month)
+                                            ($ :hours)))])
 
                         ;; pie chart
                         (with-data ($rollup :sum :hours :name project-hours)
@@ -200,64 +245,64 @@
                           (-> (load-repo "budgets") git-status))]
                         ]])))
 
-        (POST "/person" request
-              (let [config (web/check-session request)
-                    person (get-in request [:params :person])
-                    year   (get-in request [:params :year])]
+  (POST "/person" request
+        (let [config (web/check-session request)
+              person (get-in request [:params :person])
+              year   (get-in request [:params :year])]
 
-                (web/render [:div
-                             [:h1 (dotname person)]
-                             [:div {:class "row"}
-                              [:h2 year]
+          (web/render [:div
+                       [:h1 (dotname person)]
+                       [:div {:class "row"}
+                        [:h2 year]
 
-                              (let [ts (load-timesheet
-                                        (str "budgets/" year
-                                             "_timesheet_" person ".xlsx"))
-                                    rates (load-all-project-rates "budgets/")]
+                        (let [ts (load-timesheet
+                                  (str "budgets/" year
+                                       "_timesheet_" person ".xlsx"))
+                              rates (load-all-project-rates "budgets/")]
 
-                                (for [m (range 1 12)
-                                      :let [worked (get-billable-month rates ts year m)]
-                                      :when (not (empty? worked))]
-                                  [:h2 {:class "month-total"}
-                                   (month-name m) " total: "
-                                   [:strong (loop [[b & bills] worked
-                                                   tot 0]
-                                              (if (empty? bills) (+ tot (:billable b))
-                                                  (recur  bills  (+ tot (:billable b)))))]
-                                   [:div {:class "month-detail"}
-                                    (present/edn->html worked)]]))
-                              [:div {:class "col-lg-2"} (button config "/person" "Previous year"
-                                                                (list
-                                                                 (hf/hidden-field "year" (dec (Integer. year)))
-                                                                 (hf/hidden-field "person" person)))]]])))
-
-
-        ;; (POST "/invoice" request
-        ;;       (let [config (web/check-session request)
-        ;;             person (get-in request [:params :person])
-        ;;             year   (get-in request [:params :year])
-        ;;             month  (get-in request [:parans :month])]
-        ;;         (web/render [:div
-        ;;                      [:h1 person]
+                          (for [m (range 1 12)
+                                :let [worked (get-billable-month rates ts year m)]
+                                :when (not (empty? worked))]
+                            [:h2 {:class "month-total"}
+                             (month-name m) " total: "
+                             [:strong (loop [[b & bills] worked
+                                             tot 0]
+                                        (if (empty? bills) (+ tot (:billable b))
+                                            (recur  bills  (+ tot (:billable b)))))]
+                             [:div {:class "month-detail"}
+                              (present/edn->html worked)]]))
+                        [:div {:class "col-lg-2"} (button config "/person" "Previous year"
+                                                          (list
+                                                           (hf/hidden-field "year" (dec (Integer. year)))
+                                                           (hf/hidden-field "person" person)))]]])))
 
 
+  ;; (POST "/invoice" request
+  ;;       (let [config (web/check-session request)
+  ;;             person (get-in request [:params :person])
+  ;;             year   (get-in request [:params :year])
+  ;;             month  (get-in request [:parans :month])]
+  ;;         (web/render [:div
+  ;;                      [:h1 person]
 
-        (route/resources "/")
-        (route/not-found "Not Found"))
 
-  (def app-defaults
-    (-> site-defaults
-        (assoc-in [:cookies] false)
-        (assoc-in [:security :anti-forgery] false)
-        (assoc-in [:security :ssl-redirect] false)
-        (assoc-in [:security :hsts] true)))
 
-  (def app
-    (-> (wrap-defaults app-routes app-defaults)
-        (wrap-session)
-        (wrap-accept {:mime ["text/html"]
-                      ;; preference in language, fallback to english
-                      :language ["en" :qs 0.5
-                                 "it" :qs 1
-                                 "nl" :qs 1
-                                 "hr" :qs 1]})))
+  (route/resources "/")
+  (route/not-found "Not Found"))
+
+(def app-defaults
+  (-> site-defaults
+      (assoc-in [:cookies] false)
+      (assoc-in [:security :anti-forgery] false)
+      (assoc-in [:security :ssl-redirect] false)
+      (assoc-in [:security :hsts] true)))
+
+(def app
+  (-> (wrap-defaults app-routes app-defaults)
+      (wrap-session)
+      (wrap-accept {:mime ["text/html"]
+                    ;; preference in language, fallback to english
+                    :language ["en" :qs 0.5
+                               "it" :qs 1
+                               "nl" :qs 1
+                               "hr" :qs 1]})))
