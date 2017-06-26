@@ -252,29 +252,36 @@
 
           (web/render [:div
                        [:h1 (dotname person)]
-                       [:div {:class "row"}
-                        [:h2 year]
+                       [:h2 year]
 
-                        (let [ts (load-timesheet
-                                  (str "budgets/" year
-                                       "_timesheet_" person ".xlsx"))
-                              rates (load-all-project-rates "budgets/")]
+                       (let [ts (load-timesheet
+                                 (str "budgets/" year
+                                      "_timesheet_" person ".xlsx"))
+                             rates (load-all-project-rates "budgets/")]
 
-                          (for [m (range 1 12)
-                                :let [worked (get-billable-month rates ts year m)]
-                                :when (not (empty? worked))]
-                            [:h2 {:class "month-total"}
-                             (month-name m) " total: "
-                             [:strong (loop [[b & bills] worked
-                                             tot 0]
-                                        (if (empty? bills) (+ tot (:billable b))
-                                            (recur  bills  (+ tot (:billable b)))))]
-                             [:div {:class "month-detail"}
-                              (present/edn->html worked)]]))
-                        [:div {:class "col-lg-2"} (button config "/person" "Previous year"
-                                                          (list
-                                                           (hf/hidden-field "year" (dec (Integer. year)))
-                                                           (hf/hidden-field "person" person)))]]])))
+                         (for [m (-> (range 1 12) vec rseq)
+                               :let [worked (get-billable-month rates ts year m)
+                                     mtot (->> ($ :hours worked) wrap sum)]
+                               :when (> mtot 0)]
+                           [:div {:class "row month-total"}
+                            [:h3 (month-name m) " total bill is "
+                             [:strong (->> ($ :billable worked) wrap sum)]
+                             " for "
+                             (keep #(when (= (:month %) (str year '- m))
+                                      (:hours %)) (:sheets ts))
+                             " hours worked across "
+                             (keep #(when (= (:month %) (str year '- m))
+                                      (:days %)) (:sheets ts))
+                             " days."]
+
+                            [:div {:class "month-detail"}
+                             (to-table worked)]]))
+
+                       [:div {:class "col-lg-2"}
+                        (button config "/person" "Previous year"
+                                (list
+                                 (hf/hidden-field "year" (dec (Integer. year)))
+                                 (hf/hidden-field "person" person)))]])))
 
 
   ;; (POST "/invoice" request

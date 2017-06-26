@@ -49,6 +49,11 @@
            :reload)
 )
 
+(defn wrap
+  "wrap a single element into a collection, safety measure for dataset
+  operations on a columns that return a single element"
+  [ele] (if (coll? ele) ele (list ele)))
+
 (defn get-cell
   "return the value of cell in sheet at column and row position"
   [sheet col row]
@@ -131,14 +136,14 @@
                      :rate  rate
                      :billable (* hours rate)} nil)]
 
-        (if (empty? cols) (if (nil? entry) res (conj res entry))
+        (if (empty? cols) (to-dataset (if (nil? entry) res (conj res entry)))
             (recur cols   (if (nil? entry) res (conj res entry))))))))
 
 (defn load-timesheet [path]
   (let [ts (load-workbook path)
         shs (first (sheet-seq ts))
-        year (first (split (read-cell (select-cell "B2" shs)) #"-"))]
-    {:name (dotname (read-cell (select-cell "B3" shs)))
+        year (first (split (get-cell shs 'B 2) #"-"))]
+    {:name (dotname (get-cell shs 'B 3))
      :file path
      :year year
      :xls ts
@@ -146,10 +151,11 @@
      (for [m [1 2 3 4 5 6 7 8 9 10 11 12]
            :let [ms (str year "-" m)
                  sheet (select-sheet ms ts)
-                 h (read-cell (select-cell "B4" sheet))]
+                 h (get-cell sheet 'B 4)]
            :when (not= h 0.0)]
        {:month ms
-        :hours h}
+        :hours h
+        :days (get-cell sheet 'B 5)}
        )}))
 
 (defn load-project-hours
