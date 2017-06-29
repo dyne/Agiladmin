@@ -1,0 +1,3 @@
+[submodule "timesheetpy"]
+	path = timesheetpy
+	url = https://github.com/dyne/timesheetpy
