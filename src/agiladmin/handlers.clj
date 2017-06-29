@@ -24,6 +24,11 @@
    [compojure.handler :refer :all]
    [compojure.route :as route]
    [compojure.response :as response]
+   [ring.adapter.jetty :refer :all]
+
+   [ring.middleware.session :refer :all]
+   [ring.middleware.accept :refer [wrap-accept]]
+   [ring.middleware.defaults :refer [wrap-defaults site-defaults]]
 
    [hiccup.page :as page]
    [hiccup.form :as hf]
@@ -31,10 +36,6 @@
    [hiccup.middleware :refer [wrap-base-url]]
    [json-html.core :as present]
    [markdown.core :as md]
-
-   [ring.middleware.session :refer :all]
-   [ring.middleware.accept :refer [wrap-accept]]
-   [ring.middleware.defaults :refer [wrap-defaults site-defaults]]
 
    [clj-jgit.porcelain :refer :all]
    [clj-jgit.querying  :refer :all]
@@ -52,7 +53,8 @@
    [agiladmin.webpage :as web]
    [agiladmin.graphics :refer :all]
    [agiladmin.config :refer :all])
-  (:import java.io.File))
+  (:import java.io.File)
+  (:gen-class))
 
 (defn readme [request]
   (conj {:session (web/check-session request)}
@@ -300,3 +302,15 @@
                                "it" :qs 1
                                "nl" :qs 1
                                "hr" :qs 1]})))
+(defn start-backend []
+  (println "Starting backend on http://localhost:6060")
+  (run-jetty app {:port 6060
+                  :host "localhost"
+                  :join? false}))
+(defn stop-backend [server] (.stop server))
+
+(defn -main []
+  (println "Starting standalone jetty server on http://localhost:6060")
+  (run-jetty app {:port 6060
+                  :host "localhost"
+                  :join? true}))

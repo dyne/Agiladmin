@@ -129,12 +129,12 @@
   [:footer {:class "row" :style "margin: 20px"}
    [:hr]
 
-   [:div {:class "footer col-md-4"}
+   [:div {:class "footer col-lg-3"}
     [:img {:src "static/img/AGPLv3.png" :style "margin-top: 2.5em"
            :alt "Affero GPLv3 License"
            :title "Affero GPLv3 License"} ]]
 
-   [:div {:class "footer col-md-4"}
+   [:div {:class "footer col-lg-3"}
     [:a {:href "https://www.dyne.org"}
      [:img {:src "/static/img/swbydyne.png"
             :alt   "Software by Dyne.org"

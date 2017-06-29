@@ -22,6 +22,8 @@
 
 (declare config-read)
 
+(def run-mode (atom :web))
+
 
 (def default-settings
   {:config "config.json"

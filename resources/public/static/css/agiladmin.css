@@ -1,8 +1,5 @@
-@font-face { font-family: 'granjon';
-			 src: url('granjon.woff') format('woff'); }
-
 body {
-	font-family: "granjon";
+	font-family: "arial";
 	font-size: 22px;
 	font-smooth: always;
 	-webkit-font-smoothing: antialiased;
