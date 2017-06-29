@@ -24,10 +24,9 @@
 
 
 (def default-settings
-  {:git "https://github.com/dyne/tomb"
-   :ssh-pub  "ssh.key.pub"
-   :ssh-priv "ssh.key"
-   :ssh-pass ""})
+  {:config "config.json"
+   :git "https://github.com/dyne/tomb"
+   :ssh-key "id_rsa"})
 
 (defn config-read
   "read configurations from standard locations, overriding defaults or

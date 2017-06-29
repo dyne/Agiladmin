@@ -44,6 +44,9 @@
    [incanter.charts :refer :all]
    [incanter.datasets :refer :all]
 
+   ;; ssh crypto
+   [clj-openssh-keygen.core :refer :all]
+
    [agiladmin.core :refer :all]
    [agiladmin.utils :refer :all]
    [agiladmin.webpage :as web]
@@ -148,33 +151,17 @@
                  [:pre "
 {
     \"git\" : \"ssh://git@gogs.dyne.org/dyne/budgets\",
-    \"ssh-pass\" : \"secret\",
-    \"ssh-pub\" : \"ssh.key.pub\"
+    \"ssh-key\" : \"id_rsa\"
 }"]]
                 ;;else
-                (present/edn->html (dissoc conf :ssh-pass)))]
+                (present/edn->html conf))]
 
-             (let [ssh-pub  (:ssh-pub conf)
-                   ssh-priv (:ssh-priv conf)]
+               (if (not (.exists (io/as-file (:ssh-key conf))))
+                 (let [kp (generate-key-pair)]
+                   (write-key-pair kp (:ssh-key conf))))
                [:div
                 [:h2 "SSH authentication keys"]
-                (if (.exists (io/as-file ssh-pub))
-                  [:div "Public: " [:pre (slurp ssh-pub)]]
-                  ;; else
-                  [:div {:class "alert alert-warning"}
-                   [:strong " Warning! "] "No ssh keys are
-                            found in agiladmin dir. Generate a keypair
-                            using `ssh-keygen -t rsa -b 4096` and
-                            place the public key inside the agiladmin
-                            source directory base, named 'ssh.key.pub'"])
-
-                (if (not (.exists (clojure.java.io/as-file ssh-priv)))
-                  [:div {:class "alert alert-warning"}
-                   [:strong " Warning! "] "No ssh keys are
-                            found in agiladmin dir. Generate a keypair
-                            using `ssh-keygen -t rsa -b 4096` and
-                            place the private key inside the agiladmin
-                            source directory base, named 'ssh.key'"])])
+                [:div "Public: " [:pre (slurp (str (:ssh-key conf) ".pub"))]]]
 
              [:div [:h2 "Session configuration"] (present/edn->html conf)]
 
@@ -183,10 +170,10 @@
   (POST "/pull" request
         (let [config (web/check-session request)
               repo (load-repo "budgets")]
-          (with-identity {:name (slurp (:ssh-priv config))
-                          :private (slurp (:ssh-priv config))
-                          :public  (slurp (:ssh-pub config))
-                          :passphrase (:ssh-pass config)
+          (with-identity {:name (slurp (:ssh-key config))
+                          :private (slurp (:ssh-key config))
+                          :public  (slurp (str (:ssh-key config) ".pub")
+                          :passphrase "")
                           :exclusive true}
             (git-pull repo))
           (conj {:session config}
@@ -196,10 +183,10 @@
         (let [config (web/check-session request)]
           (conj {:session config}
                 (web/render [:div
-                             (with-identity {:name (slurp (:ssh-priv config))
-                                             :private (slurp (:ssh-priv config))
-                                             :public  (slurp (:ssh-pub config))
-                                             :passphrase (:ssh-pass config)
+                             (with-identity {:name (slurp (:ssh-key config))
+                                             :private (slurp (:ssh-key config))
+                                             :public  (slurp (str (:ssh-key config) ".pub")
+                                                             :passphrase "")
                                              :exclusive true}
                                (git-clone (:git config) "budgets"))]))))
 

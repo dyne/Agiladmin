@@ -30,6 +30,8 @@
 
                            ;; graphical visualization
                            [incanter "1.5.7"]
+
+                           [org.clojars.dyne/clj-openssh-keygen "0.1.0"]
                            ]
   :source-paths ["src"]
   :resource-paths ["resources"]
