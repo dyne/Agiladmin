@@ -6,6 +6,10 @@
 		alt="software by Dyne.org"
 			title="software by Dyne.org" class="pull-right"></a>
 
+
+[![Build Status](https://travis-ci.org/dyne/Agiladmin.svg?branch=master)](https://travis-ci.org/dyne/Agiladmin)
+
+
 A cross-platform application that offers an integrated environment for
 the administration of human-resources in small and medium
 organisations and enterprises.
@@ -51,4 +55,3 @@ GNU Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 ```
-
