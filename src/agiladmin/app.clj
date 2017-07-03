@@ -24,6 +24,7 @@
    (javafx.concurrent Worker$State)
    (javafx.event ActionEvent EventHandler)
    (javafx.scene Scene)
+   (javafx.scene Cursor)
    (javafx.scene.control Button)
    (javafx.scene.layout StackPane)
    (javafx.stage Stage)
@@ -42,6 +43,7 @@
         root (StackPane.)
         btn (Button.)
         web-view (WebView.)
+        scene (Scene. root 800 600)
         state-prop (.stateProperty (.getLoadWorker (.getEngine web-view)))
         url "http://localhost:6060/"]
 
@@ -53,15 +55,17 @@
                     (changed [^ObservableValue ov
                               ^Worker$State old-state
                               ^Worker$State new-state]
-                      (println (str "Current state:" (.name new-state)))
+                      (.setCursor web-view Cursor/WAIT)
+;                      (println (str "Current state:" (.name new-state)))
                       (if (= new-state Worker$State/SUCCEEDED)
-                        (println (str "URL '" url "' load completed!")))
+                          (.setCursor web-view Cursor/DEFAULT))
+;                        (println (str "URL '" url "' load completed!")))
                       )))
     ;; Load a URL
     (.load (.getEngine web-view) url)
 
     ;; Set scene and show stage
-    (.setScene stage (Scene. root 800 600))
+    (.setScene stage scene)
     (.show stage)
     (swap! backend (constantly server))))
 
