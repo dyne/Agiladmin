@@ -39,7 +39,9 @@
          pwd  (System/getenv "PWD")]
      (loop [[p & paths] ["/etc/agiladmin/config.json" 
                          (str home "/.agiladmin/config.json")
-                         "config.json"]
+                         (str home "/.agiladmin/config.json.txt")
+                         "config.json" "config.json.txt"
+                         ]
             res default ]
        (let [res (merge res
                         (if (.exists (io/as-file p))
