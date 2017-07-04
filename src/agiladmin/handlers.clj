@@ -181,7 +181,7 @@
           (conj {:session config}
                 (project-log-view config request))))
 
-  (POST "/import" request
+  (GET "/import" request
         (let [config (web/check-session request)]
           (conj {:session config}
                 (web/render [:div

@@ -123,6 +123,7 @@
      [:li [:a {:href "/"} "About Agiladmin"]]
      [:li {:role "separator" :class "divider"} ]
      [:li [:a {:href "/log"} "Log of changes"]]
+     [:li [:a {:href "/config"} "Configuration"]]
      ]]])
 
 (defn render-footer []
