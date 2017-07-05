@@ -165,8 +165,6 @@
                 [:h2 "SSH authentication keys"]
                 [:div "Public: " [:pre (slurp (str (:ssh-key conf) ".pub"))]]]
 
-             [:div [:h2 "Session configuration"] (present/edn->html conf)]
-
              ]))))
 
   (POST "/pull" request
@@ -181,7 +179,7 @@
           (conj {:session config}
                 (project-log-view config request))))
 
-  (GET "/import" request
+  (POST "/import" request
         (let [config (web/check-session request)]
           (conj {:session config}
                 (web/render [:div
