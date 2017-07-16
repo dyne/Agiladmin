@@ -78,7 +78,7 @@
 
         :when (and (not= hours "0")
                    (not (blank? proj))
-                   (not= tag "vol")
+                   (not (strcasecmp tag "vol"))
                    ;; case insensitive match
                    (strcasecmp project proj))]
 
@@ -127,7 +127,7 @@
                            (> hours 0)
                            (> rate 0)
                            (not (blank? proj))
-                           (not= tag "vol"))
+                           (not (strcasecmp tag "vol")))
                     {:name (:name timesheet)
                      :month (str year "-" month)
                      :project (upper-case proj)
