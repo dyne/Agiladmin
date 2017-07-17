@@ -24,6 +24,11 @@
             [clojure.java.io :as io]
             [clojure.walk :refer :all]))
 
+(def regex-parsenum (re-pattern #"[0-9]*"))
+(defn parse-int [s]    (if (empty? s) 0 (Integer. (re-find regex-parsenum s))))
+(defn parse-double [s] (if (empty? s) 0 (Double.  (re-find regex-parsenum s))))
+
+
 (defn strcasecmp
   "case insensitive comparison of two strings"
   [str1 str2]
