@@ -7,17 +7,17 @@
                            [org.clojure/data.csv "0.1.4"]
                            [org.clojure/data.codec "0.1.0"]
                            [org.clojure/tools.nrepl "0.2.13"]
-                           [clj-http "3.6.1"]
-                           [cheshire "5.7.1"]
+                           [clj-http "3.7.0"]
+                           [cheshire "5.8.0"]
                            [clojure-humanize "0.2.2"]
 
                            ;; logging done right with slf4j
                            [com.taoensso/timbre "4.10.0"]
                            [com.fzakaria/slf4j-timbre "0.3.7"]
-                           [org.slf4j/slf4j-api "1.7.14"]
-                           [org.slf4j/log4j-over-slf4j "1.7.14"]
-                           [org.slf4j/jul-to-slf4j "1.7.14"]
-                           [org.slf4j/jcl-over-slf4j "1.7.14"]
+                           [org.slf4j/slf4j-api "1.7.25"]
+                           [org.slf4j/log4j-over-slf4j "1.7.25"]
+                           [org.slf4j/jul-to-slf4j "1.7.25"]
+                           [org.slf4j/jcl-over-slf4j "1.7.25"]
                            ;; [org.clojure/tools.logging "0.4.0"]
                            ;; [log4j/log4j "1.2.17" :exclusions [javax.mail/mail
                            ;;                                    javax.jms/jms
@@ -26,26 +26,26 @@
 
                            ;; compojure, ring and middleware
                            [compojure "1.6.0"]
-                           [ring/ring-defaults "0.3.0"]
+                           [ring/ring-defaults "0.3.1"]
                            [ring-middleware-accept "2.0.3"]
 				           [ring/ring-core "1.6.2"]
 				           [ring/ring-jetty-adapter "1.6.2"]
 
                            ;; aux web stuff
                            [formidable "0.1.10"]
-                           [markdown-clj "0.9.99"]
+                           [markdown-clj "1.0.1"]
                            [json-html "0.4.4"]
 
                            ;; spreadsheet
                            [dk.ative/docjure "1.11.0"]
-                           [org.apache.poi/poi "3.16"]
-                           [org.apache.poi/poi-ooxml "3.16"]
+                           [org.apache.poi/poi "3.17"]
+                           [org.apache.poi/poi-ooxml "3.17"]
 
                            ;; git
                            [clj-jgit "0.9.1-SNAPSHOT"]
 
                            ;; graphical visualization
-                           [incanter "1.5.7" :upgrade :incanter]
+                           [incanter "1.5.7" :upgrade false]
 
                            [org.clojars.dyne/clj-openssh-keygen "0.1.0"]
 
@@ -54,6 +54,7 @@
 
                            ]
 
+  :aliases {"test" "midje"}
   :source-paths ["src"]
   :resource-paths ["resources"]
 
