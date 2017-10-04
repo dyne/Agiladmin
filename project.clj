@@ -24,6 +24,12 @@
                            ;;                                    com.sun.jmdk/jmxtools
                            ;;                                    com.sun.jmx/jmxri]]
 
+                           ;; error handling
+                           [failjure "1.2.0"]
+
+                           ;; auxiliary lib functions
+                           [org.clojars.dyne/auxiliary "0.2.0-SNAPSHOT"]
+
                            ;; compojure, ring and middleware
                            [compojure "1.6.0"]
                            [ring/ring-defaults "0.3.1"]

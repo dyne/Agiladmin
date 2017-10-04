@@ -20,25 +20,11 @@
 
 (ns agiladmin.utils
   (:require [clojure.string :refer [split replace blank? lower-case upper-case]]
-            [clojure.pprint :refer :all]
             [clojure.java.io :as io]
+            [auxiliary.maps :refer [compress]]
+            [auxiliary.string :refer [strcasecmp]]
             [clojure.walk :refer :all]))
 
-(def regex-parsenum (re-pattern #"[0-9]*"))
-(defn parse-int [s]    (if (empty? s) 0 (Integer. (re-find regex-parsenum s))))
-(defn parse-double [s] (if (empty? s) 0 (Double.  (re-find regex-parsenum s))))
-
-
-(defn strcasecmp
-  "case insensitive comparison of two strings"
-  [str1 str2]
-  (some? (re-matches (java.util.regex.Pattern/compile
-                      (str "(?i)" str1)) str2)))
-
-(defn compress
-  "Compress a collection removing empty elements"
-  [coll]
-  (postwalk #(if (coll? %) (into (empty %) (remove blank? %)) %) coll))
 
 (defn dotname
   "Shorten up a name and surname tuple into initial and surname format"

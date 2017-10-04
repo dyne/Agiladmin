@@ -24,6 +24,10 @@
             [agiladmin.graphics :refer :all]
             [incanter.core :refer :all]
             [clojure.contrib.humanize :refer :all]
+            [auxiliary.core :refer :all]
+            [auxiliary.string :refer [strcasecmp]]
+            [failjure.core :as f]
+            [taoensso.timbre :as log]
             [dk.ative.docjure.spreadsheet :refer :all])
   (:import (org.apache.poi.ss.usermodel Workbook Row CellStyle IndexedColors Font CellValue)
            (org.apache.poi.xssf.usermodel XSSFWorkbook XSSFFont)
@@ -59,7 +63,14 @@
 (defn get-cell
   "return the value of cell in sheet at column and row position"
   [sheet col row]
-  (read-cell (select-cell (str col row) sheet)))
+  (let [cell (read-cell (select-cell (str col row) sheet))];
+    ;; check for errors when reading a cell
+    (if (any?
+         #{:VALUE :DIV0 :CIRCULAR_REF :REF :NUM :NULL :FUNCTION_NOT_IMPLEMENTED :NAME :NA}
+         [cell])
+      (->> (str "Error \"" cell "\" reading cell " row ":" col " in sheet " sheet)
+           (log/spy :error) f/fail)
+      cell)))
 
 (defn iter-project-hours
   "to be used in a map iterating on timesheets,
