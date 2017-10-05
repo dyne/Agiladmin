@@ -45,6 +45,8 @@
    [incanter.charts :refer :all]
    [incanter.datasets :refer :all]
 
+   [taoensso.timbre :as log]
+
    ;; ssh crypto
    [clj-openssh-keygen.core :refer :all]
 
@@ -124,7 +126,30 @@
 
 
 (defroutes app-routes
-  (GET "/" request (readme request))
+  (GET "/" request
+
+       (let [config (web/check-session request)
+             conf (merge default-settings config)]
+
+         (if (not (.exists (io/as-file (:ssh-key conf))))
+           (let [kp (generate-key-pair)]
+             (log/info "Generating SSH keypair...")
+             (write-key-pair kp (:ssh-key conf))))
+
+          (cond
+
+            (false? (:config conf))
+            (->> ["No config file found in 'config.json'. Generate one with your values, example:"
+                  [:pre "
+{
+    \"git\" : \"ssh://git@gogs.dyne.org/dyne/budgets\",
+    \"ssh-key\" : \"id_rsa\"
+}"]]
+                 (log/spy :error)
+                 web/render-error web/render)
+
+            :else (readme request))))
+
   (GET "/log" request
        (let [config (web/check-session request)]
          (conj {:session config}
@@ -132,7 +157,9 @@
                  (.isDirectory (io/file "budgets"))
                  ;; renders the /log webpage into this call
                  (project-log-view config request)
-                 (.exists (io/file "budgets")) (web/render-error config [:h1 "Invalid budgets directory."])
+                 (.exists (io/file "budgets"))
+                 (web/render-error config
+                                   [:h1 (log/spy :error "Invalid budgets directory.")])
                  :else (web/render [:div "Budgets not yet imported"
                                     (button config "/import" "Import")
                                     (web/show-config config)])))))
@@ -145,22 +172,7 @@
 
              [:div
               [:h2 "Configuration"]
-              (if (false? (:config conf))
-                [:div {:class "alert alert-warning"}
-                 [:strong " Warning! "] "No config file found in
-                            'config.json'. Generate one with your
-                            values, example:"
-                 [:pre "
-{
-    \"git\" : \"ssh://git@gogs.dyne.org/dyne/budgets\",
-    \"ssh-key\" : \"id_rsa\"
-}"]]
-                ;;else
-                (present/edn->html conf))]
-
-               (if (not (.exists (io/as-file (:ssh-key conf))))
-                 (let [kp (generate-key-pair)]
-                   (write-key-pair kp (:ssh-key conf))))
+                (present/edn->html conf)]
                [:div
                 [:h2 "SSH authentication keys"]
                 [:div "Public: " [:pre (slurp (str (:ssh-key conf) ".pub"))]]]
