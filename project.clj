@@ -44,8 +44,8 @@
 
                            ;; spreadsheet
                            [dk.ative/docjure "1.11.0"]
-                           [org.apache.poi/poi "3.17"]
-                           [org.apache.poi/poi-ooxml "3.17"]
+                           [org.apache.poi/poi "3.16"]
+                           [org.apache.poi/poi-ooxml "3.16"]
 
                            ;; git
                            [clj-jgit "0.9.1-SNAPSHOT"]
