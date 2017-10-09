@@ -111,7 +111,7 @@
                (cond
                  (.isDirectory (io/file "budgets"))
                  ;; renders the /log webpage into this call
-                 (views/project-log-view config request)
+                 (views/index-log-view config request)
 
                  (.exists (io/file "budgets"))
                  (web/render-error
@@ -147,7 +147,7 @@
                           :exclusive true}
             (git-pull repo))
           (conj {:session config}
-                (views/project-log-view config request))))
+                (views/index-log-view config request))))
 
   (POST "/import" request
         (let [config (web/check-session request)]
@@ -161,51 +161,8 @@
                                (git-clone (:git config) "budgets"))]))))
 
   (POST "/project" request
-        (let [config (web/check-session request)
-              projfile (get-in request [:params :project])
-              projname (proj-name-from-path projfile)
-              project-hours (load-all-project-hours "budgets/" projname)]
-
-          (write-workbook-sheet (str "budgets/" projfile) "Personnel hours"
-                                ($order :month :asc project-hours))
-
-          (web/render [:div
-                       [:h1 projname]
-                       [:div {:class "row-fluid"}
-
-                        ;;;;; --- CHARTS
-
-                        ;; time series
-                        (with-data
-                          (->> ($rollup :sum :hours :month project-hours)
-                               ($order :month :asc))
-                          [:div {:class "col-lg-6"}
-                           (chart-to-image (time-series-plot
-                                            (date-to-ts $data :month)
-                                            ($ :hours)))])
-
-                        ;; pie chart
-                        (with-data ($rollup :sum :hours :name project-hours)
-                          [:div {:class "col-lg-6"}
-                           (chart-to-image
-                            (pie-chart ($ :name)
-                                       ($ :hours)
-                                       :legend true
-                                       :title (str projname " hours used")))])]
-                       
-
-                       [:div {:class "row-fluid dropdown"}
-                        (to-table ($rollup :sum :hours [:name :task] project-hours))]
-
-                       [:div {:class "row-fluid"}
-                        [:div {:class "project-hours-usage"}
-                         [:h2 "Project hours usage"]
-                         (to-table ($order :month :desc project-hours))]
-
-                        [:div [:h2 "State of budget repository"]
-                         (present/edn->html
-                          (-> (load-repo "budgets") git-status))]
-                        ]])))
+        (if-let [config (web/check-session request)]
+                 (views/project-view config request)))
 
   (POST "/person" request
         (let [config (web/check-session request)
