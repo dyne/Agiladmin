@@ -1,6 +1,7 @@
 (ns agiladmin.utils-test
   (:use midje.sweet)
   (:require [agiladmin.utils :refer :all]
+            [auxiliary.string :refer [strcasecmp]]
             [clojure.pprint :refer :all]))
 
 (def nameorig "Luca Pacioli")
