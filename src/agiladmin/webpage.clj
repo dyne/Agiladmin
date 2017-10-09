@@ -19,6 +19,7 @@
 (ns agiladmin.webpage
   (:require [agiladmin.config :refer :all]
             [hiccup.page :as page]
+            [hiccup.form :as hf]
             [json-html.core :as present]))
 
 (declare render)
@@ -35,6 +36,15 @@
                              :salt :prime :length :entropy
                              :type "__anti-forgery-token")))
 
+
+
+(defn button
+  ([config url text] (button config url text [:p]))
+
+  ([config url text field]
+   (hf/form-to [:post url]
+               field ;; can be an hidden key/value field (project, person, etc)
+               (hf/submit-button {:class "btn btn-secondary btn-lg"} text))))
 
 
 
@@ -111,6 +121,7 @@
 
     [:title title]
     (page/include-js  "/static/js/sorttable.js")
+    (page/include-js  "/static/js/bootstrap.min.js")
     (page/include-css "/static/css/bootstrap.min.css")
     (page/include-css "/static/css/bootstrap-theme.min.css")
     (page/include-css "/static/css/json-html.css")
