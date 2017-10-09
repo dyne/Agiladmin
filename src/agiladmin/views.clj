@@ -63,8 +63,7 @@
       [:h1 projname]
       [:div {:class "row-fluid"}
 
-                        ;;;;; --- CHARTS
-
+       ;; --- CHARTS
        ;; time series
        (with-data
          (->> ($rollup :sum :hours :month project-hours)
@@ -82,16 +81,42 @@
                       ($ :hours)
                       :legend true
                       :title (str projname " hours used")))])]
-
-
-      [:div {:class "row-fluid dropdown"}
-       (to-table ($rollup :sum :hours [:name :task] project-hours))]
-
       [:div {:class "row-fluid"}
-       [:div {:class "project-hours-usage"}
-        [:h2 "Project hours usage"]
-        (to-table ($order :month :desc project-hours))]
+       [:h1 "Switch to different views on project"]
+       [:div {:class "container"}
+        [:ul {:class "nav nav-pills"}
+
+         [:li {:class "active"}
+          [:a {:href "#task-sum-hours" :data-toggle "pill" }
+           "Task/Person totals"]]
+
+         [:li [:a {:href "#task-totals" :data-toggle "pill" }
+               "Task totals"]]
+
+         [:li [:a {:href "#person-totals" :data-toggle "pill" }
+              "Person totals"]]
+
+         [:li [:a {:href "#monthly-details" :data-toggle "pill" }
+               "Monthly details"]]]
+
+        [:div {:class "tab-content clearfix"}
+
+         [:div {:class "tab-pane fade in active" :id "task-sum-hours"}
+          [:h2 "Totals grouped per person and per task"]
+          (to-table ($rollup :sum :hours [:name :task] project-hours))]
+
+         [:div {:class "tab-pane fade" :id "task-totals"}
+          [:h2 "Totals of hours used for each task"]
+          (to-table ($rollup :sum :hours :task project-hours))]
+
+         [:div {:class "tab-pane fade" :id "person-totals"}
+          [:h2 "Totals of hours used by each person"]
+          (to-table ($rollup :sum :hours :name project-hours))]
+
+         [:div {:class "tab-pane fade" :id "monthly-details"}
+          [:h2 "Detail of monthly hours used per person on each task"]
+          (to-table ($order :month :desc project-hours))]]
 
        [:div [:h2 "State of budget repository"]
         (present/edn->html
-         (-> (load-repo "budgets") git-status))]]])))
+         (-> (load-repo "budgets") git-status))]]]])))

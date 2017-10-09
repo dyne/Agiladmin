@@ -121,6 +121,7 @@
 
     [:title title]
     (page/include-js  "/static/js/sorttable.js")
+    (page/include-js  "/static/js/jquery-3.2.1.min.js")
     (page/include-js  "/static/js/bootstrap.min.js")
     (page/include-css "/static/css/bootstrap.min.css")
     (page/include-css "/static/css/bootstrap-theme.min.css")
