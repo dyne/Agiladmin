@@ -75,36 +75,51 @@
 (defn iter-project-hours
   "to be used in a map iterating on timesheets,
   matches the project string and returns a row with [name month task hours]"
-  [timesheet project entry]
-  ;; columns containing hours for each project
-  (for [n timesheet-cols-projects
-
-        :let [sheet  (select-sheet (:month entry) (:xls timesheet))
-              proj  (get-cell sheet n "7") ;; row project
-              task  (get-cell sheet n "8") ;; row task
-              tag   (get-cell sheet n "9") ;; row tag(s) (TODO: support multiple tags)
-              ;; take lowest in row totals starting from 42 (as month lenght varies)
-              hours  (first (for [i timesheet-rows-hourtots
-                                  :let  [cell (get-cell sheet n i)]
-                                  :when (not (nil? cell))] cell))
-              ]
-
-        :when (and (not= hours "0")
-                   (not (blank? proj))
-                   (not (strcasecmp tag "vol"))
-                   ;; case insensitive match
-                   (strcasecmp project proj))]
-
-    {:name (:name timesheet)
-     :month (:month entry)
-     :task task
-     :hours hours}))
-
-
-(defn get-project-hours
-  "gets all project hours into a lazy-seq of vectors"
   [timesheet project]
-  (map #(iter-project-hours timesheet project %) (:sheets timesheet)))
+  ;; columns containing hours for each project
+  (for [ts (:sheets timesheet)
+        :let [xls (:xls timesheet)]]
+    (loop [[n & cols] timesheet-cols-projects
+           res []]
+
+      (let [sheet  (select-sheet (:month ts) xls)
+            proj  (get-cell sheet n "7") ;; row project
+            task  (get-cell sheet n "8") ;; row task
+            tag   (get-cell sheet n "9") ;; row tag(s) (TODO: support multiple tags)
+            ;; take lowest in row totals starting from 42 (as month lenght varies)
+            hours  (first (for [i timesheet-rows-hourtots
+                                :let  [cell (get-cell sheet n i)]
+                                :when (not (nil? cell))] cell))
+            entry  (if (and (not= hours "0") (not (blank? proj))
+                            (not (strcasecmp tag "vol"))
+                            (strcasecmp project proj))
+                     {:name (:name timesheet)
+                      :month (:month ts)
+                      :task task
+                      :hours hours} nil)]
+        (if (empty? cols) (if (nil? entry) res (conj res entry))
+            (recur  cols  (if (nil? entry) res (conj res entry))))))))
+
+
+
+;; (defn get-project-hours
+;;   "gets all project hours into a lazy-seq of vectors"
+;;   [timesheet project]
+;;   (map #(iter-project-hours timesheet project %) (:sheets timesheet)))
+
+(defn load-project-hours
+  "load the named project hours from a sequence of timesheets and
+  return a bidimensional vector: [\"Name\" \"Date\" \"Task\" \"Hours\"]"
+  [pname timesheets]
+  (log/debug (str "Project: " pname))
+  (log/spy (to-dataset
+            (vec (mapcat
+                  identity
+                   (for [t timesheets]
+                     (for [i (iter-project-hours t pname)
+                          :let [f (doall i)]
+                          :when (not-empty (log/spy f))]
+                      (first f))))))))
 
 (defn get-project-rate
   "gets the rate per hour for a person in a project"
@@ -190,17 +205,6 @@
         :days (get-cell sheet 'B 5)
         :totals (load-timesheet-totals sheet)}
        )}))
-
-(defn load-project-hours
-  "load the named project hours from a sequence of timesheets and
-  return a bidimensional vector: [\"Name\" \"Date\" \"Task\" \"Hours\"]"
-  [pname timesheets]
-  (to-dataset (vec (mapcat identity
-               (for [t timesheets]
-                 (for [i (get-project-hours t pname)
-                       :let [f (first i)]
-                       :when (not-empty f)]
-                   (first i)))))))
 
 (defn write-workbook-sheet
   "takes a dataset and writes it to file"
