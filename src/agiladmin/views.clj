@@ -134,7 +134,8 @@
                                 "_timesheet_" person ".xlsx"))
                        rates (load-all-project-rates "budgets/")]
 
-                   (for [m (-> (range 1 12) vec rseq)
+                   ;; cycle all months to 13 (off-by-one)
+                   (for [m (-> (range 1 13) vec rseq)
                          :let [worked (get-billable-month rates ts year m)
                                mtot (->> ($ :hours worked) wrap sum)]
                          :when (> mtot 0)]
