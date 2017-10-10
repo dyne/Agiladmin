@@ -36,8 +36,7 @@
                [:th nil t])]]
    [:tbody nil
     (for [t (:rows data)]
-      [:tr nil (for [tt t] [:td nil tt])])]]
-)
+      [:tr nil (for [tt t] [:td nil tt])])]])
 
 (defn to-excel
   "Takes a dataset and converts it in a format read to be written to

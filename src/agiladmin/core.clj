@@ -113,6 +113,11 @@
                  (recur  months  (if (not-empty f) (concat res f) res))))))
        (mapcat identity) vec to-dataset))
 
+(defn load-all-project-hours [path project-name]
+  "load all hours billed to a project according to current timesheets"
+  (->> (load-all-timesheets path #".*_timesheet_.*xlsx$")
+       (load-project-hours project-name)))
+
 
 (defn get-project-rate
   "gets the rate per hour for a person in a project"
@@ -244,11 +249,6 @@
                     (load-project-rates (str path f)) {})]
         (if (empty? files) (conj res nproj)
             (recur files   (conj res nproj)))))))
-
-(defn load-all-project-hours [path project-name]
-  "load all hours billed to a project according to current timesheets"
-  (->> (load-all-timesheets path #".*_timesheet_.*xlsx$")
-       (load-project-hours project-name)))
 
 ;; (defn push-total-hours
 ;;   "push the collected hours in the atom"

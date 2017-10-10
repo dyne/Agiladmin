@@ -44,17 +44,17 @@
 
       [:div {:class "commitlog col-lg-6"}
        (web/button config "/pull" (str "Pull updates from " (:git config)))
-       (present/edn->html
         (->> (git-log repo)
              (map #(commit-info repo %))
-             (map #(select-keys % [:author :message :time :changed_files]))))
-       ]])))
+             (map #(select-keys % [:author :message :time :changed_files]))
+             present/edn->html)]])))
 
 (defn project-view [config request]
   (let [projfile      (get-in request [:params :project])
         projname      (proj-name-from-path projfile)
         project-hours (load-all-project-hours "budgets/" projname)]
 
+    ;; write the budget file with updated hours
     (write-workbook-sheet (str "budgets/" projfile) "Personnel hours"
                           ($order :month :asc project-hours))
 
