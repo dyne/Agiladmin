@@ -39,6 +39,11 @@
 (def timesheet-cols-projects ["B" "C" "D" "E" "F" "G"])
 (def timesheet-rows-hourtots [43 42 41 40 39 38])
 
+(declare load-all-timesheets)
+(declare load-timesheet-totals)
+(declare load-timesheet)
+
+
 (defn repl
   "load all deps for repl"
   []
