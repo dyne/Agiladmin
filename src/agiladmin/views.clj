@@ -120,3 +120,40 @@
        [:div [:h2 "State of budget repository"]
         (present/edn->html
          (-> (load-repo "budgets") git-status))]]]])))
+
+(defn person-view [config request]
+  (let [person (get-in request [:params :person])
+        year   (get-in request [:params :year])]
+
+    (web/render [:div
+                 [:h1 (dotname person)]
+                 [:h2 year]
+
+                 (let [ts (load-timesheet
+                           (str "budgets/" year
+                                "_timesheet_" person ".xlsx"))
+                       rates (load-all-project-rates "budgets/")]
+
+                   (for [m (-> (range 1 12) vec rseq)
+                         :let [worked (get-billable-month rates ts year m)
+                               mtot (->> ($ :hours worked) wrap sum)]
+                         :when (> mtot 0)]
+                     [:div {:class "row month-total"}
+                      [:h3 (month-name m) " total bill is "
+                       [:strong (->> ($ :billable worked) wrap sum)]
+                       " for "
+                       (keep #(when (= (:month %) (str year '- m))
+                                (:hours %)) (:sheets ts))
+                       " hours worked across "
+                       (keep #(when (= (:month %) (str year '- m))
+                                (:days %)) (:sheets ts))
+                       " days."]
+
+                      [:div {:class "month-detail"}
+                       (to-table worked)]]))
+
+                 [:div {:class "col-lg-2"}
+                  (web/button config "/person" "Previous year"
+                              (list
+                               (hf/hidden-field "year" (dec (Integer. year)))
+                               (hf/hidden-field "person" person)))]])))
