@@ -27,7 +27,7 @@
             (def due-ts-lucpac
               (load-project-hours "due" all-ts-lucpac))
             due-ts-lucpac =>
-            {:column-names [:name :month :task :hours], :rows [{:hours 15.0, :month "2016-7", :name "L. Pacioli", :task "alpha"} {:hours 30.0, :month "2016-9", :name "L. Pacioli", :task "beta"}]}::incanter.core.Dataset)
+            {:column-names [:name :month :task :hours], :rows [{:hours 15.0, :month "2016-7", :name "L. Pacioli", :task "alpha"} {:hours 30.0, :month "2016-9", :name "L. Pacioli", :task "beta"} {:hours 49.0, :month "2016-9", :name "L. Pacioli", :task "gamma"}]}::incanter.core.Dataset)
 
       (fact "write 'due' project hours to budget"
             (write-workbook-sheet (str budgets "Budget_due.xlsx")

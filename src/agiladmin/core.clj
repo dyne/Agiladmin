@@ -100,26 +100,19 @@
         (if (empty? cols) (if (nil? entry) res (conj res entry))
             (recur  cols  (if (nil? entry) res (conj res entry))))))))
 
-
-
-;; (defn get-project-hours
-;;   "gets all project hours into a lazy-seq of vectors"
-;;   [timesheet project]
-;;   (map #(iter-project-hours timesheet project %) (:sheets timesheet)))
-
 (defn load-project-hours
   "load the named project hours from a sequence of timesheets and
   return a bidimensional vector: [\"Name\" \"Date\" \"Task\" \"Hours\"]"
   [pname timesheets]
   (log/debug (str "Project: " pname))
-  (log/spy (to-dataset
-            (vec (mapcat
-                  identity
-                   (for [t timesheets]
-                     (for [i (iter-project-hours t pname)
-                          :let [f (doall i)]
-                          :when (not-empty (log/spy f))]
-                      (first f))))))))
+  (->> (for [t timesheets]
+         (loop [[m & months] (iter-project-hours t pname)
+                res []]
+           (let [f (doall m)]
+             (if (empty? months) (if (not-empty f) (concat res f) res)
+                 (recur  months  (if (not-empty f) (concat res f) res))))))
+       (mapcat identity) vec to-dataset))
+
 
 (defn get-project-rate
   "gets the rate per hour for a person in a project"
