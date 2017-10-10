@@ -12,31 +12,34 @@
       (def all-ts-lucpac
         (load-all-timesheets budgets #".*_timesheet_.*.xlsx"))
 
-      (def uno-ts-lucpac
-        (load-project-hours "uno" all-ts-lucpac))
-      uno-ts-lucpac =>
-      {:column-names [:name :month :task :hours], :rows [{:hours 54.0, :month "2016-1", :name "L. Pacioli", :task nil} {:hours 118.0, :month "2016-2", :name "L. Pacioli", :task nil} {:hours 48.0, :month "2016-3", :name "L. Pacioli", :task nil} {:hours 50.0, :month "2016-4", :name "L. Pacioli", :task nil} {:hours 148.5, :month "2016-5", :name "L. Pacioli", :task nil} {:hours 50.0, :month "2016-6", :name "L. Pacioli", :task nil} {:hours 42.0, :month "2016-7", :name "L. Pacioli", :task nil} {:hours 24.0, :month "2016-8", :name "L. Pacioli", :task nil} {:hours 72.0, :month "2016-9", :name "L. Pacioli", :task nil} {:hours 102.0, :month "2016-10", :name "L. Pacioli", :task nil} {:hours 55.0, :month "2016-11", :name "L. Pacioli", :task nil} {:hours 49.0, :month "2016-12", :name "L. Pacioli", :task "T1.1"}]}::incanter.core.Dataset
+      (fact "Load timesheet 'uno'"
+            (def uno-ts-lucpac
+              (load-project-hours "uno" all-ts-lucpac))
+            uno-ts-lucpac =>
+      {:column-names [:name :month :task :hours], :rows [{:hours 54.0, :month "2016-1", :name "L. Pacioli", :task nil} {:hours 118.0, :month "2016-2", :name "L. Pacioli", :task nil} {:hours 48.0, :month "2016-3", :name "L. Pacioli", :task nil} {:hours 50.0, :month "2016-4", :name "L. Pacioli", :task nil} {:hours 148.5, :month "2016-5", :name "L. Pacioli", :task nil} {:hours 50.0, :month "2016-6", :name "L. Pacioli", :task nil} {:hours 42.0, :month "2016-7", :name "L. Pacioli", :task nil} {:hours 24.0, :month "2016-8", :name "L. Pacioli", :task nil} {:hours 72.0, :month "2016-9", :name "L. Pacioli", :task nil} {:hours 102.0, :month "2016-10", :name "L. Pacioli", :task nil} {:hours 55.0, :month "2016-11", :name "L. Pacioli", :task nil} {:hours 49.0, :month "2016-12", :name "L. Pacioli", :task "alpha"}]}::incanter.core.Dataset)
 
       (fact "write 'uno' project hours to budget"
             (write-workbook-sheet (str budgets "Budget_uno.xlsx")
                                   "Personnel hours" uno-ts-lucpac)
             => truthy) ;; TODO: timesheet to budget write better check
 
-      (def due-ts-lucpac
-        (load-project-hours "due" all-ts-lucpac))
-      due-ts-lucpac =>
-      {:column-names [:name :month :task :hours], :rows [{:hours 15.0, :month "2016-7", :name "L. Pacioli", :task nil} {:hours 30.0, :month "2016-9", :name "L. Pacioli", :task nil}]}::incanter.core.Dataset
+      (fact "Load timesheet 'due' and test for same project on two columns"
+            (def due-ts-lucpac
+              (load-project-hours "due" all-ts-lucpac))
+            due-ts-lucpac =>
+            {:column-names [:name :month :task :hours], :rows [{:hours 15.0, :month "2016-7", :name "L. Pacioli", :task "alpha"} {:hours 30.0, :month "2016-9", :name "L. Pacioli", :task "beta"}]}::incanter.core.Dataset)
 
       (fact "write 'due' project hours to budget"
             (write-workbook-sheet (str budgets "Budget_due.xlsx")
                                    "Personnel hours" due-ts-lucpac)
             => truthy)
 
-      (def tre-ts-lucpac
-        (load-project-hours "tre" all-ts-lucpac))
-      tre-ts-lucpac =>
-      {:column-names [:name :month :task :hours], :rows [{:hours 48.0, :month "2016-12", :name "L. Pacioli", :task nil}]}::incanter.core.Dataset
-
+      (fact "Load timesheet 'tre'"
+            (def tre-ts-lucpac
+              (load-project-hours "tre" all-ts-lucpac))
+            tre-ts-lucpac =>
+            {:column-names [:name :month :task :hours], :rows [{:hours 48.0, :month "2016-12", :name "L. Pacioli", :task "gamma"}]}::incanter.core.Dataset)
+            
       (fact "write 'tre' project hours to budget"
             (write-workbook-sheet (str budgets "Budget_tre.xlsx")
                                   "Personnel hours" tre-ts-lucpac)
