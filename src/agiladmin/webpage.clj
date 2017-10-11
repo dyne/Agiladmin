@@ -17,7 +17,7 @@
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 (ns agiladmin.webpage
-  (:require [agiladmin.config :refer :all]
+  (:require [agiladmin.config :as conf]
             [hiccup.page :as page]
             [hiccup.form :as hf]
             [json-html.core :as present]))
@@ -51,9 +51,10 @@
 (defn check-session [request]
   (let [session (:session request)]
     (cond
-    (not (contains? session :config)) (conj session (config-read))
+    (not (contains? session :config))
+    (conj session (conf/load-config "agiladmin" conf/default-settings))
     (string?  (:config session)) session
-    (false? (:config session)) default-settings
+    (false? (:config session)) conf/default-settings
     )))
 
 (defn render [body]

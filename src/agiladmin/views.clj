@@ -80,7 +80,11 @@
            (pie-chart ($ :name)
                       ($ :hours)
                       :legend true
-                      :title (str projname " hours used")))])]
+                      :title (str projname " hours used")))
+          [:h2 {:class "text-center"}
+           (str "Total hours: " (sum ($ :hours project-hours)))]])]
+
+
       [:div {:class "row-fluid"}
        [:h1 "Switch to different views on project"]
        [:div {:class "container"}

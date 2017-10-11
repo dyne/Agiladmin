@@ -17,41 +17,27 @@
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 (ns agiladmin.config
-  (:require [clojure.java.io :as io]
+  (:require [clojure.pprint :refer [pprint]]
+            [clojure.java.io :as io]
+            [auxiliary.config :as aux]
+            [auxiliary.core :refer :all]
+            [taoensso.timbre :as log]
             [cheshire.core :refer :all]))
-
-(declare config-read)
 
 (def run-mode (atom :web))
 
+(def default-settings {})
+(def project-defaults {})
 
-(def default-settings
-  {:config "config.json"
-   :git "https://github.com/dyne/tomb"
-   :ssh-key "id_rsa"})
+(defn- spy "Print out a config structure nicely formatted"
+  [edn]
+  (if (log/may-log? :debug) (pprint edn))
+  edn)
 
-(defn config-read
-  "read configurations from standard locations, overriding defaults or
-  system-wide with user specific paths."
-  ([] (config-read default-settings))
-  ([default]
-   (let [home (System/getenv "HOME")
-         pwd  (System/getenv "PWD")]
-     (loop [[p & paths] ["/etc/agiladmin/config.json" 
-                         (str home "/.agiladmin/config.json")
-                         (str home "/.agiladmin/config.json.txt")
-                         "config.json" "config.json.txt"
-                         ]
-            res default ]
-       (let [res (merge res
-                        (if (.exists (io/as-file p))
-                          (conj {:config p} (parse-stream (io/reader p) true))))]
-         (if (empty? paths) (conj {:config false} res)
-             (recur paths res)))))))
+(defn load-config [name default]
+  (log/info (str "Loading configuration: " name))
+  (spy (aux/config-read name default)))
 
-(defn config-write
-  "write configurations to file"
-  [conf file]
-  (generate-stream conf (io/writer file)
-                   {:pretty true}))
-
+(defn load-project [conf proj]
+  (if (contains? (-> conf (get-in [:agiladmin :projects]) set) proj)
+    (load-config proj project-defaults)))
