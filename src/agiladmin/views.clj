@@ -65,11 +65,14 @@
 
     (web/render
      [:div {:style "container-fluid"}
-      [:h1 projname]
+      [:h1 projname
+	    [:button {:class "pull-right btn btn-info"
+                  :onclick "toggleMode(this)"} "Scale to Fit"]]
+
 
       ;; GANTT chart
       [:div {:class "row-fluid"
-             :style "width:100%; min-height:20em;" :id "gantt"}]
+             :style "width:100%; min-height:20em; position: relative;" :id "gantt"}]
        [:script {:type "text/javascript"}
         (str (slurp (io/resource "gantt-loader.js"))
 "
@@ -79,7 +82,7 @@ var tasks = { data:" (-> project-conf
 gantt.init('gantt');
 gantt.parse(tasks);
 ")]
-        
+
       [:div {:class "row-fluid"}
 
        ;; --- CHARTS
