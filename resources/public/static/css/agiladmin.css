@@ -11,6 +11,21 @@ code {
 	white-space: pre-wrap;
 }
 
+/* GANTT */
+/* hide progress drag in projects and objectives */
+.project-task .gantt_task_progress_drag .phase-task,
+.gantt_task_progress_drag { display: none !important; }
+/* hide 'plus' buttons for tasks */
+.regular-task .gantt_add { display: none; }
+.gantt_task_progress{ text-align: left; }
+.gantt_task_content{ text-align: left; padding-left: 5em;}
+.gantt_task_progress span{
+	color: #FFF;
+	position: relative;
+	z-index: 20;
+	padding: 3px; margin-left:3px;
+	border-radius: 3px;}
+
 .log-person {
 	padding: .5em;
 }

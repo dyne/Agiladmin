@@ -1,5 +1,6 @@
 (ns agiladmin.views
   (:require
+   [clojure.java.io :as io]
    [agiladmin.core :refer :all]
    [agiladmin.utils :refer :all]
    [agiladmin.graphics :refer :all]
@@ -63,15 +64,20 @@
                           ($order :month :asc project-hours))
 
     (web/render
-     [:div
+     [:div {:style "container-fluid"}
       [:h1 projname]
-      [:div {:style "width:100%; min-height:10em;" :id "gantt"}]
-       [:script {:type "text/javascript"} (str "
-        var tasks = { data:" (-> project-conf
-                                 (get (keyword projname))
-                                  json/generate-string) "};
-        gantt.init('gantt');
-        gantt.parse(tasks);
+
+      ;; GANTT chart
+      [:div {:class "row-fluid"
+             :style "width:100%; min-height:20em;" :id "gantt"}]
+       [:script {:type "text/javascript"}
+        (str (slurp (io/resource "gantt-loader.js"))
+"
+var tasks = { data:" (-> project-conf
+                         (get (keyword projname))
+                         json/generate-string) "};
+gantt.init('gantt');
+gantt.parse(tasks);
 ")]
         
       [:div {:class "row-fluid"}

@@ -122,6 +122,7 @@
 
     [:title title]
     (page/include-js  "/static/js/dhtmlxgantt.js")
+    (page/include-js  "/static/js/dhtmlxgantt_marker.js")
     (page/include-js  "/static/js/sorttable.js")
     (page/include-js  "/static/js/jquery-3.2.1.min.js")
     (page/include-js  "/static/js/bootstrap.min.js")
