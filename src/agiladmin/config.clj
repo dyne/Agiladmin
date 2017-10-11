@@ -31,13 +31,16 @@
 
 (defn- spy "Print out a config structure nicely formatted"
   [edn]
-  (if (log/may-log? :debug) (pprint edn))
-  edn)
+  (if (log/may-log? :debug) 
+    (binding [*out* *err*] (pprint edn)))
+  edn) 
 
 (defn load-config [name default]
   (log/info (str "Loading configuration: " name))
   (spy (aux/config-read name default)))
 
 (defn load-project [conf proj]
+  (log/debug (str "Loading project: " proj))
   (if (contains? (-> conf (get-in [:agiladmin :projects]) set) proj)
-    (load-config proj project-defaults)))
+    (spy {(keyword proj) (-> (str "budgets/" proj ".yaml") aux/yaml-read)})
+    (log/error (str "Project not found: " proj))))

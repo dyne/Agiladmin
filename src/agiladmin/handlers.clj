@@ -86,7 +86,7 @@
        (let [config (web/check-session request)
              conf (merge default-settings config)]
 
-         (if (not (.exists (io/as-file (:ssh-key conf))))
+         (if (not (.exists (-> conf (get-in [:agiladmin :budgets :ssh-key]) io/as-file)))
            (let [kp (generate-key-pair)]
              (log/info "Generating SSH keypair...")
              (write-key-pair kp (:ssh-key conf))))

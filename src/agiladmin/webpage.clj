@@ -121,10 +121,12 @@
     [:meta {:name "twitter:image" :content (str url "/static/img/secret_ladies.jpg") }]
 
     [:title title]
+    (page/include-js  "/static/js/dhtmlxgantt.js")
     (page/include-js  "/static/js/sorttable.js")
     (page/include-js  "/static/js/jquery-3.2.1.min.js")
     (page/include-js  "/static/js/bootstrap.min.js")
     (page/include-css "/static/css/bootstrap.min.css")
+    (page/include-css "/static/css/dhtmlxgantt.css")
     (page/include-css "/static/css/bootstrap-theme.min.css")
     (page/include-css "/static/css/json-html.css")
     (page/include-css "/static/css/agiladmin.css")]))

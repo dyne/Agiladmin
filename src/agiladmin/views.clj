@@ -4,6 +4,9 @@
    [agiladmin.utils :refer :all]
    [agiladmin.graphics :refer :all]
    [agiladmin.webpage :as web]
+   [agiladmin.config :as conf]
+   [taoensso.timbre :as log]
+   [cheshire.core :as json]
    [hiccup.form :as hf]
    [json-html.core :as present]
    [incanter.core :refer :all]
@@ -52,6 +55,7 @@
 (defn project-view [config request]
   (let [projfile      (get-in request [:params :project])
         projname      (proj-name-from-path projfile)
+        project-conf  (conf/load-project config  projname)
         project-hours (load-all-project-hours "budgets/" projname)]
 
     ;; write the budget file with updated hours
@@ -61,6 +65,15 @@
     (web/render
      [:div
       [:h1 projname]
+      [:div {:style "width:100%; min-height:10em;" :id "gantt"}]
+       [:script {:type "text/javascript"} (str "
+        var tasks = { data:" (-> project-conf
+                                 (get (keyword projname))
+                                  json/generate-string) "};
+        gantt.init('gantt');
+        gantt.parse(tasks);
+")]
+        
       [:div {:class "row-fluid"}
 
        ;; --- CHARTS
@@ -69,9 +82,10 @@
          (->> ($rollup :sum :hours :month project-hours)
               ($order :month :asc))
          [:div {:class "col-lg-6"}
-          (chart-to-image (time-series-plot
-                           (date-to-ts $data :month)
-                           ($ :hours)))])
+          (chart-to-image (bar-chart :month :hours :group-by :month :legend false))])
+ ;; (time-series-plot
+ ;;                           (date-to-ts $data :month)
+ ;;                           ($ :hours)))])
 
        ;; pie chart
        (with-data ($rollup :sum :hours :name project-hours)

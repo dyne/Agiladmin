@@ -109,7 +109,7 @@
   "load the named project hours from a sequence of timesheets and
   return a bidimensional vector: [\"Name\" \"Date\" \"Task\" \"Hours\"]"
   [pname timesheets]
-  (log/debug (str "Project: " pname))
+  (log/info (str "Loading project hours: " pname))
   (->> (for [t timesheets]
          (loop [[m & months] (iter-project-hours t pname)
                 res []]
