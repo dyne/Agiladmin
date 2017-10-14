@@ -18,6 +18,7 @@
 
 (ns agiladmin.webpage
   (:require [agiladmin.config :as conf]
+            [taoensso.timbre :as log]
             [hiccup.page :as page]
             [hiccup.form :as hf]
             [json-html.core :as present]))
@@ -49,13 +50,17 @@
 
 
 (defn check-session [request]
-  (let [session (:session request)]
-    (cond
-    (not (contains? session :config))
-    (conj session (conf/load-config "agiladmin" conf/default-settings))
-    (string?  (:config session)) session
-    (false? (:config session)) conf/default-settings
-    )))
+  ;; reload configuration from file all the time if in debug mode
+  (if (log/may-log? :debug)
+    (conf/load-config "agiladmin" conf/default-settings)
+    ;; else
+    (let [session (:session request)]
+      (cond
+        (not (contains? session :config))
+        (conj session (conf/load-config "agiladmin" conf/default-settings))
+        (string?  (:config session)) session
+        (false? (:config session)) conf/default-settings
+        ))))
 
 (defn render [body]
   {:headers {"Content-Type"
