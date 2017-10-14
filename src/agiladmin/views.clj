@@ -1,3 +1,23 @@
+;; Agiladmin - spreadsheet based time and budget administration
+
+;; Copyright (C) 2016-2017 Dyne.org foundation
+
+;; Sourcecode written and maintained by Denis Roio <jaromil@dyne.org>
+;; designed in cooperation with Manuela Annibali <manuela@dyne.org>
+
+;; This program is free software: you can redistribute it and/or modify
+;; it under the terms of the GNU Affero General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU Affero General Public License for more details.
+
+;; You should have received a copy of the GNU Affero General Public License
+;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 (ns agiladmin.views
   (:require
    [clojure.java.io :as io]
@@ -74,17 +94,15 @@
       [:div {:class "row-fluid"
              :style "width:100%; min-height:20em; position: relative;" :id "gantt"}]
        [:script {:type "text/javascript"}
-        (str (slurp (io/resource "gantt-loader.js"))
-"
+        (str (slurp (io/resource "gantt-loader.js")) "
 var tasks = { data:" (-> project-conf
-                         (get (keyword projname))
+                         (get-in [(keyword projname) :tasks])
                          json/generate-string) "};
 gantt.init('gantt');
 gantt.parse(tasks);
 ")]
 
       [:div {:class "row-fluid"}
-
        ;; --- CHARTS
        ;; time series
        (with-data
@@ -130,19 +148,23 @@ gantt.parse(tasks);
 
          [:div {:class "tab-pane fade in active" :id "task-sum-hours"}
           [:h2 "Totals grouped per person and per task"]
-          (to-table ($rollup :sum :hours [:name :task] project-hours))]
+          (-> ($rollup :sum :hours [:name :task] project-hours)
+              to-table)]
 
          [:div {:class "tab-pane fade" :id "task-totals"}
           [:h2 "Totals of hours used for each task"]
-          (to-table ($rollup :sum :hours :task project-hours))]
+          (-> ($rollup :sum :hours :task project-hours)
+              to-table)]
 
          [:div {:class "tab-pane fade" :id "person-totals"}
           [:h2 "Totals of hours used by each person"]
-          (to-table ($rollup :sum :hours :name project-hours))]
+          (-> ($rollup :sum :hours :name project-hours)
+              to-table)]
 
          [:div {:class "tab-pane fade" :id "monthly-details"}
           [:h2 "Detail of monthly hours used per person on each task"]
-          (to-table ($order :month :desc project-hours))]]
+          (-> ($order :month :desc project-hours)
+              to-table)]]
 
        [:div [:h2 "State of budget repository"]
         (present/edn->html
@@ -151,7 +173,6 @@ gantt.parse(tasks);
 (defn person-view [config request]
   (let [person (get-in request [:params :person])
         year   (get-in request [:params :year])]
-
     (web/render [:div
                  [:h1 (dotname person)]
                  [:h2 year]
@@ -159,11 +180,11 @@ gantt.parse(tasks);
                  (let [ts (load-timesheet
                            (str "budgets/" year
                                 "_timesheet_" person ".xlsx"))
-                       rates (load-all-project-rates "budgets/")]
+                       projects (load-all-projects config)]
 
                    ;; cycle all months to 13 (off-by-one)
                    (for [m (-> (range 1 13) vec rseq)
-                         :let [worked (get-billable-month rates ts year m)
+                         :let [worked (get-billable-month projects ts year m)
                                mtot (->> ($ :hours worked) wrap sum)]
                          :when (> mtot 0)]
                      [:div {:class "row month-total"}

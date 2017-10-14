@@ -1,9 +1,12 @@
 (ns agiladmin.timesheet-test
   (:use midje.sweet)
-  (:require [agiladmin.core :refer :all]
+  (:require [auxiliary.config :as aux]
+            [agiladmin.core :refer :all]
             [clojure.pprint :refer :all]))
 
 (def budgets "test/assets/")
+(def conf (aux/yaml-read "test/assets/agiladmin.yaml"))
+(pprint conf)
 
 (pprint "Testing timesheet reading")
 
@@ -47,19 +50,9 @@
       )
 
 (fact "Load all projects"
-      (def all-pjs (load-all-project-rates "test/assets/"))
-      all-pjs => {:UNO
-                  {:file "test/assets/Budget_uno.xlsx"
-                   :rates {"L. Pacioli" 35.0}}
-                  :TRE
-                  {:file "test/assets/Budget_tre.xlsx"
-                   :rates {"L. Pacioli" 30.0}}
-                  :DUE
-                  {:file "test/assets/Budget_due.xlsx"
-                   :rates {"L. Pacioli" 45.0}}}
-      ;; (fact "get billable amount for L. Pacioli on month 7"
-      ;;       (pprint (get-billable-month
-      ;;        all-pjs
-      ;;        (load-timesheet "test/assets/2016_timesheet_Luca-Pacioli.xlsx")
-      ;;        2016 7)))
+      (def all-pjs (load-all-projects conf))
+      (pprint all-pjs)
+      all-pjs => {:DUE {:duration 12, :rates {:L.Pacioli 30}, :start_date "01-01-2016", :tasks [{:duration 36, :id "alpha", :pm 1, :text "Management and coordination"} {:duration 14, :id "beta", :pm 6, :text "Social Dynamics"} {:duration 36, :id "gamma", :pm 12, :start_date "01-07-2016", :text "Public design and technological implementation"}]}, :TRE {:duration 12, :rates {:L.Pacioli 35}, :start_date "01-01-2016", :tasks [{:duration 36, :id "alpha", :pm 1, :text "Management and coordination"} {:duration 14, :id "beta", :pm 6, :text "Social Dynamics"} {:duration 36, :id "gamma", :pm 12, :start_date "01-07-2016", :text "Public design and technological implementation"}]}, :UNO {:duration 12, :rates {:L.Pacioli 40}, :start_date "01-01-2016", :tasks [{:duration 36, :id "alpha", :pm 1, :text "Management and coordination"} {:duration 14, :id "beta", :pm 6, :text "Social Dynamics"} {:duration 36, :id "gamma", :pm 12, :start_date "01-07-2016", :text "Public design and technological implementation"}]}}
+     (def rate (get-project-rate all-pjs "Luca Pacioli" "DUE"))
+
       )

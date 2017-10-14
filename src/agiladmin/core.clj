@@ -26,6 +26,7 @@
             [clojure.contrib.humanize :refer :all]
             [auxiliary.core :refer :all]
             [auxiliary.string :refer [strcasecmp]]
+            [auxiliary.config :as aux]
             [failjure.core :as f]
             [taoensso.timbre :as log]
             [dk.ative.docjure.spreadsheet :refer :all])
@@ -57,8 +58,7 @@
            '[clojure.string :refer :all]
            '[clojure.java.io :as io]
            '[clojure.pprint :reder :all]
-           :reload)
-)
+           :reload))
 
 (defn wrap
   "wrap a single element into a collection, safety measure for dataset
@@ -77,6 +77,8 @@
            (log/spy :error) f/fail)
       cell)))
 
+;; TODO: latest and best rewrite, to consolidate into a single generic
+;; function in place of other versions in this file
 (defn iter-project-hours
   "to be used in a map iterating on timesheets,
   matches the project string and returns a row with [name month task hours]"
@@ -123,13 +125,13 @@
   (->> (load-all-timesheets path #".*_timesheet_.*xlsx$")
        (load-project-hours project-name)))
 
-
 (defn get-project-rate
   "gets the rate per hour for a person in a project"
-  [rates person projname]
+  [projects person projname]
   ;; TODO: make sure that project_file has no case sensitive
   ;; complication
-  (get-in rates [(keyword (upper-case projname)) :rates person]))
+  (get-in projects [(keyword projname) :rates
+                    (-> person dotname keyword)]))
 
 (defn get-billable-month
   "gets all hours of each projects in a month, multiply by the rate of
@@ -230,30 +232,15 @@
       (if (not= (first l) '\.)
         (load-timesheet (str path l))))))
 
-(defn load-project-rates [path]
-  (if-let [pj (load-workbook path)]
-    (let [sheet (select-sheet "Personnel totals" pj)]
-      {(keyword (proj-name-from-path path))
-       {:file path
-        :rates (loop [[r & rows] (range 3 30)
-                      res {}]
-                 (let [rates
-                       (if-let [n (str (get-cell sheet "E" r))]
-                         (if (or (blank? n) (= n "TOTALS")) {}
-                             {n (get-cell sheet "G" r)}))]
-                   (if (empty? rows) (conj rates res)
-                       (recur rows   (conj rates res)))))}})))
-
-(defn load-all-project-rates [path]
-  "load all project budgets in a directory"
-  (let [ts (list-files-matching path #"^budget_.*xlsx$")]
-    (loop [[f & files] (map #(.getName %) ts)
-           res {}]
-                            ;; eliminate locked turds
-      (let [nproj (if (and (not= (first f) '\.) (not (blank? f)))
-                    (load-project-rates (str path f)) {})]
-        (if (empty? files) (conj res nproj)
-            (recur files   (conj res nproj)))))))
+(defn load-all-projects [conf]
+  "load all project budgets specified in a directory"
+  (loop [[p & projects] (get-in conf [:agiladmin :projects])
+         res {}]
+    (let [r (-> conf (get-in [:agiladmin :budgets :path])
+                (str p ".yaml")
+                aux/yaml-read)]
+      (if (empty? projects) (conj r res)
+          (recur  projects  (conj r res))))))
 
 ;; (defn push-total-hours
 ;;   "push the collected hours in the atom"
