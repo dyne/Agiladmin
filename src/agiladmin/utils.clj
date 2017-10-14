@@ -23,6 +23,7 @@
             [clojure.java.io :as io]
             [auxiliary.maps :refer [compress]]
             [auxiliary.string :refer [strcasecmp]]
+            [taoensso.timbre :as log]
             [clojure.walk :refer :all]))
 
 
@@ -31,7 +32,9 @@
   [inname]
   (let [toks (-> (replace inname #"-" " ") (split #"\s") compress)
         dot  (first (first toks))]
-    (str dot ". " (second toks))))
+    (if (= 1 (count toks)) (first toks)
+        ;; else
+        (str dot "." (second toks)))))
 
 (defn namecmp
   "dotted comparison of two name strings, assuming only two names"
