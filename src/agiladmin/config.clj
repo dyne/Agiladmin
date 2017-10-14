@@ -22,7 +22,31 @@
             [auxiliary.config :as aux]
             [auxiliary.core :refer :all]
             [taoensso.timbre :as log]
+            [schema.core :as s]
             [cheshire.core :refer :all]))
+
+(s/defschema Config
+  {s/Keyword
+   {:budgets {:git s/Str
+              :ssh-key s/Str
+              :path s/Str}
+    :source  {:git s/Str
+              :update s/Bool}
+    :projects [s/Str]}
+   :appname s/Str
+   :paths [s/Str]
+   :filename s/Str})
+
+(s/defschema Project
+  {s/Keyword
+   {:start_date s/Str
+    :duration   s/Num
+    :rates {s/Keyword s/Num}
+    :tasks [{:id s/Str
+             :text s/Str
+             :start_date s/Str
+             :duration s/Num
+             :pm s/Num}]}})
 
 (def run-mode (atom :web))
 
@@ -31,16 +55,19 @@
 
 (defn- spy "Print out a config structure nicely formatted"
   [edn]
-  (if (log/may-log? :debug) 
+  (if (log/may-log? :debug)
     (binding [*out* *err*] (pprint edn)))
-  edn) 
+  edn)
 
 (defn load-config [name default]
   (log/info (str "Loading configuration: " name))
-  (spy (aux/config-read name default)))
+  (->> (aux/config-read name default)
+       (s/validate Config)))
+
 
 (defn load-project [conf proj]
   (log/debug (str "Loading project: " proj))
   (if (contains? (-> conf (get-in [:agiladmin :projects]) set) proj)
-    (spy {(keyword proj) (-> (str "budgets/" proj ".yaml") aux/yaml-read)})
+    (->> (str "budgets/" proj ".yaml") aux/yaml-read spy
+         (s/validate Project))
     (log/error (str "Project not found: " proj))))

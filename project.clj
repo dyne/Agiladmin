@@ -47,6 +47,9 @@
                            [org.apache.poi/poi "3.16"]
                            [org.apache.poi/poi-ooxml "3.16"]
 
+                           ;; Data validation
+                           [prismatic/schema "1.1.6"]
+
                            ;; git
                            [clj-jgit "0.9.1-SNAPSHOT"]
 
