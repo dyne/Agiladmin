@@ -41,7 +41,6 @@
 (def timesheet-rows-hourtots [43 42 41 40 39 38])
 
 (declare load-all-timesheets)
-(declare load-timesheet-totals)
 (declare load-timesheet)
 
 
@@ -77,20 +76,13 @@
            (log/spy :error) f/fail)
       cell)))
 
-;; TODO: latest and best rewrite, to consolidate into a single generic
-;; function in place of other versions in this file
-(defn iter-project-hours
-  "to be used in a map iterating on timesheets,
-  matches the project string and returns a row with [name month task hours]"
-  [timesheet project]
-  ;; columns containing hours for each project
-  (for [ts (:sheets timesheet)
-        :let [xls (:xls timesheet)]]
+(defn load-hours
+  "load hours from a timesheet month if conditions match"
+  [timesheet month cond-fn]
+  (if-let [sheet (select-sheet month (:xls timesheet))]
     (loop [[n & cols] timesheet-cols-projects
            res []]
-
-      (let [sheet  (select-sheet (:month ts) xls)
-            proj  (get-cell sheet n "7") ;; row project
+      (let [proj  (get-cell sheet n "7") ;; row project
             task  (get-cell sheet n "8") ;; row task
             tag   (get-cell sheet n "9") ;; row tag(s) (TODO: support multiple tags)
             ;; take lowest in row totals starting from 42 (as month lenght varies)
@@ -98,11 +90,17 @@
                                 :let  [cell (get-cell sheet n i)]
                                 :when (not (nil? cell))] cell))
             entry  (if (and (not= hours "0") (not (blank? proj))
-                            (not (strcasecmp tag "vol"))
-                            (strcasecmp project proj))
-                     {:name (:name timesheet)
-                      :month (:month ts)
+                            (cond-fn {:project proj
+                                      :task    task
+                                      :tag     tag
+                                      :hours   hours}))
+                     ;; (not (strcasecmp tag "vol"))
+                     ;; (strcasecmp project proj))
+                     {:month month
+                      :name (:name timesheet)
+                      :project proj
                       :task task
+                      :tag  tag
                       :hours hours} nil)]
         (if (empty? cols) (if (nil? entry) res (conj res entry))
             (recur  cols  (if (nil? entry) res (conj res entry))))))))
@@ -110,20 +108,22 @@
 (defn load-project-hours
   "load the named project hours from a sequence of timesheets and
   return a bidimensional vector: [\"Name\" \"Date\" \"Task\" \"Hours\"]"
-  [pname timesheets]
+  [timesheets pname]
   (log/info (str "Loading project hours: " pname))
   (->> (for [t timesheets]
-         (loop [[m & months] (iter-project-hours t pname)
+         (loop [[m & months]
+                (for [ts (:sheets t)
+                      :let [xls (:xls t)]]
+                  (load-hours t (:month ts)
+                              ;; conditional function for hours selection
+                              (fn [info]
+                                (and (not (strcasecmp (:tag info) "vol"))
+                                     (strcasecmp (:project info) pname)))))
                 res []]
            (let [f (doall m)]
              (if (empty? months) (if (not-empty f) (concat res f) res)
                  (recur  months  (if (not-empty f) (concat res f) res))))))
        (mapcat identity) vec to-dataset))
-
-(defn load-all-project-hours [path project-name]
-  "load all hours billed to a project according to current timesheets"
-  (->> (load-all-timesheets path #".*_timesheet_.*xlsx$")
-       (load-project-hours project-name)))
 
 (defn get-project-rate
   "gets the rate per hour for a person in a project"
@@ -171,26 +171,6 @@
         (if (empty? cols) (to-dataset (if (nil? entry) res (conj res entry)))
             (recur cols   (if (nil? entry) res (conj res entry))))))))
 
-(defn load-timesheet-totals [sheet]
-  (loop [[c & cols] timesheet-cols-projects
-         res {}]
-    (let [proj  (get-cell sheet c "7") ;; row project
-          task  (get-cell sheet c "8") ;; row task
-          tag   (get-cell sheet c "9") ;; row tag(s) (TODO: multiple tags)
-          ;; take lowest in row totals starting from 42 (as month
-          ;; lenght varies)
-          hours  (first (for [i timesheet-rows-hourtots
-                              :let  [cell (get-cell sheet c i)]
-                              :when (not (nil? cell))] cell))
-          entry  (if (and (not (blank? proj))
-                          (not (nil? hours))
-                          (> hours 0)) {(-> proj upper-case keyword)
-                                        {:task  (if (nil? task) "" task)
-                                         :tag   (if (nil? tag) "" tag)
-                                         :hours (if (nil? hours) 0 hours)}})]
-          (if (empty? cols) (if (nil? entry) res (conj res entry))
-              (recur cols   (if (nil? entry) res (conj res entry)))))))
-
 (defn load-timesheet [path]
   (let [ts (load-workbook path)
         shs (first (sheet-seq ts))
@@ -207,8 +187,7 @@
            :when (not= h 0.0)]
        {:month ms
         :hours h
-        :days (get-cell sheet 'B 5)
-        :totals (load-timesheet-totals sheet)}
+        :days (get-cell sheet 'B 5)}
        )}))
 
 (defn write-workbook-sheet

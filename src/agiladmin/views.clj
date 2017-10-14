@@ -77,7 +77,9 @@
   (let [projfile      (get-in request [:params :project])
         projname      (proj-name-from-path projfile)
         project-conf  (conf/load-project config projname)
-        project-hours (load-all-project-hours "budgets/" projname)]
+        ts-path       (get-in config [:agiladmin :budgets :path])
+        timesheets    (load-all-timesheets ts-path #".*_timesheet_.*xlsx$")
+        project-hours (load-project-hours timesheets pname)]
 
     ;; write the budget file with updated hours
     (write-workbook-sheet (str "budgets/" projfile) "Personnel hours"
