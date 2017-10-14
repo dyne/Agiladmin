@@ -182,6 +182,14 @@
   (route/resources "/")
   (route/not-found "Not Found"))
 
+(log/merge-config! {:level :debug
+                    ;; #{:trace :debug :info :warn :error :fatal :report}
+
+                    ;; Control log filtering by
+                    ;; namespaces/patterns. Useful for turning off
+                    ;; logging in noisy libraries, etc.:
+                    :ns-whitelist  ["agiladmin.*"]
+                    :ns-blacklist  ["org.eclipse.jetty.*"]})
 (def app-defaults
   (-> site-defaults
       (assoc-in [:cookies] false)
