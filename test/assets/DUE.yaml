@@ -1,0 +1,24 @@
+due:
+  start_date: 01-01-2016
+  duration: 12
+
+  rates:
+    L.Pacioli: 30
+
+  tasks:
+    - id: alpha
+      start_date: 01-01-2016
+      text: Management and coordination
+      duration: 36
+      pm: 1
+    - id: beta
+      start_date: 01-01-2016
+      text: Social Dynamics
+      duration: 14
+      pm: 6
+    - id: gamma
+      text: Public design and technological implementation
+      start_date: 01-07-2016
+      duration: 36
+      pm: 12
+
