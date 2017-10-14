@@ -76,7 +76,7 @@
 (defn project-view [config request]
   (let [projfile      (get-in request [:params :project])
         projname      (proj-name-from-path projfile)
-        project-conf  (conf/load-project config  projname)
+        project-conf  (conf/load-project config projname)
         project-hours (load-all-project-hours "budgets/" projname)]
 
     ;; write the budget file with updated hours
@@ -148,17 +148,20 @@ gantt.parse(tasks);
 
          [:div {:class "tab-pane fade in active" :id "task-sum-hours"}
           [:h2 "Totals grouped per person and per task"]
-          (-> ($rollup :sum :hours [:name :task] project-hours)
-              to-table)]
+          (->> ($rollup :sum :hours [:name :task] project-hours)
+               ($order :hours :desc)
+               to-table)]
 
          [:div {:class "tab-pane fade" :id "task-totals"}
           [:h2 "Totals of hours used for each task"]
-          (-> ($rollup :sum :hours :task project-hours)
-              to-table)]
+          (->> ($rollup :sum :hours :task project-hours)
+               ($order :hours :desc)
+               to-table)]
 
          [:div {:class "tab-pane fade" :id "person-totals"}
           [:h2 "Totals of hours used by each person"]
-          (-> ($rollup :sum :hours :name project-hours)
+          (->> ($rollup :sum :hours :name project-hours)
+              ($order :hours :desc)
               to-table)]
 
          [:div {:class "tab-pane fade" :id "monthly-details"}
