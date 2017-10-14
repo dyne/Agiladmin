@@ -79,7 +79,8 @@
         project-conf  (conf/load-project config projname)
         ts-path       (get-in config [:agiladmin :budgets :path])
         timesheets    (load-all-timesheets ts-path #".*_timesheet_.*xlsx$")
-        project-hours (load-project-hours timesheets pname)]
+        project-hours (load-project-monthly-hours timesheets projname)
+        monthly-costs (derive-costs project-hours config project-conf)]
 
     ;; write the budget file with updated hours
     (write-workbook-sheet (str "budgets/" projfile) "Personnel hours"
@@ -150,25 +151,24 @@ gantt.parse(tasks);
 
          [:div {:class "tab-pane fade in active" :id "task-sum-hours"}
           [:h2 "Totals grouped per person and per task"]
-          (->> ($rollup :sum :hours [:name :task] project-hours)
-               ($order :hours :desc)
-               to-table)]
+          (-> (aggregate [:hours :cost] [:name :task] :dataset monthly-costs)
+              ;; (derive-costs config project-conf)
+              (sel :cols [:name :task :hours :cost]) to-table)]
 
          [:div {:class "tab-pane fade" :id "task-totals"}
-          [:h2 "Totals of hours used for each task"]
-          (->> ($rollup :sum :hours :task project-hours)
-               ($order :hours :desc)
-               to-table)]
+          [:h2 "Totals per task"]
+          (-> (aggregate [:hours :cost] :task :dataset monthly-costs)
+              ;; (derive-costs config project-conf)
+              (sel :cols [:task :hours :cost]) to-table)]
 
          [:div {:class "tab-pane fade" :id "person-totals"}
-          [:h2 "Totals of hours used by each person"]
-          (->> ($rollup :sum :hours :name project-hours)
-              ($order :hours :desc)
-              to-table)]
+          [:h2 "Totals per person"]
+          (-> (aggregate [:hours :cost] :name :dataset monthly-costs)
+              (sel :cols [:name :hours :cost]) to-table)]
 
          [:div {:class "tab-pane fade" :id "monthly-details"}
           [:h2 "Detail of monthly hours used per person on each task"]
-          (-> ($order :month :desc project-hours)
+          (-> ($order :month :desc monthly-costs)
               to-table)]]
 
        [:div [:h2 "State of budget repository"]

@@ -68,6 +68,7 @@
 (defn load-project [conf proj]
   (log/debug (str "Loading project: " proj))
   (if (contains? (-> conf (get-in [:agiladmin :projects]) set) proj)
-    (->> (str "budgets/" proj ".yaml") aux/yaml-read spy
-         (s/validate Project))
+    (let [path  (str (get-in conf [:agiladmin :budgets :path]) proj ".yaml")
+          pconf (aux/yaml-read path)]
+      (s/validate Project pconf))
     (log/error (str "Project not found: " proj))))

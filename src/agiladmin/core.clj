@@ -22,6 +22,7 @@
   (:require [clojure.string :refer [blank? split lower-case upper-case]]
             [agiladmin.utils :refer :all]
             [agiladmin.graphics :refer :all]
+            [agiladmin.config :as conf]
             [incanter.core :refer :all]
             [clojure.contrib.humanize :refer :all]
             [auxiliary.core :refer :all]
@@ -41,6 +42,7 @@
 (def timesheet-rows-hourtots [43 42 41 40 39 38])
 
 (declare load-all-timesheets)
+(declare load-all-projects)
 (declare load-timesheet)
 
 
@@ -76,7 +78,7 @@
            (log/spy :error) f/fail)
       cell)))
 
-(defn load-hours
+(defn load-monthly-hours
   "load hours from a timesheet month if conditions match"
   [timesheet month cond-fn]
   (if-let [sheet (select-sheet month (:xls timesheet))]
@@ -98,32 +100,39 @@
                      ;; (strcasecmp project proj))
                      {:month month
                       :name (:name timesheet)
-                      :project proj
-                      :task task
-                      :tag  tag
+                      :project (upper-case proj)
+                      :task (if-not (blank? task) (upper-case task) "")
+                      :tag  (if-not (blank? tag)  (upper-case tag)  "")
                       :hours hours} nil)]
         (if (empty? cols) (if (nil? entry) res (conj res entry))
             (recur  cols  (if (nil? entry) res (conj res entry))))))))
 
-(defn load-project-hours
-  "load the named project hours from a sequence of timesheets and
-  return a bidimensional vector: [\"Name\" \"Date\" \"Task\" \"Hours\"]"
-  [timesheets pname]
-  (log/info (str "Loading project hours: " pname))
+(defn map-timesheets
+  "Map a function across all loaded timesheets. The function prototype
+  is the one of load-hours, taking 3 arguments: a single timesheet,
+  name of tab (month) and a conditional function for selection of
+  rows."
+  [timesheets loop-fn cond-fn]
   (->> (for [t timesheets]
          (loop [[m & months]
                 (for [ts (:sheets t)
                       :let [xls (:xls t)]]
-                  (load-hours t (:month ts)
-                              ;; conditional function for hours selection
-                              (fn [info]
-                                (and (not (strcasecmp (:tag info) "vol"))
-                                     (strcasecmp (:project info) pname)))))
+                  (loop-fn t (:month ts) cond-fn))
                 res []]
            (let [f (doall m)]
              (if (empty? months) (if (not-empty f) (concat res f) res)
                  (recur  months  (if (not-empty f) (concat res f) res))))))
        (mapcat identity) vec to-dataset))
+
+(defn load-project-monthly-hours
+  "load the named project hours from a sequence of timesheets and
+  return a bidimensional vector: [\"Name\" \"Date\" \"Task\" \"Hours\"]"
+  [timesheets pname]
+  (log/info (str "Loading project hours: " pname))
+  (map-timesheets timesheets load-monthly-hours
+                  (fn [info]
+                    (and (not (strcasecmp (:tag info) "vol"))
+                         (strcasecmp (:project info) pname)))))
 
 (defn get-project-rate
   "gets the rate per hour for a person in a project"
@@ -132,6 +141,22 @@
   ;; complication
   (get-in projects [(keyword projname) :rates
                     (-> person dotname keyword)]))
+
+(defn derive-costs
+  "gets a dataset of hours and adds a 'cost' column deriving the
+  billable costs according to project rates."
+  ([hours conf]
+   (if-let [projects (load-all-projects conf)]
+     (derive-costs hours conf projects)))
+  ([hours conf projects]
+   (with-data hours
+     (add-derived-column :cost [:name :project :tag :task :hours]
+                         (fn [name proj tag task hours]
+                           (if-let [cost (get-in projects [(keyword proj) :rates
+                                                           (keyword name)])]
+                             (if (> cost 0) (* cost hours) 0)
+                             ;; else
+                             0))))))
 
 (defn get-billable-month
   "gets all hours of each projects in a month, multiply by the rate of
@@ -215,9 +240,7 @@
   "load all project budgets specified in a directory"
   (loop [[p & projects] (get-in conf [:agiladmin :projects])
          res {}]
-    (let [r (-> conf (get-in [:agiladmin :budgets :path])
-                (str p ".yaml")
-                aux/yaml-read)]
+    (let [r (conf/load-project conf p)]
       (if (empty? projects) (conj r res)
           (recur  projects  (conj r res))))))
 
