@@ -18,6 +18,7 @@
 
 (ns agiladmin.config
   (:require [clojure.pprint :refer [pprint]]
+            [clojure.string :refer [upper-case]]
             [clojure.java.io :as io]
             [auxiliary.config :as aux]
             [auxiliary.core :refer :all]
@@ -70,5 +71,22 @@
   (if (contains? (-> conf (get-in [:agiladmin :projects]) set) proj)
     (let [path  (str (get-in conf [:agiladmin :budgets :path]) proj ".yaml")
           pconf (aux/yaml-read path)]
-      (s/validate Project pconf))
+
+      (try ;; validate project configuration schema
+        (s/validate Project pconf)
+        (catch Exception ex
+          (log/error (str "Invalid project configuration: " proj))
+          (log/error (str "Error: " ex))))
+
+      ;; capitalise all project name keys 
+      (into
+       {} (for [[k v] pconf]
+            [(-> k name upper-case keyword)
+             ;; convert all ids into [:tasks :id] to uppercase
+             (conj v {:tasks
+                      (vec (for [t (:tasks v)]
+                             (into {} (for [[k v] t]
+                                        (if (= k :id)
+                                          [:id (upper-case v)]
+                                          [k v])))))})])))
     (log/error (str "Project not found: " proj))))

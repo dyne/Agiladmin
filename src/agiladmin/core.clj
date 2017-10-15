@@ -131,7 +131,7 @@
   (log/info (str "Loading project hours: " pname))
   (map-timesheets timesheets load-monthly-hours
                   (fn [info]
-                    (and (not (strcasecmp (:tag info) "vol"))
+                    (and (not (strcasecmp (:tag info) "VOL"))
                          (strcasecmp (:project info) pname)))))
 
 (defn get-project-rate
