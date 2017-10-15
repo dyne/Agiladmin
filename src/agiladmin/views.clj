@@ -201,7 +201,8 @@ gantt.parse(tasks);
          (-> {:Total_hours  (-> ($ :hours costs) wrap sum)
               :Voluntary_hours (->> ($where {:tag "VOL"} costs)
                                     ($ :hours) wrap sum)
-              :Total_billed (-> ($ :cost costs) wrap sum)}
+              :Total_billed (->> ($where ($fn [tag] (not (strcasecmp tag "vol")))
+                                         costs) ($ :cost) wrap sum)}
              to-dataset to-table)
 
          [:h2 "Monthly totals"]
