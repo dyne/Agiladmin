@@ -126,16 +126,18 @@
        (let [config (web/check-session request)]
          (web/render
           (let [conf (merge default-settings config)]
-            [:div
-
-             [:div
+            [:div {:class "container-fluid"}
+             [:h2 "SSH authentication keys"]
+             [:div "Public: "
+              [:pre
+               (slurp
+                (str
+                 (get-in
+                  conf
+                  [:agiladmin :budgets :ssh-key]) ".pub"))]]
+             [:div {:class "row-fluid"}
               [:h2 "Configuration"]
-                (present/edn->html conf)]
-               [:div
-                [:h2 "SSH authentication keys"]
-                [:div "Public: " [:pre (slurp (str (:ssh-key conf) ".pub"))]]]
-
-             ]))))
+                (present/edn->html (:agiladmin conf))]]))))
 
   (POST "/pull" request
         (let [config (web/check-session request)
