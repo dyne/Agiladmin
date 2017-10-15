@@ -169,9 +169,16 @@
                          (fn [name proj tag task hours]
                            (if-let [cost (get-in projects [(keyword proj) :rates
                                                            (keyword name)])]
-                             (if (> cost 0) (* cost hours) 0)
+                             (if (> cost 0) (round (* cost hours)) 0)
                              ;; else
                              0))))))
+
+(defn average
+  "makes an average of the values of a certain column in a dataset"
+  [col data]
+  (let [count (log/spy (nrow data))
+        tot   (-> ($ col data) wrap sum log/spy)]
+    (round (/ tot count))))
 
 (defn load-timesheet [path]
   (let [ts (load-workbook path)

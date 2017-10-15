@@ -220,8 +220,10 @@ gantt.parse(tasks);
               :Voluntary_hours (->> ($where {:tag "VOL"} costs)
                                     ($ :hours) wrap sum)
               :Total_billed (->> ($where ($fn [tag] (not (strcasecmp tag "vol")))
-                                         costs) ($ :cost) wrap sum)}
-             to-dataset to-table)
+                                         costs) ($ :cost) wrap sum round)
+              :Monthly_average (->> ($rollup :sum :cost :month costs)
+                                    (average :cost))}
+              to-dataset to-table)
 
          [:h2 "Monthly totals"]
          ;; cycle all months to 13 (off-by-one)
