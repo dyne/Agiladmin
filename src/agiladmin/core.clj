@@ -104,6 +104,8 @@
                       :task (if-not (blank? task) (upper-case task) "")
                       :tag  (if-not (blank? tag)  (upper-case tag)  "")
                       :hours hours} nil)]
+        (f/when-failed [e]
+          (log/error (f/message e)))
         (if (empty? cols) (if (nil? entry) res (conj res entry))
             (recur  cols  (if (nil? entry) res (conj res entry))))))))
 

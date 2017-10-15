@@ -23,6 +23,7 @@
             [auxiliary.config :as aux]
             [auxiliary.core :refer :all]
             [taoensso.timbre :as log]
+            [failjure.core :as f]
             [schema.core :as s]
             [cheshire.core :refer :all]))
 
@@ -75,7 +76,7 @@
       (try ;; validate project configuration schema
         (s/validate Project pconf)
         (catch Exception ex
-          (log/error (str "Invalid project configuration: " proj))
+          (f/fail (str "Invalid project configuration: " proj))
           (log/error (str "Error: " ex))))
 
       ;; capitalise all project name keys 
