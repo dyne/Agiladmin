@@ -43,6 +43,7 @@
   {s/Keyword
    {:start_date s/Str
     :duration   s/Num
+    (s/optional-key :cph) s/Num
     :rates {s/Keyword s/Num}
     :tasks [{:id s/Str
              :text s/Str

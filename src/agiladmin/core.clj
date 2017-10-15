@@ -66,6 +66,17 @@
   operations on a columns that return a single element"
   [ele] (if (coll? ele) ele (list ele)))
 
+(defn round
+  "rounds a float to the first 2 positions after the comma"
+  [^double f]
+    (let [factor (Math/pow 10 2)]
+      (/ (Math/floor (* f factor)) factor)))
+
+(defn percentage
+  "calculates a percentage and rounds"
+  [^double p ^double t]
+  (str (round (/ (* p 100.0) t)) "%"))
+
 (defn get-cell
   "return the value of cell in sheet at column and row position"
   [sheet col row]

@@ -78,10 +78,11 @@
 (defn project-view [config request]
   (let [projname      (get-in request [:params :project])
         project-conf  (conf/load-project config projname)
+        conf          (get project-conf (keyword projname))
         ts-path       (get-in config [:agiladmin :budgets :path])
         timesheets    (load-all-timesheets ts-path #".*_timesheet_.*xlsx$")
-        project-hours (load-project-monthly-hours timesheets projname)
-        monthly-costs (derive-costs project-hours config project-conf)]
+        project-hours (-> (load-project-monthly-hours timesheets projname)
+                          (derive-costs config project-conf))]
 
     ;; write the budget file with updated hours
     ;; (write-workbook-sheet (str "budgets/" projfile) "Personnel hours"
@@ -89,8 +90,7 @@
 
     (web/render
      [:div {:style "container-fluid"}
-      (if-not (empty? (-> project-conf
-                          (get-in [(keyword projname) :tasks])))
+      (if-not (empty? (:tasks conf))
         [:div {:style "container-fluid"}
          [:h1 projname
           [:button {:class "pull-right btn btn-info"
@@ -100,9 +100,7 @@
                 :style "width:100%; min-height:20em; position: relative;" :id "gantt"}]
          [:script {:type "text/javascript"}
          (str (slurp (io/resource "gantt-loader.js")) "
-var tasks = { data:" (-> project-conf
-                         (get-in [(keyword projname) :tasks])
-                         json/generate-string) "};
+var tasks = { data:" (-> (:tasks conf) json/generate-string) "};
 gantt.init('gantt');
 gantt.parse(tasks);
 ")]]
@@ -116,7 +114,8 @@ gantt.parse(tasks);
          (->> ($rollup :sum :hours :month project-hours)
               ($order :month :asc))
          [:div {:class "col-lg-6"}
-          (chart-to-image (bar-chart :month :hours :group-by :month :legend false))])
+          (chart-to-image
+           (bar-chart :month :hours :group-by :month :legend false))])
        ;; (time-series-plot
        ;;                           (date-to-ts $data :month)
        ;;                           ($ :hours)))])
@@ -125,12 +124,34 @@ gantt.parse(tasks);
        (with-data ($rollup :sum :hours :name project-hours)
          [:div {:class "col-lg-6"}
           (chart-to-image
-           (pie-chart ($ :name)
+           (pie-chart (-> ($ :name) wrap)
                       ($ :hours)
                       :legend true
-                      :title (str projname " hours used")))
-          [:h2 {:class "text-center"}
-           (str "Total hours: " (sum ($ :hours project-hours)))]])]
+                      :title (str projname " hours used")))])]
+
+      [:div {:class "container-fluid"}
+       [:h1 "Totals"]
+       (let [billed (-> ($ :cost project-hours) wrap sum round)
+             hours (-> ($ :hours project-hours) wrap sum round)
+             tasks (:tasks conf)]
+         (-> [{:total "Current"
+               :cost billed
+               :hours hours
+               :cph (round (/ billed hours))}]
+             (concat
+              (if (empty? tasks) []
+                  (let [max_hours (-> (map #(* (get % :pm) 150) tasks)
+                                      wrap sum)
+                        max_cost (* (:cph conf) max_hours)]
+                    [{:total "Progress"
+                     :cost (percentage billed max_cost)
+                     :hours (percentage hours max_hours)
+                     :CPH ""}
+                     {:total "Total"
+                      :cost max_cost
+                      :hours max_hours
+                      :CPH (:cph conf)}])))
+             to-dataset to-table))]
 
 
       [:div {:class "row-fluid"}
@@ -155,24 +176,22 @@ gantt.parse(tasks);
 
          [:div {:class "tab-pane fade in active" :id "task-sum-hours"}
           [:h2 "Totals grouped per person and per task"]
-          (-> (aggregate [:hours :cost] [:name :task] :dataset monthly-costs)
-              ;; (derive-costs config project-conf)
+          (-> (aggregate [:hours :cost] [:name :task] :dataset project-hours)
               (sel :cols [:name :task :hours :cost]) to-table)]
 
          [:div {:class "tab-pane fade" :id "task-totals"}
           [:h2 "Totals per task"]
-          (-> (aggregate [:hours :cost] :task :dataset monthly-costs)
-              ;; (derive-costs config project-conf)
+          (-> (aggregate [:hours :cost] :task :dataset project-hours)
               (sel :cols [:task :hours :cost]) to-table)]
 
          [:div {:class "tab-pane fade" :id "person-totals"}
           [:h2 "Totals per person"]
-          (-> (aggregate [:hours :cost] :name :dataset monthly-costs)
+          (-> (aggregate [:hours :cost] :name :dataset project-hours)
               (sel :cols [:name :hours :cost]) to-table)]
 
          [:div {:class "tab-pane fade" :id "monthly-details"}
           [:h2 "Detail of monthly hours used per person on each task"]
-          (-> ($order :month :desc monthly-costs)
+          (-> ($order :month :desc project-hours)
               to-table)]]
 
         [:div [:h2 "State of budget repository"]
