@@ -106,14 +106,15 @@
             :else (readme request))))
 
   (GET "/log" request
-       (let [config (web/check-session request)]
+       (let [config (web/check-session request)
+             path (io/file (get-in config [:agiladmin :budgets :path]))]
          (conj {:session config}
                (cond
-                 (.isDirectory (io/file "budgets"))
+                 (.isDirectory path)
                  ;; renders the /log webpage into this call
                  (views/index-log-view config request)
 
-                 (.exists (io/file "budgets"))
+                 (.exists path)
                  (web/render-error
                   config
                   [:h1 (log/spy :error "Invalid budgets directory.")])
@@ -141,10 +142,11 @@
 
   (POST "/pull" request
         (let [config (web/check-session request)
-              repo (load-repo "budgets")]
-          (with-identity {:name (slurp (:ssh-key config))
-                          :private (slurp (:ssh-key config))
-                          :public  (slurp (str (:ssh-key config) ".pub")
+              budgets (get-in config [:agiladmin :budgets])
+              repo (load-repo (:path budgets))]
+          (with-identity {:name (slurp (:ssh-key budgets))
+                          :private (slurp (:ssh-key budgets))
+                          :public  (slurp (str (:ssh-key budgets) ".pub")
                           :passphrase "")
                           :exclusive true}
             (git-pull repo))

@@ -38,7 +38,8 @@
    [clj-jgit.querying  :refer :all]))
 
 (defn index-log-view [config request]
-  (let [repo (load-repo "budgets")]
+  (let [repo (load-repo "budgets")
+        path (get-in config [:agiladmin :budgets :path])]
     (web/render
      [:div {:class "row-fluid"}
 
@@ -46,11 +47,10 @@
 
        [:h2 "Projects"]
        ;; list all projects
-       (for [f (->> (util/list-files-matching "budgets" #"budget.*xlsx$")
-                    (map #(.getName %)))]
+       (for [f (get-in config [:agiladmin :projects])]
          [:div {:class "row log-project"}
           [:div {:class "col-lg-4"}
-           (web/button config "/project" (util/proj-name-from-path f)
+           (web/button config "/project" f
                        (hf/hidden-field "project" f))]])
 
        [:h2 "People"]
