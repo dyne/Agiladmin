@@ -84,9 +84,9 @@
   (if-let [sheet (select-sheet month (:xls timesheet))]
     (loop [[n & cols] timesheet-cols-projects
            res []]
-      (let [proj  (get-cell sheet n "7") ;; row project
-            task  (get-cell sheet n "8") ;; row task
-            tag   (get-cell sheet n "9") ;; row tag(s) (TODO: support multiple tags)
+      (let [proj  (f/ok-> (get-cell sheet n "7") str) ;; row project
+            task  (f/ok-> (get-cell sheet n "8") str) ;; row task
+            tag   (f/ok-> (get-cell sheet n "9") str) ;; row tag(s) (TODO: support multiple tags)
             ;; take lowest in row totals starting from 42 (as month lenght varies)
             hours  (first (for [i timesheet-rows-hourtots
                                 :let  [cell (get-cell sheet n i)]
@@ -104,8 +104,10 @@
                       :task (if-not (blank? task) (upper-case task) "")
                       :tag  (if-not (blank? tag)  (upper-case tag)  "")
                       :hours hours} nil)]
-        (f/when-failed [e]
-          (log/error (f/message e)))
+        ;; check for errors
+        (map #(when (f/failed? %) (log/error (f/message %)))
+             [proj task tag])
+
         (if (empty? cols) (if (nil? entry) res (conj res entry))
             (recur  cols  (if (nil? entry) res (conj res entry))))))))
 
@@ -160,44 +162,6 @@
                              ;; else
                              0))))))
 
-(defn get-billable-month
-  "gets all hours of each projects in a month, multiply by the rate of
-  each project and calculate total billable amount for that month"
-  [rates timesheet year month]
-  (if-let [sheet (select-sheet (str year "-" month) (:xls timesheet))]
-    (loop [[c & cols] timesheet-cols-projects
-           res []]
-      (let [proj  (get-cell sheet c "7") ;; row project
-            task  (get-cell sheet c "8") ;; row task
-            tag   (get-cell sheet c "9") ;; row tag(s)
-            ;; TODO: support multiple tags
-            hours (if-let [h (first
-                              (for [i timesheet-rows-hourtots
-                                    :let  [cell (get-cell sheet c i)]
-                                    :when (not (nil? cell))]
-                                cell))]
-                    (Double. h) 0)
-
-            rate  (if-let
-                      [r (get-project-rate
-                          rates (:name timesheet) (str proj))] r 0)
-
-            entry (if (and (not (nil? hours))
-                           (> hours 0)
-                           (> rate 0)
-                           (not (blank? proj))
-                           (not (strcasecmp tag "vol")))
-                    {:name (:name timesheet)
-                     :month (str year "-" month)
-                     :project (upper-case proj)
-                     :task  task
-                     :hours hours
-                     :rate  rate
-                     :billable (* hours rate)} nil)]
-
-        (if (empty? cols) (to-dataset (if (nil? entry) res (conj res entry)))
-            (recur cols   (if (nil? entry) res (conj res entry))))))))
-
 (defn load-timesheet [path]
   (let [ts (load-workbook path)
         shs (first (sheet-seq ts))
@@ -245,27 +209,3 @@
     (let [r (conf/load-project conf p)]
       (if (empty? projects) (conj r res)
           (recur  projects  (conj r res))))))
-
-;; (defn push-total-hours
-;;   "push the collected hours in the atom"
-;;   [lazy-list-hours]
-;;   (swap! total-hours #(into % (vec (map first lazy-list-hours)))))
-
-;; (defn write-total-hours
-;;   "writes lazy sequences produced by get-project into rows
-;;   in a new sheet 'Personnel costs' created in the budget workbook"
-;;   [budget-file]
-;;   (let [wb (load-workbook budget-file)
-;;         ;; or use add-sheet!
-;;         sheet (if-let [s (select-sheet "Personnel hours" wb)]
-;;                 s
-;;                 (add-sheet! wb "Personnel hours"))]
-;;     (remove-all-rows! sheet)
-;;     ;; doall?
-;;     (add-rows! sheet (into [["Name" "Date" "Task" "Hours"]] @total-hours))
-;;     wb))
-
-(defn load-person-hours
-  ;; TODO: implement load-person-hours
-  "load all timesheets from a person and return a bidimensional vector"
-  [path regex])
