@@ -21,11 +21,13 @@
 (ns agiladmin.views
   (:require
    [clojure.java.io :as io]
+   [clojure.pprint :refer [pprint]]
    [agiladmin.core :refer :all]
-   [agiladmin.utils :refer :all]
+   [agiladmin.utils :as util]
    [agiladmin.graphics :refer :all]
    [agiladmin.webpage :as web]
    [agiladmin.config :as conf]
+   [auxiliary.string :refer [strcasecmp]]
    [taoensso.timbre :as log]
    [cheshire.core :as json]
    [hiccup.form :as hf]
@@ -44,19 +46,19 @@
 
        [:h2 "Projects"]
        ;; list all projects
-       (for [f (->> (list-files-matching "budgets" #"budget.*xlsx$")
+       (for [f (->> (util/list-files-matching "budgets" #"budget.*xlsx$")
                     (map #(.getName %)))]
          [:div {:class "row log-project"}
           [:div {:class "col-lg-4"}
-           (web/button config "/project" (proj-name-from-path f)
+           (web/button config "/project" (util/proj-name-from-path f)
                        (hf/hidden-field "project" f))]])
 
        [:h2 "People"]
        ;; list all people
-       (for [f (->> (list-files-matching
+       (for [f (->> (util/list-files-matching
                      "budgets" #".*_timesheet_.*xlsx$")
                     (map #(second
-                           (re-find regex-timesheet-to-name
+                           (re-find util/regex-timesheet-to-name
                                     (.getName %)))) sort distinct)]
          ;; (map #(.getName %)) distinct)]
          [:div {:class "row log-person"}
@@ -68,14 +70,14 @@
 
       [:div {:class "commitlog col-lg-6"}
        (web/button config "/pull" (str "Pull updates from " (:git config)))
-        (->> (git-log repo)
-             (map #(commit-info repo %))
-             (map #(select-keys % [:author :message :time :changed_files]))
-             present/edn->html)]])))
+       (->> (git-log repo)
+            (map #(commit-info repo %))
+            (map #(select-keys % [:author :message :time :changed_files]))
+            present/edn->html)]])))
 
 (defn project-view [config request]
   (let [projfile      (get-in request [:params :project])
-        projname      (proj-name-from-path projfile)
+        projname      (util/proj-name-from-path projfile)
         project-conf  (conf/load-project config projname)
         ts-path       (get-in config [:agiladmin :budgets :path])
         timesheets    (load-all-timesheets ts-path #".*_timesheet_.*xlsx$")
@@ -88,22 +90,25 @@
 
     (web/render
      [:div {:style "container-fluid"}
-      [:h1 projname
-	    [:button {:class "pull-right btn btn-info"
-                  :onclick "toggleMode(this)"} "Scale to Fit"]]
-
-
-      ;; GANTT chart
-      [:div {:class "row-fluid"
-             :style "width:100%; min-height:20em; position: relative;" :id "gantt"}]
-       [:script {:type "text/javascript"}
-        (str (slurp (io/resource "gantt-loader.js")) "
+      (if-not (empty? (-> project-conf
+                          (get-in [(keyword projname) :tasks])))
+        [:div {:style "container-fluid"}
+         [:h1 projname
+          [:button {:class "pull-right btn btn-info"
+                    :onclick "toggleMode(this)"} "Scale to Fit"]]
+         ;; GANTT chart
+         [:div {:class "row-fluid"
+                :style "width:100%; min-height:20em; position: relative;" :id "gantt"}]
+         [:script {:type "text/javascript"}
+         (str (slurp (io/resource "gantt-loader.js")) "
 var tasks = { data:" (-> project-conf
                          (get-in [(keyword projname) :tasks])
                          json/generate-string) "};
 gantt.init('gantt');
 gantt.parse(tasks);
-")]
+")]]
+        ;; else
+        [:h1 projname])
 
       [:div {:class "row-fluid"}
        ;; --- CHARTS
@@ -113,9 +118,9 @@ gantt.parse(tasks);
               ($order :month :asc))
          [:div {:class "col-lg-6"}
           (chart-to-image (bar-chart :month :hours :group-by :month :legend false))])
- ;; (time-series-plot
- ;;                           (date-to-ts $data :month)
- ;;                           ($ :hours)))])
+       ;; (time-series-plot
+       ;;                           (date-to-ts $data :month)
+       ;;                           ($ :hours)))])
 
        ;; pie chart
        (with-data ($rollup :sum :hours :name project-hours)
@@ -142,7 +147,7 @@ gantt.parse(tasks);
                "Task totals"]]
 
          [:li [:a {:href "#person-totals" :data-toggle "pill" }
-              "Person totals"]]
+               "Person totals"]]
 
          [:li [:a {:href "#monthly-details" :data-toggle "pill" }
                "Monthly details"]]]
@@ -171,43 +176,56 @@ gantt.parse(tasks);
           (-> ($order :month :desc monthly-costs)
               to-table)]]
 
-       [:div [:h2 "State of budget repository"]
-        (present/edn->html
-         (-> (load-repo "budgets") git-status))]]]])))
+        [:div [:h2 "State of budget repository"]
+         (present/edn->html
+          (-> (load-repo "budgets") git-status))]]]])))
 
 (defn person-view [config request]
   (let [person (get-in request [:params :person])
         year   (get-in request [:params :year])]
-    (web/render [:div
-                 [:h1 (dotname person)]
-                 [:h2 year]
+    (log/info (str "Loading person: " person " (" year")"))
+    (web/render
+     [:div
+      [:h1 (str year " - " (util/dotname person))]
 
-                 (let [ts (load-timesheet
-                           (str "budgets/" year
-                                "_timesheet_" person ".xlsx"))
-                       projects (load-all-projects config)]
+      (let [ts-path (get-in config [:agiladmin :budgets :path])
+            timesheet (load-timesheet
+                       (str ts-path year "_timesheet_" person ".xlsx"))
+            projects (load-all-projects config)
+            costs (-> (map-timesheets
+                       [timesheet] load-monthly-hours (fn [_] true))
+                      (derive-costs config projects))]
 
-                   ;; cycle all months to 13 (off-by-one)
-                   (for [m (-> (range 1 13) vec rseq)
-                         :let [worked (get-billable-month projects ts year m)
-                               mtot (->> ($ :hours worked) wrap sum)]
-                         :when (> mtot 0)]
-                     [:div {:class "row month-total"}
-                      [:h3 (month-name m) " total bill is "
-                       [:strong (->> ($ :billable worked) wrap sum)]
-                       " for "
-                       (keep #(when (= (:month %) (str year '- m))
-                                (:hours %)) (:sheets ts))
-                       " hours worked across "
-                       (keep #(when (= (:month %) (str year '- m))
-                                (:days %)) (:sheets ts))
-                       " days."]
+        [:div {:class "row-fluid year-total"}
+         [:h2 "Yearly totals"]
+         (-> {:Total_hours  (-> ($ :hours costs) wrap sum)
+              :Voluntary_hours (->> ($where {:tag "VOL"} costs)
+                                    ($ :hours) wrap sum)
+              :Total_billed (-> ($ :cost costs) wrap sum)}
+             to-dataset to-table)
 
-                      [:div {:class "month-detail"}
-                       (to-table worked)]]))
+         [:h2 "Monthly totals"]
+         ;; cycle all months to 13 (off-by-one)
+         (for [m (-> (range 1 13) vec rseq)
+               :let [worked ($where {:month (str year '- m)} costs)
+                     mtot (-> ($ :hours worked) wrap sum)]
+               :when (> mtot 0)]
+           [:div {:class "row-fluid month-total"}
+            [:h3 (util/month-name m) " total bill is "
+             [:strong (-> ($ :cost worked) wrap sum)]
+             " for "
+             (keep #(when (= (:month %) (str year '- m))
+                      (:hours %)) (:sheets timesheet))
+             " hours worked across "
+             (keep #(when (= (:month %) (str year '- m))
+                      (:days %)) (:sheets timesheet))
+             " days."]
 
-                 [:div {:class "col-lg-2"}
-                  (web/button config "/person" "Previous year"
-                              (list
-                               (hf/hidden-field "year" (dec (Integer. year)))
-                               (hf/hidden-field "person" person)))]])))
+            [:div {:class "month-detail"}
+             (to-table worked)]])
+
+        [:div {:class "col-lg-2"}
+         (web/button config "/person" "Previous year"
+                     (list
+                      (hf/hidden-field "year" (dec (Integer. year)))
+                      (hf/hidden-field "person" person)))]])])))
