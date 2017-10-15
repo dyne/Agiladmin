@@ -76,8 +76,7 @@
             present/edn->html)]])))
 
 (defn project-view [config request]
-  (let [projfile      (get-in request [:params :project])
-        projname      (util/proj-name-from-path projfile)
+  (let [projname      (get-in request [:params :project])
         project-conf  (conf/load-project config projname)
         ts-path       (get-in config [:agiladmin :budgets :path])
         timesheets    (load-all-timesheets ts-path #".*_timesheet_.*xlsx$")
@@ -85,8 +84,8 @@
         monthly-costs (derive-costs project-hours config project-conf)]
 
     ;; write the budget file with updated hours
-    (write-workbook-sheet (str "budgets/" projfile) "Personnel hours"
-                          ($order :month :asc project-hours))
+    ;; (write-workbook-sheet (str "budgets/" projfile) "Personnel hours"
+    ;;                       ($order :month :asc project-hours))
 
     (web/render
      [:div {:style "container-fluid"}
