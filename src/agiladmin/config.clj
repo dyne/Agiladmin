@@ -90,5 +90,12 @@
                              (into {} (for [[k v] t]
                                         (if (= k :id)
                                           [:id (upper-case v)]
-                                          [k v])))))})])))
+                                          [k v])))))
+                      ;; creates a map with id strings indexed as keywords
+                      :idx (#(zipmap
+                              (map (fn [id]
+                                     (-> (get id :id)
+                                         upper-case keyword)) %)
+                              %) (:tasks v))}
+                   )])))
     (log/error (str "Project not found: " proj))))

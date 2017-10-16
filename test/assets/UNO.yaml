@@ -1,6 +1,7 @@
 uno:
   start_date: 01-01-2016
   duration: 12
+  cph: 45
 
   rates:
     L.Pacioli: 40
