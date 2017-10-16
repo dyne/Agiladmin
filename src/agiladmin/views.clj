@@ -82,8 +82,7 @@
         ts-path       (get-in config [:agiladmin :budgets :path])
         timesheets    (load-all-timesheets ts-path #".*_timesheet_.*xlsx$")
         project-hours (-> (load-project-monthly-hours timesheets projname)
-                          (derive-costs config project-conf))
-        task-progress (derive-progress conf project-hours)]
+                          (derive-costs config project-conf))]
 
     ;; write the budget file with updated hours
     ;; (write-workbook-sheet (str "budgets/" projfile) "Personnel hours"
@@ -117,10 +116,9 @@ gantt.parse(tasks);
          [:div {:class "col-lg-6"}
           (chart-to-image
            (bar-chart :month :hours :group-by :month :legend false))])
-       ;; (time-series-plot
-       ;;                           (date-to-ts $data :month)
-       ;;                           ($ :hours)))])
-
+       ;; (time-series-plot (date-to-ts $data :month)
+       ;;                   ($ :hours)))])
+       
        ;; pie chart
        (with-data ($rollup :sum :hours :name project-hours)
          [:div {:class "col-lg-6"}

@@ -18,11 +18,6 @@
                            [org.slf4j/log4j-over-slf4j "1.7.25"]
                            [org.slf4j/jul-to-slf4j "1.7.25"]
                            [org.slf4j/jcl-over-slf4j "1.7.25"]
-                           ;; [org.clojure/tools.logging "0.4.0"]
-                           ;; [log4j/log4j "1.2.17" :exclusions [javax.mail/mail
-                           ;;                                    javax.jms/jms
-                           ;;                                    com.sun.jmdk/jmxtools
-                           ;;                                    com.sun.jmx/jmxri]]
 
                            ;; error handling
                            [failjure "1.2.0"]
