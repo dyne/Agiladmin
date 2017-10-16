@@ -82,7 +82,8 @@
         ts-path       (get-in config [:agiladmin :budgets :path])
         timesheets    (load-all-timesheets ts-path #".*_timesheet_.*xlsx$")
         project-hours (-> (load-project-monthly-hours timesheets projname)
-                          (derive-costs config project-conf))]
+                          (derive-costs config project-conf))
+        task-progress (derive-progress conf project-hours)]
 
     ;; write the budget file with updated hours
     ;; (write-workbook-sheet (str "budgets/" projfile) "Personnel hours"
@@ -181,8 +182,8 @@ gantt.parse(tasks);
 
          [:div {:class "tab-pane fade" :id "task-totals"}
           [:h2 "Totals per task"]
-          (-> (aggregate [:hours :cost] :task :dataset project-hours)
-              (sel :cols [:task :hours :cost]) to-table)]
+          (-> (derive-task-hours-completed project-hours project-conf)
+              (sel :cols [:task :hours :completed]) to-table)]
 
          [:div {:class "tab-pane fade" :id "person-totals"}
           [:h2 "Totals per person"]
@@ -193,6 +194,9 @@ gantt.parse(tasks);
           [:h2 "Detail of monthly hours used per person on each task"]
           (-> ($order :month :desc project-hours)
               to-table)]]
+
+        [:div [:h2 "Project configuration"]
+         (present/edn->html conf)]
 
         [:div [:h2 "State of budget repository"]
          (present/edn->html

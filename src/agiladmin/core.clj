@@ -69,13 +69,22 @@
 (defn round
   "rounds a float to the first 2 positions after the comma"
   [^double f]
+  ;; TODO: error checking on nil and zero using failjure + tests
     (let [factor (Math/pow 10 2)]
       (/ (Math/floor (* f factor)) factor)))
 
 (defn percentage
   "calculates a percentage and rounds"
-  [^double p ^double t]
-  (str (round (/ (* p 100.0) t)) "%"))
+  ;; TODO: error checking on nil and zero using failjure + tests
+  [^double part ^double total]
+  (str (round (/ (* part 100) total)) "%"))
+
+(defn average
+  "makes an average of the values of a certain column in a dataset"
+  [col data]
+  (let [count (nrow data)
+        tot   (-> ($ col data) wrap sum)]
+    (round (/ tot count))))
 
 (defn get-cell
   "return the value of cell in sheet at column and row position"
@@ -173,12 +182,19 @@
                              ;; else
                              0))))))
 
-(defn average
-  "makes an average of the values of a certain column in a dataset"
-  [col data]
-  (let [count (log/spy (nrow data))
-        tot   (-> ($ col data) wrap sum log/spy)]
-    (round (/ tot count))))
+(defn derive-task-hours-completed
+  "gets a dataset of project hours and costs and add a column deriving
+  the hours and costs progress on each task according to its
+  configured pm and the pm used"
+  [p-hours conf]
+  (with-data (aggregate :hours [:project :task] :dataset p-hours)
+    (add-derived-column
+     :completed [:project :task :hours]
+     (fn [proj task hours]
+       (let [p   (-> proj keyword)
+             t   (-> task keyword)]
+         (if-let [tot (get-in conf [p :idx t :pm])]
+           (-> hours (/ (* tot 150)) round)))))))
 
 (defn load-timesheet [path]
   (let [ts (load-workbook path)
