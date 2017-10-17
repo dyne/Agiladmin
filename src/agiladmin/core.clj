@@ -187,7 +187,7 @@
   the hours and costs progress on each task according to its
   configured pm and the pm used"
   [p-hours conf]
-  (with-data (aggregate :hours [:project :task] :dataset p-hours)
+  (with-data p-hours
     (add-derived-column
      :completed [:project :task :hours]
      (fn [proj task hours]
@@ -195,6 +195,33 @@
              t   (-> task keyword)]
          (if-let [tot (get-in conf [p :idx t :pm])]
            (-> hours (/ (* tot 150)) round)))))))
+
+(defn derive-task-hours-totals
+  "gets a dataset of project hours and costs and add a column deriving
+  the total hours configured in the project for each task according to
+  its configured pm and the pm used"
+  [p-hours conf]
+  (with-data p-hours
+    (add-derived-column
+     :tot-hours [:project :task]
+     (fn [proj task]
+       (let [p   (-> proj keyword)
+             t   (-> task keyword)]
+         (if-let [tot (get-in conf [p :idx t :pm])]
+           (* tot 150)))))))
+
+
+(defn derive-task-descriptions
+  "gets a dataset of project hours and costs and add a column deriving
+  the descriptions of each task  configured in the project"
+  [p-hours conf]
+  (with-data p-hours
+    (add-derived-column
+     :description [:project :task]
+     (fn [proj task]
+       (let [p   (-> proj keyword)
+             t   (-> task keyword)]
+         (get-in conf [p :idx t :text]))))))
 
 (defn load-timesheet [path]
   (let [ts (load-workbook path)

@@ -108,6 +108,14 @@ gantt.parse(tasks);
         [:h1 projname])
 
       [:div {:class "row-fluid"}
+       [:h2 "Totals per task"]
+       (-> (aggregate :hours [:project :task] :dataset project-hours)
+           (derive-task-hours-completed project-conf)
+           (derive-task-hours-totals    project-conf)
+           (derive-task-descriptions    project-conf)
+           (sel :cols [:task :hours :tot-hours :completed :description]) to-table)]
+
+      [:div {:class "row-fluid"}
        ;; --- CHARTS
        ;; time series
        (with-data
@@ -180,8 +188,11 @@ gantt.parse(tasks);
 
          [:div {:class "tab-pane fade" :id "task-totals"}
           [:h2 "Totals per task"]
-          (-> (derive-task-hours-completed project-hours project-conf)
-              (sel :cols [:task :hours :completed]) to-table)]
+          (-> (aggregate :hours [:project :task] :dataset project-hours)
+              (derive-task-hours-completed project-conf)
+              (derive-task-hours-totals    project-conf)
+              (derive-task-descriptions    project-conf)
+              (sel :cols [:task :hours :tot-hours :completed :description]) to-table)]
 
          [:div {:class "tab-pane fade" :id "person-totals"}
           [:h2 "Totals per person"]
