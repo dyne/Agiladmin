@@ -83,18 +83,21 @@
 (defroutes app-routes
   (GET "/" request
 
-       (let [config (web/check-session request)
-             conf (merge default-settings config)]
 
-         (if (not (.exists (-> conf (get-in [:agiladmin :budgets :ssh-key]) io/as-file)))
+       (let [config  (web/check-session request)
+             conf    (merge default-settings config)
+             keypath (get-in conf [:agiladmin :budgets :ssh-key])]
+
+         (if-not (.exists (io/as-file keypath))
            (let [kp (generate-key-pair)]
              (log/info "Generating SSH keypair...")
-             (write-key-pair kp (:ssh-key conf))))
+             (clojure.pprint/pprint kp)
+             (write-key-pair kp keypath)))
 
           (cond
 
             (false? (:config conf))
-            (->> ["No config file found in 'config.json'. Generate one with your values, example:"
+            (->> ["No config file found. Generate one with your values2, example:"
                   [:pre "
 {
     \"git\" : \"ssh://git@gogs.dyne.org/dyne/budgets\",
@@ -154,15 +157,24 @@
                 (views/index-log-view config request))))
 
   (POST "/import" request
-        (let [config (web/check-session request)]
-          (conj {:session config}
-                (web/render [:div
-                             (with-identity {:name (slurp (:ssh-key config))
-                                             :private (slurp (:ssh-key config))
-                                             :public  (slurp (str (:ssh-key config) ".pub")
-                                                             :passphrase "")
-                                             :exclusive true}
-                               (git-clone (:git config) "budgets"))]))))
+        (let [config  (web/check-session request)
+              keypath (get-in config [:agiladmin :budgets :ssh-key])
+              gitpath (get-in config [:agiladmin :budgets :git])]
+          (web/render
+           [:div
+            (with-identity {:name (slurp keypath)
+                            :private (slurp keypath)
+                            :public  (slurp (str keypath ".pub")
+                                            :passphrase "")
+                            :exclusive true}
+              (try (git-clone gitpath "budgets")
+                   (catch Exception ex
+                     (log/error (str "Error: " ex))
+                     [:div
+                      [:h1 "Error cloning git repo"]
+                      [:h2 ex]
+                      [:p "Add your public key to the repository to access it:"
+                       [:pre (-> (str keypath ".pub") slurp str)]]])))])))
 
   (POST "/project" request
         (if-let [config (web/check-session request)]
