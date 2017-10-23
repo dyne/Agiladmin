@@ -232,7 +232,7 @@ gantt.parse(tasks);
          (-> {:Total_hours  (-> ($ :hours costs) wrap sum)
               :Voluntary_hours (->> ($where {:tag "VOL"} costs)
                                     ($ :hours) wrap sum)
-              :Total_billed (->> ($where ($fn [tag] (not (strcasecmp tag "vol")))
+              :Total_billed (->> ($where ($fn [tag] (not (strcasecmp tag "VOL")))
                                          costs) ($ :cost) wrap sum round)
               :Monthly_average (->> ($rollup :sum :cost :month costs)
                                     (average :cost))}
@@ -247,9 +247,7 @@ gantt.parse(tasks);
            [:div {:class "row-fluid month-total"}
             [:h3 (util/month-name m) " total bill is "
              [:strong (-> ($ :cost worked) wrap sum)]
-             " for "
-             (keep #(when (= (:month %) (str year '- m))
-                      (:hours %)) (:sheets timesheet))
+             " for " mtot
              " hours worked across "
              (keep #(when (= (:month %) (str year '- m))
                       (:days %)) (:sheets timesheet))

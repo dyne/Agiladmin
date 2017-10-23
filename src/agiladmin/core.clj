@@ -110,8 +110,9 @@
             ;; take lowest in row totals starting from 42 (as month lenght varies)
             hours  (first (for [i timesheet-rows-hourtots
                                 :let  [cell (get-cell sheet n i)]
-                                :when (not (nil? cell))] cell))
-            entry  (if (and (not= hours "0") (not (blank? proj))
+                                :when  (not (nil? cell))]
+                            cell))
+            entry  (if (and (> hours 0.0) (not (blank? proj))
                             (cond-fn {:project proj
                                       :task    task
                                       :tag     tag
@@ -178,7 +179,11 @@
                          (fn [name proj tag task hours]
                            (if-let [cost (get-in projects [(keyword proj) :rates
                                                            (keyword name)])]
-                             (if (> cost 0) (round (* cost hours)) 0)
+                             (if (and (> cost 0) (not (strcasecmp tag "VOL")))
+                               ;; then
+                               (round (* cost hours))
+                               ;; else
+                               0)
                              ;; else
                              0))))))
 
