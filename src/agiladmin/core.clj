@@ -175,8 +175,8 @@
      (derive-costs hours conf projects)))
   ([hours conf projects]
    (with-data hours
-     (add-derived-column :cost [:name :project :tag :task :hours]
-                         (fn [name proj tag task hours]
+     (add-derived-column :cost [:name :project :tag :hours]
+                         (fn [name proj tag hours]
                            (if-let [cost (get-in projects [(keyword proj) :rates
                                                            (keyword name)])]
                              (if (and (> cost 0) (not (strcasecmp tag "VOL")))
@@ -186,6 +186,21 @@
                                0)
                              ;; else
                              0))))))
+
+(defn derive-cost-per-hour
+  "gets a dataset of hours and adds a 'cph' column deriving the cost
+  per hour from the project configuration"
+  ([hours conf]
+   (if-let [projects (load-all-projects conf)]
+     (derive-cost-per-hour hours conf projects)))
+  ([hours conf projects]
+   (with-data hours
+     (add-derived-column :cph [:name :project]
+                         (fn [name proj]
+                           (if-let [cph (get-in projects [(keyword proj) :rates
+                                                          (keyword name)])]
+                             cph 0))))))
+
 
 (defn derive-task-hours-completed
   "gets a dataset of project hours and costs and add a column deriving

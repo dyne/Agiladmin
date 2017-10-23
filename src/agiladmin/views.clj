@@ -245,16 +245,21 @@ gantt.parse(tasks);
                      mtot (-> ($ :hours worked) wrap sum)]
                :when (> mtot 0)]
            [:div {:class "row-fluid month-total"}
-            [:h3 (util/month-name m) " total bill is "
+            [:h3 (util/month-name m) " total bill for "
+             (util/dotname person) " is "
              [:strong (-> ($ :cost worked) wrap sum)]
              " for " mtot
              " hours worked across "
              (keep #(when (= (:month %) (str year '- m))
                       (:days %)) (:sheets timesheet))
-             " days."]
+             " days, including "
+             (->> ($where {:tag "VOL"} worked)
+                  ($ :hours) wrap sum) " voluntary hours." ]
 
             [:div {:class "month-detail"}
-             (to-table worked)]])
+             (->> (derive-cost-per-hour worked config projects)
+                 ($ [:project :task :tag :hours :cost :cph])
+                 to-table)]])
 
         [:div {:class "col-lg-2"}
          (web/button config "/person" "Previous year"
