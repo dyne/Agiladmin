@@ -123,7 +123,7 @@
                   [:h1 (log/spy :error "Invalid budgets directory.")])
 
                  :else (web/render [:div "Budgets not yet imported"
-                                    (web/button config "/import" "Import")
+                                    (web/button "/import" "Import")
                                     (web/show-config config)])))))
 
   (GET "/config" request

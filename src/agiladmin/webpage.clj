@@ -40,12 +40,14 @@
 
 
 (defn button
-  ([config url text] (button config url text [:p]))
+  ([url text] (button url text [:p]))
 
-  ([config url text field]
+  ([url text field] (button url text field "btn-secondary btn-lg"))
+
+  ([url text field type]
    (hf/form-to [:post url]
                field ;; can be an hidden key/value field (project, person, etc)
-               (hf/submit-button {:class "btn btn-secondary btn-lg"} text))))
+               (hf/submit-button {:class (str "btn " type)} text))))
 
 
 

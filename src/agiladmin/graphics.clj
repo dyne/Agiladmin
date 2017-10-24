@@ -20,6 +20,8 @@
   (:import  [org.jfree.chart ChartUtilities]) ; experiment on inline images
   (:require [clojure.data.codec.base64 :as b64]
             [hiccup.element :refer :all]
+            [hiccup.form :as hf]
+            [agiladmin.webpage :as web]
             [incanter.charts :refer :all]
             [incanter.core :refer :all]))
 
@@ -38,6 +40,33 @@
     (for [t (:rows data)]
       [:tr nil (for [tt t] [:td nil tt])])]])
 
+
+(defn to-monthly-bill-table
+  "Takes a dataset and converts it into an hiccup table with details
+  added for the monthly billing of a person, ready for inclusion in a
+  hiccup web page"
+  [projects data]
+  [:table {:class "sortable table"}
+   [:thead nil
+    [:tr nil (for [t (:column-names data)]
+               [:th nil t])]]
+   [:tbody nil
+    (for [t (:rows data)]
+      ;; views.clj:263 ($ [:project :task :tag :hours :cost :cph])
+      [:tr nil
+       [:td nil (web/button
+                 "/project" (:project t)
+                 (hf/hidden-field "project" (:project t))
+                 "btn-secondary btn-sm")]
+       [:td nil (if-not (= (:task t) "")
+                  [:span (str (:task t) " - ")
+                   [:small (get-in projects [(-> t :project keyword) :idx
+                                             (-> t :task    keyword) :text])]])]
+         [:td nil (:tag t)]
+         [:td nil (:hours t)]
+         [:td nil (:cost t)]
+         [:td nil (:cph t)]])]])
+
 (defn to-excel
   "Takes a dataset and converts it in a format read to be written to
   an excel sheet"
@@ -55,6 +84,8 @@
     column data)))
 
 (defn chart-to-image
+  "Takes an incanter.chart and returns a base64 image for easy
+  inclusion in a web page"
   [chart & {:keys [plot-size aspect-ratio]
             :or   {plot-size 800
                    aspect-ratio 1.618}}]

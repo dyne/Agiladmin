@@ -50,7 +50,7 @@
        (for [f (get-in config [:agiladmin :projects])]
          [:div {:class "row log-project"}
           [:div {:class "col-lg-4"}
-           (web/button config "/project" f
+           (web/button "/project" f
                        (hf/hidden-field "project" f))]])
 
        [:h2 "People"]
@@ -63,13 +63,13 @@
          ;; (map #(.getName %)) distinct)]
          [:div {:class "row log-person"}
           [:div {:class "col-lg-4"}
-           (web/button config "/person" f
+           (web/button "/person" f
                        (list (hf/hidden-field "person" f)
                              (hf/hidden-field "year" 2017)))]])
        ]
 
       [:div {:class "commitlog col-lg-6"}
-       (web/button config "/pull" (str "Pull updates from " (:git config)))
+       (web/button "/pull" (str "Pull updates from " (:git config)))
        (->> (git-log repo)
             (map #(commit-info repo %))
             (map #(select-keys % [:author :message :time :changed_files]))
@@ -227,42 +227,43 @@ gantt.parse(tasks);
                        [timesheet] load-monthly-hours (fn [_] true))
                       (derive-costs config projects))]
 
-        [:div {:class "row-fluid year-total"}
-         [:h2 "Yearly totals"]
-         (-> {:Total_hours  (-> ($ :hours costs) wrap sum)
+        [:div {:class "container-fluid"}
+         [:h1 "Yearly totals"]
+         (-> {:Total_hours  (-> ($ :hours costs) wrap sum round)
               :Voluntary_hours (->> ($where {:tag "VOL"} costs)
-                                    ($ :hours) wrap sum)
+                                    ($ :hours) wrap sum round)
               :Total_billed (->> ($where ($fn [tag] (not (strcasecmp tag "VOL")))
                                          costs) ($ :cost) wrap sum round)
               :Monthly_average (->> ($rollup :sum :cost :month costs)
-                                    (average :cost))}
+                                    (average :cost) round)}
               to-dataset to-table)
 
-         [:h2 "Monthly totals"]
+         [:h1 "Monthly totals"]
          ;; cycle all months to 13 (off-by-one)
          (for [m (-> (range 1 13) vec rseq)
                :let [worked ($where {:month (str year '- m)} costs)
                      mtot (-> ($ :hours worked) wrap sum)]
                :when (> mtot 0)]
-           [:div {:class "row-fluid month-total"}
-            [:h3 (util/month-name m) " total bill for "
-             (util/dotname person) " is "
-             [:strong (-> ($ :cost worked) wrap sum)]
-             " for " mtot
-             " hours worked across "
-             (keep #(when (= (:month %) (str year '- m))
-                      (:days %)) (:sheets timesheet))
-             " days, including "
-             (->> ($where {:tag "VOL"} worked)
-                  ($ :hours) wrap sum) " voluntary hours." ]
+
+           [:span
+            [:strong (util/month-name m)] " total bill for "
+            (util/dotname person) " is "
+            [:strong (-> ($ :cost worked) wrap sum)]
+            " for " mtot
+            " hours worked across "
+            (keep #(when (= (:month %) (str year '- m))
+                     (:days %)) (:sheets timesheet))
+            " days, including "
+            (->> ($where {:tag "VOL"} worked)
+                 ($ :hours) wrap sum) " voluntary hours."
 
             [:div {:class "month-detail"}
              (->> (derive-cost-per-hour worked config projects)
-                 ($ [:project :task :tag :hours :cost :cph])
-                 to-table)]])
+                  ($ [:project :task :tag :hours :cost :cph])
+                  (to-monthly-bill-table projects))]])
 
         [:div {:class "col-lg-2"}
-         (web/button config "/person" "Previous year"
+         (web/button "/person" "Previous year"
                      (list
                       (hf/hidden-field "year" (dec (Integer. year)))
                       (hf/hidden-field "person" person)))]])])))
