@@ -112,7 +112,9 @@
                                 :let  [cell (get-cell sheet n i)]
                                 :when  (not (nil? cell))]
                             cell))
-            entry  (if (and (> hours 0.0) (not (blank? proj))
+            entry  (if (and (not (nil? hours))
+                            (> hours 0.0)
+                            (not (blank? proj))
                             (cond-fn {:project proj
                                       :task    task
                                       :tag     tag
