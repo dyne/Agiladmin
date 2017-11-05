@@ -7,7 +7,7 @@ administration, management and budgeting. It is based on Excel and Git.
 
 Each colleague can fill in a timesheet file and commit updates to it
 to a Git repository. The timesheet is a normal excel sheet divided by
-columns with a few fixed fiels (project, task and tags)
+columns with a few fixed fields (project, task and tags)
 
 ## Log of changes
 
@@ -21,4 +21,3 @@ Agiladmin is capable of writing all the hours read from the timesheets
 into a special tab of budget files that are related to projects. This
 way an up-to-date overview of currently used hours and hours and money
 left in the project budget is available to all users.
-
