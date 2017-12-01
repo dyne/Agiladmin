@@ -5,7 +5,7 @@
   :dependencies ^:replace [[org.clojure/clojure "1.8.0"]
                            [org.clojure/data.json "0.2.6"]
                            [org.clojure/data.csv "0.1.4"]
-                           [org.clojure/data.codec "0.1.0"]
+                           [org.clojure/data.codec "0.1.1"]
                            [org.clojure/tools.nrepl "0.2.13"]
                            [clj-http "3.7.0"]
                            [cheshire "5.8.0"]
@@ -23,14 +23,14 @@
                            [failjure "1.2.0"]
 
                            ;; auxiliary lib functions
-                           [org.clojars.dyne/auxiliary "0.2.0-SNAPSHOT"]
+                           [org.clojars.dyne/auxiliary "0.3.0"]
 
                            ;; compojure, ring and middleware
                            [compojure "1.6.0"]
                            [ring/ring-defaults "0.3.1"]
                            [ring-middleware-accept "2.0.3"]
-				           [ring/ring-core "1.6.2"]
-				           [ring/ring-jetty-adapter "1.6.2"]
+				           [ring/ring-core "1.6.3"]
+				           [ring/ring-jetty-adapter "1.6.3"]
 
                            ;; aux web stuff
                            [formidable "0.1.10"]
@@ -38,12 +38,12 @@
                            [json-html "0.4.4"]
 
                            ;; spreadsheet
-                           [dk.ative/docjure "1.11.0"]
-                           [org.apache.poi/poi "3.16"]
-                           [org.apache.poi/poi-ooxml "3.16"]
+                           [dk.ative/docjure "1.12.0"]
+                           [org.apache.poi/poi "3.17"]
+                           [org.apache.poi/poi-ooxml "3.17"]
 
                            ;; Data validation
-                           [prismatic/schema "1.1.6"]
+                           [prismatic/schema "1.1.7"]
 
                            ;; git
                            [clj-jgit "0.9.1-SNAPSHOT"]
@@ -70,8 +70,8 @@
   :target-path "target/%s"
   :profiles
   { :dev {:dependencies [[javax.servlet/servlet-api "2.5"]
-                         [ring/ring-mock "0.3.1"]
-                         [midje "1.9.0-alpha6"]]
+                         [ring/ring-mock "0.3.2"]
+                         [midje "1.9.0"]]
           :plugins [[lein-midje "3.1.3"]]
           :aot :all
           :main agiladmin.handlers}
