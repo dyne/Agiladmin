@@ -115,26 +115,26 @@ gantt.parse(tasks);
            (derive-task-descriptions    project-conf)
            (sel :cols [:task :hours :tot-hours :completed :description]) to-table)]
 
-      [:div {:class "row-fluid"}
-       ;; --- CHARTS
-       ;; time series
-       (with-data
-         (->> ($rollup :sum :hours :month project-hours)
-              ($order :month :asc))
-         [:div {:class "col-lg-6"}
-          (chart-to-image
-           (bar-chart :month :hours :group-by :month :legend false))])
-       ;; (time-series-plot (date-to-ts $data :month)
-       ;;                   ($ :hours)))])
+      ;; [:div {:class "row-fluid"}
+      ;;  ;; --- CHARTS
+      ;;  ;; time series
+      ;;  (with-data
+      ;;    (->> ($rollup :sum :hours :month project-hours)
+      ;;         ($order :month :asc))
+      ;;    [:div {:class "col-lg-6"}
+      ;;     (chart-to-image
+      ;;      (bar-chart :month :hours :group-by :month :legend false))])
+      ;;  ;; (time-series-plot (date-to-ts $data :month)
+      ;;  ;;                   ($ :hours)))])
        
        ;; pie chart
-       (with-data ($rollup :sum :hours :name project-hours)
-         [:div {:class "col-lg-6"}
-          (chart-to-image
-           (pie-chart (-> ($ :name) wrap)
-                      ($ :hours)
-                      :legend true
-                      :title (str projname " hours used")))])]
+       ;; (with-data ($rollup :sum :hours :name project-hours)
+       ;;   [:div {:class "col-lg-6"}
+       ;;    (chart-to-image
+       ;;     (pie-chart (-> ($ :name) wrap)
+       ;;                ($ :hours)
+       ;;                :legend true
+       ;;                :title (str projname " hours used")))])]
 
       [:div {:class "container-fluid"}
        [:h1 "Totals"]
