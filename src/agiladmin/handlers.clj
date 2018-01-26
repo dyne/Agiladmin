@@ -253,7 +253,7 @@
                      (let [repo (load-repo (:path budgets))]
                        [:div {:class "row"}
                         [:div {:class "col-lg-4"}
-                         (views/show config)]
+                         (web/render-edn config)]
                         [:div {:class "col-lg-8"}
                          (web/git-log repo)]]))])
                  ;; end of POST /reload
