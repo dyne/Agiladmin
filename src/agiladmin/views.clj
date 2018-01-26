@@ -41,17 +41,18 @@
   [:div {:class "people"}
    [:h2 "People"]
    ;; list all people
-   (for [f (->> (util/list-files-matching
-                 (get-in config [:agiladmin :budgets :path])
-                 #".*_timesheet_.*xlsx$")
-                (map #(second
-                       (re-find util/regex-timesheet-to-name
-                                (.getName %)))) sort distinct)]
-     ;; (map #(.getName %)) distinct)]
-     [:div {:class "row log-person"}
-       (web/button "/person" f
-                   (list (hf/hidden-field "person" f)
-                         (hf/hidden-field "year" 2017)))])])
+   (let [year (:year (util/now))]
+     (for [f (->> (util/list-files-matching
+                   (get-in config [:agiladmin :budgets :path])
+                   #".*_timesheet_.*xlsx$")
+                  (map #(second
+                         (re-find util/regex-timesheet-to-name
+                                  (.getName %)))) sort distinct)]
+       ;; (map #(.getName %)) distinct)]
+       [:div {:class "row log-person"}
+        (web/button "/person" f
+                    (list (hf/hidden-field "person" f)
+                          (hf/hidden-field "year" year)))]))])
 
 (defn projects-list
   "list all projects"

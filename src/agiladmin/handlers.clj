@@ -148,12 +148,26 @@
 
   (POST "/project" request
         (if-let [config (web/check-session request)]
-          (views/project-view config request)))
+              (views/project-view config request)))
 
   (POST "/person" request
         (if-let [config (web/check-session request)]
-          (views/person-view config request)))
-
+          (let [person (get-in request [:params :person])
+                year   (get-in request [:params :year])
+                ts-path (get-in config [:agiladmin :budgets :path])]
+            (if (.exists (io/as-file (str ts-path year "_timesheet_" person ".xlsx")))
+              (views/person-view config request)
+              ;; else
+              (web/render
+               [:div {:class "container-fluid"}
+                (web/render-error
+                 (log/spy
+                  :warn
+                  (str "No timesheet found for " person " on year " year)))
+                (if-let [ymn (- (Integer/parseInt (re-find #"\A-?\d+" year)) 1)]
+                  (web/button "/person" (str "Try previous year " ymn)
+                            (list (hf/hidden-field "person" person)
+                                  (hf/hidden-field "year" ymn))))])))))
 
   ;;TODO: NEW API
   (GET "/people/list" request

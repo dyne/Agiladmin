@@ -24,8 +24,15 @@
             [auxiliary.maps :refer [compress]]
             [auxiliary.string :refer [strcasecmp]]
             [taoensso.timbre :as log]
+            [clj-time.core :as time]
+            [clj-time.local :as time-local]
             [clojure.walk :refer :all]))
 
+(defn now []
+  (let [now (time-local/local-now)]
+    {:year (time/year now)
+     :month (time/month now)
+     :day (time/day now)}))
 
 (defn dotname
   "Shorten up a name and surname tuple into initial and surname format"
