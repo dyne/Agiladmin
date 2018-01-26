@@ -102,7 +102,7 @@
     \"ssh-key\" : \"id_rsa\"
 }"]]
                 (log/spy :error)
-                web/render-error web/render)
+                web/render-error-page)
            :else (readme request))))
 
   (GET "/config" request
@@ -173,7 +173,7 @@
           :params :as params}
          (cond
            (empty? filename)
-           (web/render-error params "Attempt to upload empty file.")
+           (web/render-error-page params "Attempt to upload empty file.")
            :else
            (let [file (io/copy tempfile (io/file "/tmp" filename))]
              (io/delete-file tempfile)
@@ -189,6 +189,10 @@
                              (views/people-list config)]
                             [:div {:class "col-lg-8"}
                              (views/projects-list config)]]))))
+
+  (GET "/error" request
+       (let [config (web/check-session request)]
+         (web/render-error-page request "Testing the error message")))
 
   (GET "/reload" request
        (let [config (web/check-session request)
@@ -228,9 +232,11 @@
 
                  (.exists path)
                  ;; exists but is not a directory
-                 (web/render-error
+                 (web/render-error-page
                   config
-                  [:h1 (log/spy :error "Invalid budgets directory.")])
+                  (log/spy
+                   :error
+                   (str "Invalid budgets directory: " path)))
 
                  :else
                  ;; doesn't exists at all
@@ -260,7 +266,7 @@
                  ))))
 
   (route/resources "/")
-  (route/not-found "Not Found")
+  (route/not-found (web/render-error-page "Page Not Found"))
 
   ;; end of routes
   )

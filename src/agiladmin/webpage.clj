@@ -91,25 +91,27 @@
 
            (render-footer)
            ])})
-                      
+
 (defn render-error
-  ([]    (render-error {} "Unknown"))
-  ([err] (render-error {} err))
+  "render an error message without ending the page"
+  [err]
+  [:div {:class "alert alert-danger" :role "alert"}
+   [:span {:class "glyphicon glyphicon-exclamation-sign"
+           :aria-hidden "true" :style "padding: .5em"}]
+   [:span {:class "sr-only"} "Error:" ]
+   err])
+
+(defn render-error-page
+  ([]    (render-error-page {} "Unknown"))
+  ([err] (render-error-page {} err))
   ([session error]
-   {:headers {"Content-Type"
-              "text/html; charset=utf-8"}
-    :session session
-    :body (page/html5
-           (render-head)
-           [:body {:class "fxc static"}
-            (render-navbar)
-            [:div {:class "container"}
-             [:div {:class "error"}
-              [:h1 "Error:"] [:h2 error]]
-             (if-not (empty? session)
-               [:div {:class "config"}
-                [:h2 "Environment dump:"]
-                (show-config session)])]])}))
+   (render
+    [:div {:class "container-fluid"}
+     (render-error error)
+     (if-not (empty? session)
+       [:div {:class "config"}
+        [:h2 "Environment dump:"]
+        (render-edn session)])])))
 
 
 (defn render-head
