@@ -1,6 +1,6 @@
 ;; Agiladmin - spreadsheet based time and budget administration
 
-;; Copyright (C) 2016-2017 Dyne.org foundation
+;; Copyright (C) 2016-2018 Dyne.org foundation
 
 ;; Sourcecode written and maintained by Denis Roio <jaromil@dyne.org>
 ;; designed in cooperation with Manuela Annibali <manuela@dyne.org>
@@ -33,47 +33,58 @@
    [hiccup.form :as hf]
    [json-html.core :as present]
    [incanter.core :refer :all]
-   [incanter.charts :refer :all]
-   [clj-jgit.porcelain :refer :all]
-   [clj-jgit.querying  :refer :all]))
+   [incanter.charts :refer :all]))
 
-(defn index-log-view [config request]
-  (let [repo (load-repo "budgets")
-        path (get-in config [:agiladmin :budgets :path])]
-    (web/render
-     [:div {:class "row-fluid"}
+(defn people-list
+  "list all people"
+  [config]
+  [:div {:class "people"}
+   [:h2 "People"]
+   ;; list all people
+   (for [f (->> (util/list-files-matching
+                 (get-in config [:agiladmin :budgets :path])
+                 #".*_timesheet_.*xlsx$")
+                (map #(second
+                       (re-find util/regex-timesheet-to-name
+                                (.getName %)))) sort distinct)]
+     ;; (map #(.getName %)) distinct)]
+     [:div {:class "row log-person"}
+       (web/button "/person" f
+                   (list (hf/hidden-field "person" f)
+                         (hf/hidden-field "year" 2017)))])])
 
-      [:div {:class "projects col-lg-4"}
+(defn projects-list
+  "list all projects"
+  [config]
 
-       [:h2 "Projects"]
-       ;; list all projects
-       (for [f (get-in config [:agiladmin :projects])]
-         [:div {:class "row log-project"}
-          [:div {:class "col-lg-4"}
-           (web/button "/project" f
-                       (hf/hidden-field "project" f))]])
+  [:div {:class "projects"}
+   [:h2 "Projects"]
 
-       [:h2 "People"]
-       ;; list all people
-       (for [f (->> (util/list-files-matching
-                     "budgets" #".*_timesheet_.*xlsx$")
-                    (map #(second
-                           (re-find util/regex-timesheet-to-name
-                                    (.getName %)))) sort distinct)]
-         ;; (map #(.getName %)) distinct)]
-         [:div {:class "row log-person"}
-          [:div {:class "col-lg-4"}
-           (web/button "/person" f
-                       (list (hf/hidden-field "person" f)
-                             (hf/hidden-field "year" 2017)))]])
-       ]
+   (for [f (get-in config [:agiladmin :projects])]
+     [:div {:class "row log-project"}
+      (web/button "/project" f
+                  (hf/hidden-field "project" f))])])
 
-      [:div {:class "commitlog col-lg-6"}
-       (web/button "/pull" (str "Pull updates from " (:git config)))
-       (->> (git-log repo)
-            (map #(commit-info repo %))
-            (map #(select-keys % [:author :message :time :changed_files]))
-            present/edn->html)]])))
+(defn project-edit [config request]
+  (let [projname      (get-in request [:params :project])
+        project-conf  (conf/load-project config projname)
+        conf          (get project-conf (keyword projname))]
+
+    (if-let [config (get-in request [:params :editor])]
+      ;; TODO: then edit the configuration      
+      (web/render
+       [:div
+        [:h1 (str projname ": apply project configuration")]
+        ;; TODO: validate
+        (web/render-yaml config)])
+
+      ;; else present an editor
+      (web/render
+       [:form {:action "/projects/edit"
+               :method "post"}
+        [:h1 (str "Project " projname ": edit configuration")]
+        (web/edit-edn project-conf)
+        [:input {:type "hidden" :name "project" :value projname}]]))))
 
 (defn project-view [config request]
   (let [projname      (get-in request [:params :project])
@@ -99,13 +110,17 @@
          [:div {:class "row-fluid"
                 :style "width:100%; min-height:20em; position: relative;" :id "gantt"}]
          [:script {:type "text/javascript"}
-         (str (slurp (io/resource "gantt-loader.js")) "
+          (str (slurp (io/resource "gantt-loader.js")) "
 var tasks = { data:" (-> (:tasks conf) json/generate-string) "};
 gantt.init('gantt');
 gantt.parse(tasks);
 ")]]
         ;; else
         [:h1 projname])
+
+      (web/button "/projects/edit" "Edit project configuration"
+                  (hf/hidden-field "project" projname)
+                  "btn-primary btn-lg edit-project")
 
       [:div {:class "row-fluid"}
        [:h2 "Totals per task"]
@@ -126,15 +141,15 @@ gantt.parse(tasks);
       ;;      (bar-chart :month :hours :group-by :month :legend false))])
       ;;  ;; (time-series-plot (date-to-ts $data :month)
       ;;  ;;                   ($ :hours)))])
-       
-       ;; pie chart
-       ;; (with-data ($rollup :sum :hours :name project-hours)
-       ;;   [:div {:class "col-lg-6"}
-       ;;    (chart-to-image
-       ;;     (pie-chart (-> ($ :name) wrap)
-       ;;                ($ :hours)
-       ;;                :legend true
-       ;;                :title (str projname " hours used")))])]
+
+      ;; pie chart
+      ;; (with-data ($rollup :sum :hours :name project-hours)
+      ;;   [:div {:class "col-lg-6"}
+      ;;    (chart-to-image
+      ;;     (pie-chart (-> ($ :name) wrap)
+      ;;                ($ :hours)
+      ;;                :legend true
+      ;;                :title (str projname " hours used")))])]
 
       [:div {:class "container-fluid"}
        [:h1 "Totals"]
@@ -151,9 +166,9 @@ gantt.parse(tasks);
                                       wrap sum)
                         max_cost (* (:cph conf) max_hours)]
                     [{:total "Progress"
-                     :cost (percentage billed max_cost)
-                     :hours (percentage hours max_hours)
-                     :CPH ""}
+                      :cost (percentage billed max_cost)
+                      :hours (percentage hours max_hours)
+                      :CPH ""}
                      {:total "Total"
                       :cost max_cost
                       :hours max_hours
@@ -205,11 +220,7 @@ gantt.parse(tasks);
               to-table)]]
 
         [:div [:h2 "Project configuration"]
-         (present/edn->html conf)]
-
-        [:div [:h2 "State of budget repository"]
-         (present/edn->html
-          (-> (load-repo "budgets") git-status))]]]])))
+         (present/edn->html conf)]]]])))
 
 (defn person-view [config request]
   (let [person (get-in request [:params :person])
@@ -236,7 +247,7 @@ gantt.parse(tasks);
                                          costs) ($ :cost) wrap sum round)
               :Monthly_average (->> ($rollup :sum :cost :month costs)
                                     (average :cost) round)}
-              to-dataset to-table)
+             to-dataset to-table)
 
          [:h1 "Monthly totals"]
          ;; cycle all months to 13 (off-by-one)
@@ -262,8 +273,8 @@ gantt.parse(tasks);
                   ($ [:project :task :tag :hours :cost :cph])
                   (to-monthly-bill-table projects))]])
 
-        [:div {:class "col-lg-2"}
-         (web/button "/person" "Previous year"
-                     (list
-                      (hf/hidden-field "year" (dec (Integer. year)))
-                      (hf/hidden-field "person" person)))]])])))
+         [:div {:class "col-lg-2"}
+          (web/button "/person" "Previous year"
+                      (list
+                       (hf/hidden-field "year" (dec (Integer. year)))
+                       (hf/hidden-field "person" person)))]])])))

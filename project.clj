@@ -36,6 +36,7 @@
                            [formidable "0.1.10"]
                            [markdown-clj "1.0.1"]
                            [json-html "0.4.4"]
+                           [io.forward/yaml "1.0.6"]
 
                            ;; spreadsheet
                            [dk.ative/docjure "1.12.0"]

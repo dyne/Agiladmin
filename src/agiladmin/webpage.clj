@@ -1,4 +1,4 @@
-;; Copyright (C) 2015-2017 Dyne.org foundation
+;; Copyright (C) 2015-2018 Dyne.org foundation
 
 ;; Sourcecode designed, written and maintained by
 ;; Denis Roio <jaromil@dyne.org>
@@ -17,11 +17,15 @@
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 (ns agiladmin.webpage
-  (:require [agiladmin.config :as conf]
+  (:require [clojure.java.io :as io]
+            [yaml.core :as yaml]
+            [agiladmin.config :as conf]
             [taoensso.timbre :as log]
             [hiccup.page :as page]
             [hiccup.form :as hf]
-            [json-html.core :as present]))
+            [json-html.core :as present]
+            [clj-jgit.porcelain :as git]
+            [clj-jgit.querying  :as gitq]))
 
 (declare render)
 (declare render-page)
@@ -46,9 +50,15 @@
 
   ([url text field type]
    (hf/form-to [:post url]
-               field ;; can be an hidden key/value field (project, person, etc)
+               field ;; can be an hidden key/value field (project,
+                     ;; person, etc using hf/hidden-field)
                (hf/submit-button {:class (str "btn " type)} text))))
 
+(defn reload-session [request]
+  ;; TODO: validation of all data loaded via prismatic schema
+  (conf/load-config "agiladmin" conf/default-settings)
+
+)
 
 
 (defn check-session [request]
@@ -95,9 +105,11 @@
             (render-navbar)
             [:div {:class "container"}
              [:div {:class "error"}
-              [:h1 "Error:"] [:h2 (drop 1 error)]]
-             [:div {:class "config"}
-              (show-config session)]]])}))
+              [:h1 "Error:"] [:h2 error]]
+             (if-not (empty? session)
+               [:div {:class "config"}
+                [:h2 "Environment dump:"]
+                (show-config session)])]])}))
 
 
 (defn render-head
@@ -133,19 +145,23 @@
     (page/include-js  "/static/js/sorttable.js")
     (page/include-js  "/static/js/jquery-3.2.1.min.js")
     (page/include-js  "/static/js/bootstrap.min.js")
+    (page/include-js  "/static/js/highlight.pack.js")
     (page/include-css "/static/css/bootstrap.min.css")
     (page/include-css "/static/css/dhtmlxgantt.css")
     (page/include-css "/static/css/bootstrap-theme.min.css")
     (page/include-css "/static/css/json-html.css")
+    (page/include-css "/static/css/highlight-tomorrow.css")
     (page/include-css "/static/css/agiladmin.css")]))
 
 (defn render-navbar []
-  [:nav {:class "navbar navbar-default navbar-static-top"}
+  [:nav {:class "navbar navbar-default navbar-fixed-top"}
    [:div {:class "container"}
     [:ul {:class "nav navbar-nav"}
-     [:li [:a {:href "/"} "About Agiladmin"]]
+     [:li [:a {:href "/"} "Home"]]
      [:li {:role "separator" :class "divider"} ]
-     [:li [:a {:href "/log"} "Log of changes"]]
+     [:li [:a {:href "/home"} "List all"]]
+     [:li [:a {:href "/reload"} "Reload"]]
+     [:li {:role "separator" :class "divider"} ]
      [:li [:a {:href "/config"} "Configuration"]]
      ]]])
 
@@ -195,3 +211,48 @@
        body]
 
       (render-footer))))
+
+(defn render-edn
+  "renders an edn into an highlighted yaml"
+  [data]
+  [:span
+   [:pre [:code {:class "yaml"}
+          (yaml/generate-string data)]]
+   [:script "hljs.initHighlightingOnLoad();"]])
+
+(defn render-yaml
+  "renders a yaml text in highlighted html"
+  [data]
+  [:span
+   [:pre [:code {:class "yaml"}
+          data]]
+   [:script "hljs.initHighlightingOnLoad();"]])
+  
+
+(defn edit-edn
+  "renders an editor for the edn in yaml format"
+  [data]
+  [:div;; {:class "form-group"}
+   [:textarea {:class "form-control"
+               :rows "20" :data-editor "yaml"
+               :id "config" :name "editor"}
+    (yaml/generate-string data)]
+   [:script {:src "/static/js/ace.js"
+             :type "text/javascript" :charset "utf-8"}]
+   [:script {:type "text/javascript"}
+    (slurp (io/resource "public/static/js/ace-embed.js"))]
+   ;; code to embed the ace editor on all elements in page
+   ;; that contain the attribute "data-editor" set to the
+   ;; mode language of choice
+   [:input {:class "btn btn-success btn-lg pull-top"
+            :type "submit" :value "submit"}]])
+
+(defn git-log
+  "list the last 20 git commits in the budget repo"
+  [repo]
+  [:div {:class "commitlog"}
+   (->> (git/git-log repo)
+        (map #(gitq/commit-info repo %))
+        (map #(select-keys % [:author :message :time :changed_files]))
+        (take 20) render-edn)])
+

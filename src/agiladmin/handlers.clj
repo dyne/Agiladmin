@@ -1,4 +1,4 @@
-;; Copyright (C) 2015-2017 Dyne.org foundation
+;; Copyright (C) 2015-2018 Dyne.org foundation
 
 ;; Sourcecode designed, written and maintained by
 ;; Denis Roio <jaromil@dyne.org>
@@ -36,6 +36,9 @@
    [hiccup.middleware :refer [wrap-base-url]]
    [json-html.core :as present]
    [markdown.core :as md]
+   [yaml.core :as yaml]
+
+   [agiladmin.config :as conf]
 
    [clj-jgit.porcelain :refer :all]
    [clj-jgit.querying  :refer :all]
@@ -62,13 +65,12 @@
 (defn readme [request]
   (conj {:session (web/check-session request)}
         (web/render
-         (md/md-to-html-string
-          (slurp (let [accept (:accept request)
-                       readme "public/static/README-"
-                       lang (:language accept)
-                       locale (io/resource (str readme lang ".md"))]
-                   (if (nil? locale) (io/resource "public/static/README.md")
-                       locale)))))))
+         (slurp (let [accept (:accept request)
+                      readme "public/static/README-"
+                      lang (:language accept)
+                      locale (io/resource (str readme lang ".html"))]
+                  (if (nil? locale) (io/resource "public/static/README.html")
+                      locale))))))
 
 (defn select-person-month [config url text person]
   (hf/form-to [:post url]
@@ -81,122 +83,199 @@
 
 
 (defroutes app-routes
+
   (GET "/" request
-
-
        (let [config  (web/check-session request)
              conf    (merge default-settings config)
              keypath (get-in conf [:agiladmin :budgets :ssh-key])]
-
          (if-not (.exists (io/as-file keypath))
            (let [kp (generate-key-pair)]
              (log/info "Generating SSH keypair...")
              (clojure.pprint/pprint kp)
              (write-key-pair kp keypath)))
-
-          (cond
-
-            (false? (:config conf))
-            (->> ["No config file found. Generate one with your values2, example:"
-                  [:pre "
+         (cond
+           (false? (:config conf))
+           (->> ["No config file found. Generate one with your values2, example:"
+                 [:pre "
 {
     \"git\" : \"ssh://git@gogs.dyne.org/dyne/budgets\",
     \"ssh-key\" : \"id_rsa\"
 }"]]
-                 (log/spy :error)
-                 web/render-error web/render)
-
-            :else (readme request))))
-
-  (GET "/log" request
-       (let [config (web/check-session request)
-             path (io/file (get-in config [:agiladmin :budgets :path]))]
-         (conj {:session config}
-               (cond
-                 (.isDirectory path)
-                 ;; renders the /log webpage into this call
-                 (views/index-log-view config request)
-
-                 (.exists path)
-                 (web/render-error
-                  config
-                  [:h1 (log/spy :error "Invalid budgets directory.")])
-
-                 :else (web/render [:div "Budgets not yet imported"
-                                    (web/button "/import" "Import")
-                                    (web/show-config config)])))))
+                (log/spy :error)
+                web/render-error web/render)
+           :else (readme request))))
 
   (GET "/config" request
        (let [config (web/check-session request)]
          (web/render
           (let [conf (merge default-settings config)]
             [:div {:class "container-fluid"}
-             [:h2 "SSH authentication keys"]
-             [:div "Public: "
-              [:pre
-               (slurp
-                (str
-                 (get-in
-                  conf
-                  [:agiladmin :budgets :ssh-key]) ".pub"))]]
              [:div {:class "row-fluid"}
-              [:h2 "Configuration"]
-                (present/edn->html (:agiladmin conf))]]))))
+              [:h1 "SSH authentication keys"]
+              [:div "Public: "
+               [:pre
+                (slurp
+                 (str
+                  (get-in
+                   conf
+                   [:agiladmin :budgets :ssh-key]) ".pub"))]]]
+             [:div {:class "row-fluid"}
+              [:h1 "Configuration"
+               [:a {:href "/config/edit"}
+                [:button {:class "btn btn-info"} "Edit"]]]
+              (web/render-edn conf)]]))))
 
-  (POST "/pull" request
-        (let [config (web/check-session request)
-              budgets (get-in config [:agiladmin :budgets])
-              repo (load-repo (:path budgets))]
-          (with-identity {:name (slurp (:ssh-key budgets))
-                          :private (slurp (:ssh-key budgets))
-                          :public  (slurp (str (:ssh-key budgets) ".pub")
-                          :passphrase "")
-                          :exclusive true}
-            (git-pull repo))
-          (conj {:session config}
-                (views/index-log-view config request))))
-
-  (POST "/import" request
-        (let [config  (web/check-session request)
-              keypath (get-in config [:agiladmin :budgets :ssh-key])
-              gitpath (get-in config [:agiladmin :budgets :git])]
-          (web/render
-           [:div
-            (with-identity {:name (slurp keypath)
-                            :private (slurp keypath)
-                            :public  (slurp (str keypath ".pub")
-                                            :passphrase "")
-                            :exclusive true}
-              (try (git-clone gitpath "budgets")
-                   (catch Exception ex
-                     (log/error (str "Error: " ex))
-                     [:div
-                      [:h1 "Error cloning git repo"]
-                      [:h2 ex]
-                      [:p "Add your public key to the repository to access it:"
-                       [:pre (-> (str keypath ".pub") slurp str)]]])))])))
+  (GET "/config/edit" request
+       (let [config (web/check-session request)]
+         (web/render
+          (let [conf (merge default-settings config)]
+            [:div {:class "container-fluid"}
+             [:form {:action "/config/edit"
+                     :method "post"}
+             [:h1 "Configuration editor"]
+              (web/edit-edn conf)]]))))
+  
+  (POST "/config/edit" request
+        (if-let [config (web/check-session request)]
+         (web/render
+          [:div {:class "container-fluid"}
+           [:h1 "Saving configuration"]
+           (web/render-yaml (get-in request [:params :editor]))])))
+              ;; TODO: validate and save
+  ;; also visualise diff: https://github.com/benjamine/jsondiffpatch
 
   (POST "/project" request
         (if-let [config (web/check-session request)]
-                 (views/project-view config request)))
+          (views/project-view config request)))
 
   (POST "/person" request
         (if-let [config (web/check-session request)]
           (views/person-view config request)))
 
 
-  ;; (POST "/invoice" request
-  ;;       (let [config (web/check-session request)
-  ;;             person (get-in request [:params :person])
-  ;;             year   (get-in request [:params :year])
-  ;;             month  (get-in request [:parans :month])]
-  ;;         (web/render [:div
-  ;;                      [:h1 person]
+  ;;TODO: NEW API
+  (GET "/people/list" request
+       (let [config (web/check-session request)]
+               (web/render [:div {:class "container-fluid"}
+                            (views/people-list config)])))
+
+  (GET "/projects/list" request
+       (let [config (web/check-session request)]
+               (web/render [:div {:class "container-fluid"}
+                            (views/projects-list config)])))
+
+  (POST "/projects/edit" request
+        (if-let [config (web/check-session request)]
+          (views/project-edit config request)))
+
+  (POST "/timesheets/upload"
+         {{{tempfile :tempfile filename :filename} :file}
+          :params :as params}
+         (cond
+           (empty? filename)
+           (web/render-error params "Attempt to upload empty file.")
+           :else
+           (let [file (io/copy tempfile (io/file "/tmp" filename))]
+             (io/delete-file tempfile)
+             (web/render [:div [:h1 "Timesheet uploaded:"]
+                          [:h2 filename]]))))
+
+  (GET "/home" request
+       (let [config (web/check-session request)
+             path (io/file (get-in config [:agiladmin :budgets :path]))]
+         (conj {:session config}
+               (web/render [:div {:class "container-fluid"}
+                            [:div {:class "col-lg-4"}
+                             (views/people-list config)]
+                            [:div {:class "col-lg-8"}
+                             (views/projects-list config)]]))))
+
+  (GET "/reload" request
+       (let [config (web/check-session request)
+             budgets (get-in config [:agiladmin :budgets])
+             keypath (get-in config [:agiladmin :budgets :ssh-key])
+             gitpath (get-in config [:agiladmin :budgets :git])
+             path (io/file (:path budgets))]
+         ;; overwrite existing config
+         (conj {:session (conf/load-config "agiladmin" conf/default-settings)}
+               (cond
+                 (.isDirectory path)
+                 ;; the directory exists (we assume also is a correct
+                 ;; one) TODO: analyse contents of path, detect git
+                 ;; repo and correct agiladmin environment, detect
+                 ;; errors and report them
+                 (let [repo (load-repo (:path budgets))]
+                   (log/info
+                    (str "Path is a directory, trying to pull in: "
+                         (:path budgets)))
+
+                   (with-identity {:name (slurp (:ssh-key budgets))
+                                   :private (slurp (:ssh-key budgets))
+                                   :public  (slurp (str (:ssh-key budgets) ".pub")
+                                                   :passphrase "")
+                                   :exclusive true})
+                   (try (git-pull repo)
+                        (catch Exception ex
+                          (log/error (str "Error: " ex))))
+                   
+                   (web/render [:div
+                                [:div [:h1 "Config"]
+                                 (web/render-edn config)]
+                                [:div [:h1 "Log (last 20 changes)"]
+                                 (web/git-log repo)]
+                                ]))
 
 
+                 (.exists path)
+                 ;; exists but is not a directory
+                 (web/render-error
+                  config
+                  [:h1 (log/spy :error "Invalid budgets directory.")])
+
+                 :else
+                 ;; doesn't exists at all
+                 (web/render
+                  [:div
+                   (with-identity {:name (slurp keypath)
+                                   :private (slurp keypath)
+                                   :public  (slurp (str keypath ".pub")
+                                                   :passphrase "")
+                                   :exclusive true}
+
+                     (try (git-clone gitpath "budgets")
+                          (catch Exception ex
+                            (log/error (str "Error: " ex))
+                            [:div
+                             [:h1 "Error cloning git repo"]
+                             [:h2 ex]
+                             [:p "Add your public key to the repository to access it:"
+                              [:pre (-> (str keypath ".pub") slurp str)]]]))
+                     (let [repo (load-repo (:path budgets))]
+                       [:div {:class "row"}
+                        [:div {:class "col-lg-4"}
+                         (views/show config)]
+                        [:div {:class "col-lg-8"}
+                         (web/git-log repo)]]))])
+                 ;; end of POST /reload
+                 ))))
 
   (route/resources "/")
-  (route/not-found "Not Found"))
+  (route/not-found "Not Found")
+
+  ;; end of routes
+  )
+
+
+
+;; (POST "/invoice" request
+;;       (let [config (web/check-session request)
+;;             person (get-in request [:params :person])
+;;             year   (get-in request [:params :year])
+;;             month  (get-in request [:parans :month])]
+;;         (web/render [:div
+;;                      [:h1 person]
+
+
 
 (log/merge-config! {:level :debug
                     ;; #{:trace :debug :info :warn :error :fatal :report}
@@ -206,6 +285,7 @@
                     ;; logging in noisy libraries, etc.:
                     :ns-whitelist  ["agiladmin.*"]
                     :ns-blacklist  ["org.eclipse.jetty.*"]})
+
 (def app-defaults
   (-> site-defaults
       (assoc-in [:cookies] false)

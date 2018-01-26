@@ -3,12 +3,30 @@ body {
 	font-size: 22px;
 	font-smooth: always;
 	-webkit-font-smoothing: antialiased;
+	padding-top: 65px;
 }
 
 code {
 	font-size: .8em;
 	/* display: block; */
 	white-space: pre-wrap;
+}
+
+.editor {
+	position: absolute;
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
+}
+
+.btn {
+	margin: 0 1.5em 0 1.5em;
+}
+
+.edit-project {
+	margin-top: 2em;
+	margin-bottom: 2em;
 }
 
 /* GANTT */
@@ -93,6 +111,7 @@ li {
 	padding: 1em;
 	/* display: inline-block; */
 }
+
 
 .navbar-text {
 	margin-top: 22px;

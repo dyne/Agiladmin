@@ -10,32 +10,30 @@
 [![Build Status](https://travis-ci.org/dyne/Agiladmin.svg?branch=master)](https://travis-ci.org/dyne/Agiladmin)
 
 
-A cross-platform application that offers an integrated environment for
-the administration of human-resources in small and medium
-organisations and enterprises.
+A cross-platform application for payroll administration. Spreadsheet
+based environment for processing timesheets through project
+administration, fit for use by small and medium organisations and
+enterprises.
 
-Agiladmin is an ideal tool for startups and research organisations, it
-is used internally at Dyne.org to document working hours, calculate
-budgets and pay co-workers based on monthly efforts.
+Agiladmin is used internally at Dyne.org to document working hours,
+calculate budgets and pay co-workers based on monthly efforts.
 
-Agiladmin accepts and renders Excel files to ease the integration with
+Agiladmin accepts and renders `xlsx` files to ease the integration with
 the workflow of expert financial admins without disrupting their
 tooling. It adopts Git as a backend to synchronise the collection of
-timesheets and leverages the power of Clojure in data-centric
+timesheets. It leverages the power of Clojure in data-centric
 applications to allow easy generation and customisation of graphics
 and reports related to personnel and projects.
 
 Agiladmin should be considered software in ALPHA stage and for now is
 only used internally at Dyne.org to manage research projects according
-to the EU Horizon 2020 financial guidelines. Users should consider
-this a technological preview and Dyne.org staff may or may not be able
-to help adopting this software at this stage. We are working on more
-documentation and once in BETA stage we will offer training and
-support.
+to the EU Horizon 2020 financial guidelines.
+
+Users should consider this a technological preview and Dyne.org staff may or may not be able to help adopting this software at this stage. We are working on more documentation and once in BETA stage we will offer training and support.
 
 ## License
 
-Copyright (C) 2016-2017 Dyne.org foundation
+Copyright (C) 2016-2018 Dyne.org foundation
 
 Sourcecode written and maintained by Denis Roio <jaromil@dyne.org>
 
