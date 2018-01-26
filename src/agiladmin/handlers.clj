@@ -198,10 +198,16 @@
           (empty? filename)
           (web/render-error-page params "Attempt to upload empty file.")
           :else
-          (let [file (io/copy tempfile (io/file "/tmp" filename))]
+          (let [file (io/copy tempfile (io/file "/tmp" filename))
+                path (str "/tmp/" filename)]
             (io/delete-file tempfile)
-            (web/render [:div [:h1 "Timesheet uploaded:"]
-                         [:h2 filename]]))))
+            (web/render
+             [:div [:h1 "Timesheet uploaded:"]
+              [:h2 filename]
+              (let [costs (map-timesheets
+                           [(load-timesheet path)]
+                           load-monthly-hours (fn [_] true))]
+                (to-table costs))]))))
 
   (GET "/home" request
        (let [config (web/check-session request)
