@@ -76,7 +76,7 @@
        [:div
         [:h1 (str projname ": apply project configuration")]
         ;; TODO: validate
-        (web/render-yaml config)])
+        (web/highlight-yaml config)])
 
       ;; else present an editor
       (web/render
@@ -239,7 +239,7 @@ gantt.parse(tasks);
                       (derive-costs config projects))]
 
         [:div {:class "container-fluid"}
-         [:h1 "Yearly totals"]
+         [:h1 "Yearly totals"]         
          (-> {:Total_hours  (-> ($ :hours costs) wrap sum round)
               :Voluntary_hours (->> ($where {:tag "VOL"} costs)
                                     ($ :hours) wrap sum round)
@@ -248,6 +248,16 @@ gantt.parse(tasks);
               :Monthly_average (->> ($rollup :sum :cost :month costs)
                                     (average :cost) round)}
              to-dataset to-table)
+         (web/people-download-toolbar
+          person year
+          (into [["Date" "Name" "Project" "Task" "Tags" "Hours" "Cost" "CPH"]]
+                (-> costs (derive-cost-per-hour config projects) to-list)))
+
+         [:hr]
+          ;; (->> (derive-cost-per-hour costs config projects)
+          ;;      ($ [:project :task :tag :hours :cost :cph])
+          ;;      to-list))
+
 
          [:h1 "Monthly totals"]
          ;; cycle all months to 13 (off-by-one)

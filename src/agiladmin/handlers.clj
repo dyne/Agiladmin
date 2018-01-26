@@ -20,6 +20,7 @@
   (:require
    [clojure.string :as str]
    [clojure.java.io :as io]
+   [clojure.data.json :as json]
    [compojure.core :refer :all]
    [compojure.handler :refer :all]
    [compojure.route :as route]
@@ -39,6 +40,7 @@
    [yaml.core :as yaml]
 
    [agiladmin.config :as conf]
+   [agiladmin.graphics :refer [to-table]]
 
    [clj-jgit.porcelain :refer :all]
    [clj-jgit.querying  :refer :all]
@@ -123,7 +125,7 @@
               [:h1 "Configuration"
                [:a {:href "/config/edit"}
                 [:button {:class "btn btn-info"} "Edit"]]]
-              (web/render-edn conf)]]))))
+              (web/render-yaml conf)]]))))
 
   (GET "/config/edit" request
        (let [config (web/check-session request)]
@@ -132,16 +134,16 @@
             [:div {:class "container-fluid"}
              [:form {:action "/config/edit"
                      :method "post"}
-             [:h1 "Configuration editor"]
+              [:h1 "Configuration editor"]
               (web/edit-edn conf)]]))))
   
   (POST "/config/edit" request
         (if-let [config (web/check-session request)]
-         (web/render
-          [:div {:class "container-fluid"}
-           [:h1 "Saving configuration"]
-           (web/render-yaml (get-in request [:params :editor]))])))
-              ;; TODO: validate and save
+          (web/render
+           [:div {:class "container-fluid"}
+            [:h1 "Saving configuration"]
+            (web/highlight-yaml (get-in request [:params :editor]))])))
+  ;; TODO: validate and save
   ;; also visualise diff: https://github.com/benjamine/jsondiffpatch
 
   (POST "/project" request
@@ -156,29 +158,50 @@
   ;;TODO: NEW API
   (GET "/people/list" request
        (let [config (web/check-session request)]
-               (web/render [:div {:class "container-fluid"}
-                            (views/people-list config)])))
+         (web/render [:div {:class "container-fluid"}
+                      (views/people-list config)])))
 
+  (POST "/people/spreadsheet" request
+        (let [config (web/check-session request)
+              format (get-in request [:params :format2])
+              costs-json (get-in request [:params :costs])]
+          (cond
+            (= "excel" (get-in request [:params :format1]))
+            (web/render "TODO")
+
+            (= "json"  (get-in request [:params :format2]))
+            {:headers {"Content-Type"
+                       "text/json; charset=utf-8"}
+             :body costs-json} ;; its already a json
+
+            (= "csv"   (get-in request [:params :format3]))
+            (-> costs-json json/read-str web/download-csv)
+
+            (= "html"   (get-in request [:params :format4]))
+            (-> costs-json json/read-str web/render-html web/render)
+
+            )))
+         
   (GET "/projects/list" request
        (let [config (web/check-session request)]
-               (web/render [:div {:class "container-fluid"}
-                            (views/projects-list config)])))
+         (web/render [:div {:class "container-fluid"}
+                      (views/projects-list config)])))
 
   (POST "/projects/edit" request
         (if-let [config (web/check-session request)]
           (views/project-edit config request)))
 
   (POST "/timesheets/upload"
-         {{{tempfile :tempfile filename :filename} :file}
-          :params :as params}
-         (cond
-           (empty? filename)
-           (web/render-error-page params "Attempt to upload empty file.")
-           :else
-           (let [file (io/copy tempfile (io/file "/tmp" filename))]
-             (io/delete-file tempfile)
-             (web/render [:div [:h1 "Timesheet uploaded:"]
-                          [:h2 filename]]))))
+        {{{tempfile :tempfile filename :filename} :file}
+         :params :as params}
+        (cond
+          (empty? filename)
+          (web/render-error-page params "Attempt to upload empty file.")
+          :else
+          (let [file (io/copy tempfile (io/file "/tmp" filename))]
+            (io/delete-file tempfile)
+            (web/render [:div [:h1 "Timesheet uploaded:"]
+                         [:h2 filename]]))))
 
   (GET "/home" request
        (let [config (web/check-session request)
@@ -224,7 +247,7 @@
                    
                    (web/render [:div
                                 [:div [:h1 "Config"]
-                                 (web/render-edn config)]
+                                 (web/render-yaml config)]
                                 [:div [:h1 "Log (last 20 changes)"]
                                  (web/git-log repo)]
                                 ]))
@@ -259,7 +282,7 @@
                      (let [repo (load-repo (:path budgets))]
                        [:div {:class "row"}
                         [:div {:class "col-lg-4"}
-                         (web/render-edn config)]
+                         (web/render-yaml config)]
                         [:div {:class "col-lg-8"}
                          (web/git-log repo)]]))])
                  ;; end of POST /reload

@@ -18,6 +18,8 @@
 
 (ns agiladmin.webpage
   (:require [clojure.java.io :as io]
+            [clojure.data.json :as json]
+            [clojure.data.csv :as csv]
             [yaml.core :as yaml]
             [agiladmin.config :as conf]
             [taoensso.timbre :as log]
@@ -32,8 +34,10 @@
 (declare render-head)
 (declare render-navbar)
 (declare render-footer)
-
+(declare render-yaml)
+(declare render-edn)
 (declare render-error)
+(declare render-error-page)
 (declare render-static)
 
 (defn show-config [session]
@@ -53,6 +57,25 @@
                field ;; can be an hidden key/value field (project,
                      ;; person, etc using hf/hidden-field)
                (hf/submit-button {:class (str "btn " type)} text))))
+
+(defn people-download-toolbar
+  [person year costs]
+  [:form {:action "/people/spreadsheet"
+          :method "post"}
+   [:h3 "Download yearly totals:"]
+   (hf/hidden-field "format" "excel")
+   (hf/hidden-field "person" person)
+   (hf/hidden-field "year" year)
+   (hf/hidden-field "costs" (-> costs json/write-str))
+   [:input {:type "submit" :name "format1" :value "excel"
+            :class "btn btn-default"}]
+   [:input {:type "submit" :name "format2" :value "json"
+            :class "btn btn-default"}]
+   [:input {:type "submit" :name "format3" :value "csv"
+            :class "btn btn-default"}]
+   [:input {:type "submit" :name "format4" :value "html"
+            :class "btn btn-default"}]])
+
 
 (defn reload-session [request]
   ;; TODO: validation of all data loaded via prismatic schema
@@ -111,7 +134,7 @@
      (if-not (empty? session)
        [:div {:class "config"}
         [:h2 "Environment dump:"]
-        (render-edn session)])])))
+        (render-yaml session)])])))
 
 
 (defn render-head
@@ -214,7 +237,17 @@
 
       (render-footer))))
 
-(defn render-edn
+;; highlight functions do no conversion, take the format they highlight
+;; render functions take edn and convert to the highlight format
+;; download functions all take an edn and convert it in target format
+;; edit functions all take an edn and present an editor in the target format
+
+(defn render-html
+  "renders an edn into an organised html table"
+  [data]
+  (present/edn->html data))
+
+(defn render-yaml
   "renders an edn into an highlighted yaml"
   [data]
   [:span
@@ -222,15 +255,30 @@
           (yaml/generate-string data)]]
    [:script "hljs.initHighlightingOnLoad();"]])
 
-(defn render-yaml
+(defn highlight-yaml
   "renders a yaml text in highlighted html"
   [data]
   [:span
    [:pre [:code {:class "yaml"}
           data]]
    [:script "hljs.initHighlightingOnLoad();"]])
-  
 
+
+(defn highlight-json
+  "renders a json text in highlighted html"
+  [data]
+  [:span
+   [:pre [:code {:class "json"}
+          data]]
+   [:script "hljs.initHighlightingOnLoad();"]])
+  
+(defn download-csv
+  "takes an edn, returns a csv plain/text for download"
+  [data]
+  {:headers {"Content-Type"
+             "text/plain; charset=utf-8"}
+   :body (with-out-str (csv/write-csv *out* data))})
+  
 (defn edit-edn
   "renders an editor for the edn in yaml format"
   [data]
@@ -256,5 +304,5 @@
    (->> (git/git-log repo)
         (map #(gitq/commit-info repo %))
         (map #(select-keys % [:author :message :time :changed_files]))
-        (take 20) render-edn)])
+        (take 20) render-yaml)])
 
