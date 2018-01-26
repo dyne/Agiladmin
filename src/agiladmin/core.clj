@@ -256,7 +256,10 @@
      :sheets
      (for [m [1 2 3 4 5 6 7 8 9 10 11 12]
            :let [ms (str year "-" m)
-                 sheet (select-sheet ms ts)
+                 sheet (try (select-sheet ms ts)
+                            (catch Exception ex
+                              (log/error
+                               (str "Error: load-timesheet: select-sheet can't find tab: " ms))))
                  h (get-cell sheet 'B 4)]
            :when (not= h 0.0)]
        {:month ms
