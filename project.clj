@@ -43,6 +43,9 @@
                            [org.apache.poi/poi "3.17"]
                            [org.apache.poi/poi-ooxml "3.17"]
 
+                           ;; Data serialisation
+                           [com.taoensso/nippy "2.13.0"]
+
                            ;; Data validation
                            [prismatic/schema "1.1.7"]
 

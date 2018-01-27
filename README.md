@@ -106,14 +106,14 @@ DYNE:
 A more complex project may contain also tasks with descriptions, start dates, duration and paid person-months (pm). In such cases the projects will have a "gantt" chart rendered to indicate the progress. Here an example of such a configuration:
 
 ```yaml
-DECODE:
+SOFTWARE:
   start_date: 01-12-2016
   duration: 36
   cph: 46.66
 
   rates:
     L.Blissett: 50
-	D.Maver: 43
+    D.Maver: 43
 
   tasks:
     - id: T1.1
