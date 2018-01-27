@@ -5,6 +5,7 @@
             [failjure.core :as f]
             [schema.core :as s]
             [clojure.pprint :refer [pprint]]))
+
 (def config (aux/yaml-read "test/assets/agiladmin.yaml"))
 
 (fact "Configuration loading tests"

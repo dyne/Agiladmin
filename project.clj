@@ -54,9 +54,6 @@
 
                            [org.clojars.dyne/clj-openssh-keygen "0.1.0"]
 
-                           ;; javafx application wrapper
-                           [org.clojars.metal-slime/javafx2.2.0 "2.2.0"]
-
                            ;; time from joda-time
                            [clj-time "0.14.2"]
 

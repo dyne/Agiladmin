@@ -319,17 +319,6 @@
   )
 
 
-
-;; (POST "/invoice" request
-;;       (let [config (web/check-session request)
-;;             person (get-in request [:params :person])
-;;             year   (get-in request [:params :year])
-;;             month  (get-in request [:parans :month])]
-;;         (web/render [:div
-;;                      [:h1 person]
-
-
-
 (log/merge-config! {:level :debug
                     ;; #{:trace :debug :info :warn :error :fatal :report}
 
@@ -340,11 +329,14 @@
                     :ns-blacklist  ["org.eclipse.jetty.*"]})
 
 (def app-defaults
-  (-> site-defaults
-      (assoc-in [:cookies] false)
-      (assoc-in [:security :anti-forgery] false)
-      (assoc-in [:security :ssl-redirect] false)
-      (assoc-in [:security :hsts] true)))
+  (let [config (conf/load-config "agiladmin" {})]
+    (-> site-defaults
+        (assoc-in [:cookies] true)
+        (assoc-in [:security :anti-forgery]
+                  (get-in config [:webserver :anti-forgery]))
+        (assoc-in [:security :ssl-redirect]
+                  (get-in config [:webserver :ssl-redirect]))
+        (assoc-in [:security :hsts] true))))
 
 (def app
   (-> (wrap-defaults app-routes app-defaults)
@@ -356,10 +348,10 @@
                                "nl" :qs 1
                                "hr" :qs 1]})))
 (defn start-backend []
-  (println "Starting backend on http://localhost:6060")
-  (run-jetty app {:port 6060
-                  :host "localhost"
-                  :join? false}))
+  (let [config (conf/load-config "agiladmin" {})]
+    (log/info "Starting backend") 
+    (run-jetty app {})))
+
 (defn stop-backend [server] (.stop server))
 
 (defn -main []

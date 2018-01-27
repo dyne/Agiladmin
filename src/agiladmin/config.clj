@@ -34,10 +34,17 @@
               :path s/Str}
     :source  {:git s/Str
               :update s/Bool}
-    :projects [s/Str]}
+    :projects [s/Str]
+    (s/optional-key
+     :webserver) {(s/optional-key :port) s/Num
+                  (s/optional-key :host) s/Str
+                  (s/optional-key :anti-forgery) s/Bool
+                  (s/optional-key :ssl-redirect) s/Bool}
+    }
    :appname s/Str
    :paths [s/Str]
-   :filename s/Str})
+   :filename s/Str
+   })
 
 (s/defschema Project
   {s/Keyword
