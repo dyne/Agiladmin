@@ -9,6 +9,6 @@
         conf => {:agiladmin {:budgets {:git "ssh://dyne.org/dyne/budgets", :path "test/assets/", :ssh-key "id_rsa"}, :projects ["UNO" "DUE" "TRE"], :source {:git "https://github.com/dyne/agiladmin", :update true}}}
 
         (fact "Project configuration load"
-              (let [proj (aux/yaml-read "test/assets/proj_uno.yaml")]
+              (let [proj (aux/yaml-read "test/assets/UNO.yaml")]
                 (pprint "Test project config:")
                 (pprint proj)))))

@@ -155,6 +155,7 @@
           (let [person (get-in request [:params :person])
                 year   (get-in request [:params :year])
                 ts-path (get-in config [:agiladmin :budgets :path])]
+            ;; check if current year's timesheet exists, else point to previous
             (if (.exists (io/as-file (str ts-path year "_timesheet_" person ".xlsx")))
               (views/person-view config request)
               ;; else
@@ -170,12 +171,12 @@
                                   (hf/hidden-field "year" ymn))))])))))
 
   ;;TODO: NEW API
-  (GET "/people/list" request
+  (GET "/persons/list" request
        (let [config (web/check-session request)]
          (web/render [:div {:class "container-fluid"}
-                      (views/people-list config)])))
+                      (views/persons-list config)])))
 
-  (POST "/people/spreadsheet" request
+  (POST "/persons/spreadsheet" request
         (let [config (web/check-session request)
               format (get-in request [:params :format2])
               costs-json (get-in request [:params :costs])]
@@ -229,7 +230,7 @@
          (conj {:session config}
                (web/render [:div {:class "container-fluid"}
                             [:div {:class "col-lg-4"}
-                             (views/people-list config)]
+                             (views/persons-list config)]
                             [:div {:class "col-lg-8"}
                              (views/projects-list config)]]))))
 
@@ -261,16 +262,18 @@
                                    :public  (slurp (str (:ssh-key budgets) ".pub")
                                                    :passphrase "")
                                    :exclusive true})
-                   (try (git-pull repo)
-                        (catch Exception ex
-                          (log/error (str "Error: " ex))))
-                   
-                   (web/render [:div
-                                [:div [:h1 "Config"]
-                                 (web/render-yaml config)]
-                                [:div [:h1 "Log (last 20 changes)"]
-                                 (web/git-log repo)]
-                                ]))
+                   (web/render
+                    [:div {:class "container-fluid"}
+                     (try (git-pull repo)
+                          (catch Exception ex
+                            (web/render-error
+                             (log/spy :error [:p "Error in git-pull: " ex]))))
+
+                     [:div [:h1 "Config"]
+                      (web/render-yaml config)]
+                     [:div [:h1 "Log (last 20 changes)"]
+                      (web/git-log repo)]
+                     ]))
 
 
                  (.exists path)

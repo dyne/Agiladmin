@@ -35,12 +35,12 @@
    [incanter.core :refer :all]
    [incanter.charts :refer :all]))
 
-(defn people-list
-  "list all people"
+(defn persons-list
+  "list all persons"
   [config]
-  [:div {:class "people"}
-   [:h2 "People"]
-   ;; list all people
+  [:div {:class "persons"}
+   [:h2 "Persons"]
+   ;; list all persons
    (let [year (:year (util/now))]
      (for [f (->> (util/list-files-matching
                    (get-in config [:agiladmin :budgets :path])
@@ -221,7 +221,7 @@ gantt.parse(tasks);
               to-table)]]
 
         [:div [:h2 "Project configuration"]
-         (present/edn->html conf)]]]])))
+         (web/render-yaml project-conf)]]]])))
 
 (defn person-view [config request]
   (let [person (get-in request [:params :person])
@@ -249,7 +249,7 @@ gantt.parse(tasks);
               :Monthly_average (->> ($rollup :sum :cost :month costs)
                                     (average :cost) round)}
              to-dataset to-table)
-         (web/people-download-toolbar
+         (web/person-download-toolbar
           person year
           (into [["Date" "Name" "Project" "Task" "Tags" "Hours" "Cost" "CPH"]]
                 (-> costs (derive-cost-per-hour config projects) to-list)))

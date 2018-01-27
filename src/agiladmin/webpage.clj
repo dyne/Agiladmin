@@ -58,9 +58,9 @@
                      ;; person, etc using hf/hidden-field)
                (hf/submit-button {:class (str "btn " type)} text))))
 
-(defn people-download-toolbar
+(defn person-download-toolbar
   [person year costs]
-  [:form {:action "/people/spreadsheet"
+  [:form {:action "/persons/spreadsheet"
           :method "post"}
    [:h3 "Download yearly totals:"]
    (hf/hidden-field "format" "excel")
@@ -184,7 +184,9 @@
     [:ul {:class "nav navbar-nav"}
      [:li [:a {:href "/"} "Home"]]
      [:li {:role "separator" :class "divider"} ]
-     [:li [:a {:href "/home"} "List all"]]
+     [:li [:a {:href "/persons/list"} "Persons"]]
+     [:li [:a {:href "/projects/list"} "Projects"]]
+     [:li [:a {:hred "/timesheets"} "Upload"]]
      [:li [:a {:href "/reload"} "Reload"]]
      [:li {:role "separator" :class "divider"} ]
      [:li [:a {:href "/config"} "Configuration"]]

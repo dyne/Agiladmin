@@ -25,9 +25,8 @@
             [agiladmin.config :as conf]
             [incanter.core :refer :all]
             [clojure.contrib.humanize :refer :all]
-            [auxiliary.core :refer :all]
+            [auxiliary.core :as aux]
             [auxiliary.string :refer [strcasecmp]]
-            [auxiliary.config :as aux]
             [failjure.core :as f]
             [taoensso.timbre :as log]
             [dk.ative.docjure.spreadsheet :refer :all])
@@ -91,7 +90,7 @@
   [sheet col row]
   (let [cell (read-cell (select-cell (str col row) sheet))];
     ;; check for errors when reading a cell
-    (if (any?
+    (if (auxiliary.core/anything?
          #{:VALUE :DIV0 :CIRCULAR_REF :REF :NUM :NULL :FUNCTION_NOT_IMPLEMENTED :NAME :NA}
          [cell])
       (->> (str "Error \"" cell "\" reading cell " row ":" col " in sheet " sheet)
