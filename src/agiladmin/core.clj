@@ -99,7 +99,9 @@
 
 (defn load-monthly-hours
   "load hours from a timesheet month if conditions match"
-  [timesheet month cond-fn]
+  ([timesheet month]
+   (load-monthly-hours timesheet month #(true)))
+  ([timesheet month cond-fn]
   (if-let [sheet (select-sheet month (:xls timesheet))]
     (loop [[n & cols] timesheet-cols-projects
            res []]
@@ -131,15 +133,19 @@
              [proj task tag])
 
         (if (empty? cols) (if (nil? entry) res (conj res entry))
-            (recur  cols  (if (nil? entry) res (conj res entry))))))))
+            (recur  cols  (if (nil? entry) res (conj res entry)))))))))
 
 (defn map-timesheets
   "Map a function across all loaded timesheets. The function prototype
   is the one of load-hours, taking 3 arguments: a single timesheet,
   name of tab (month) and a conditional function for selection of
   rows."
-  [timesheets loop-fn cond-fn]
-  (->> (for [t timesheets]
+  ([timesheets]
+   (map-timesheets timesheets load-monthly-hours))
+  ([timesheets loop-fn]
+   (map-timesheets timesheets loop-fn (fn [_] true)))
+  ([timesheets loop-fn cond-fn]
+   (->> (for [t timesheets]
          (loop [[m & months]
                 (for [ts (:sheets t)
                       :let [xls (:xls t)]]
@@ -148,7 +154,7 @@
            (let [f (doall m)]
              (if (empty? months) (if (not-empty f) (concat res f) res)
                  (recur  months  (if (not-empty f) (concat res f) res))))))
-       (mapcat identity) vec to-dataset))
+       (mapcat identity) vec to-dataset)))
 
 (defn load-project-monthly-hours
   "load the named project hours from a sequence of timesheets and

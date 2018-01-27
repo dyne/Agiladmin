@@ -1,6 +1,7 @@
 due:
   start_date: 01-01-2016
   duration: 12
+  cph: 30
 
   rates:
     L.Pacioli: 30
