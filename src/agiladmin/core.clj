@@ -292,5 +292,8 @@
   (loop [[p & projects] (get-in conf [:agiladmin :projects])
          res {}]
     (let [r (conf/load-project conf p)]
-      (if (empty? projects) (conj r res)
-          (recur  projects  (conj r res))))))
+      ;; cannot use failjure inside a loop/recur?
+      ;; tried (when (f/failed?)) here but no
+      ;; attempt all also cannot allow recur to be last
+     (if (empty? projects) (conj r res)
+         (recur  projects  (conj r res))))))

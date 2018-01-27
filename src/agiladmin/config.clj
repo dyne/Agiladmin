@@ -78,8 +78,8 @@
       (try ;; validate project configuration schema
         (s/validate Project pconf)
         (catch Exception ex
-          (f/fail (str "Invalid project configuration: " proj))
-          (log/error (str "Error: " ex))))
+          (f/fail (log/spy :error ["Invalid project configuration: " proj ex]))))
+
 
       ;; capitalise all project name keys 
       (into

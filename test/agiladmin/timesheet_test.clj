@@ -1,8 +1,10 @@
 (ns agiladmin.timesheet-test
   (:use midje.sweet)
-  (:require [auxiliary.config :as aux]
-            [agiladmin.core :refer :all]
-            [clojure.pprint :refer :all]))
+  (:require
+   [failjure.core :as f]
+   [auxiliary.config :as aux]
+   [agiladmin.core :refer :all]
+   [clojure.pprint :refer :all]))
 
 (def budgets "test/assets/")
 (def conf (aux/yaml-read "test/assets/agiladmin.yaml"))
@@ -47,7 +49,9 @@
       )
 
 (fact "Load all projects"
-      (def all-pjs (load-all-projects conf))
+      (def all-pjs (f/ok-> conf load-all-projects))
+      (if (f/failed? all-pjs) (pprint (f/message all-pjs)))
+      (f/failed? all-pjs) => false
       all-pjs => {:DUE {:duration 12, :idx {:ALPHA {:duration 36, :id "alpha", :pm 1, :start_date "01-01-2016", :text "Management and coordination"}, :BETA {:duration 14, :id "beta", :pm 6, :start_date "01-01-2016", :text "Social Dynamics"}, :GAMMA {:duration 36, :id "gamma", :pm 12, :start_date "01-07-2016", :text "Public design and technological implementation"}}, :rates {:L.Pacioli 30}, :start_date "01-01-2016", :tasks [{:duration 36, :id "ALPHA", :pm 1, :start_date "01-01-2016", :text "Management and coordination"} {:duration 14, :id "BETA", :pm 6, :start_date "01-01-2016", :text "Social Dynamics"} {:duration 36, :id "GAMMA", :pm 12, :start_date "01-07-2016", :text "Public design and technological implementation"}]}, :TRE {:duration 12, :idx {:ALPHA {:duration 36, :id "alpha", :pm 1, :start_date "01-01-2016", :text "Management and coordination"}, :BETA {:duration 14, :id "beta", :pm 6, :start_date "01-01-2016", :text "Social Dynamics"}, :GAMMA {:duration 36, :id "gamma", :pm 12, :start_date "01-07-2016", :text "Public design and technological implementation"}}, :rates {:L.Pacioli 35}, :start_date "01-01-2016", :tasks [{:duration 36, :id "ALPHA", :pm 1, :start_date "01-01-2016", :text "Management and coordination"} {:duration 14, :id "BETA", :pm 6, :start_date "01-01-2016", :text "Social Dynamics"} {:duration 36, :id "GAMMA", :pm 12, :start_date "01-07-2016", :text "Public design and technological implementation"}]}, :UNO {:cph 45, :duration 12, :idx {:ALPHA {:duration 36, :id "alpha", :pm 1, :start_date "01-01-2016", :text "Management and coordination"}, :BETA {:duration 14, :id "beta", :pm 6, :start_date "01-01-2016", :text "Social Dynamics"}, :GAMMA {:duration 36, :id "gamma", :pm 12, :start_date "01-07-2016", :text "Public design and technological implementation"}}, :rates {:L.Pacioli 40}, :start_date "01-01-2016", :tasks [{:duration 36, :id "ALPHA", :pm 1, :start_date "01-01-2016", :text "Management and coordination"} {:duration 14, :id "BETA", :pm 6, :start_date "01-01-2016", :text "Social Dynamics"} {:duration 36, :id "GAMMA", :pm 12, :start_date "01-07-2016", :text "Public design and technological implementation"}]}}
 
       (fact "load all monthly hours"

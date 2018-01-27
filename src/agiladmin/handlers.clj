@@ -287,7 +287,7 @@
                  :else
                  ;; doesn't exists at all
                  (web/render
-                  [:div
+                  [:div {:class "container-fluid"}
                    (with-identity {:name (slurp keypath)
                                    :private (slurp keypath)
                                    :public  (slurp (str keypath ".pub")
@@ -296,12 +296,13 @@
 
                      (try (git-clone gitpath "budgets")
                           (catch Exception ex
-                            (log/error (str "Error: " ex))
-                            [:div
-                             [:h1 "Error cloning git repo"]
-                             [:h2 ex]
-                             [:p "Add your public key to the repository to access it:"
-                              [:pre (-> (str keypath ".pub") slurp str)]]]))
+                            (web/render-error
+                             (log/spy
+                              :error
+                              [:p "Error cloning git repo" ex
+                               "Add your public key to the repository to access it:"
+                               (-> (str keypath ".pub") slurp str)]))))
+
                      (let [repo (load-repo (:path budgets))]
                        [:div {:class "row"}
                         [:div {:class "col-lg-4"}

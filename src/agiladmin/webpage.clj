@@ -186,7 +186,7 @@
      [:li {:role "separator" :class "divider"} ]
      [:li [:a {:href "/persons/list"} "Persons"]]
      [:li [:a {:href "/projects/list"} "Projects"]]
-     [:li [:a {:hred "/timesheets"} "Upload"]]
+     [:li [:a {:href "/timesheets"} "Upload"]]
      [:li [:a {:href "/reload"} "Reload"]]
      [:li {:role "separator" :class "divider"} ]
      [:li [:a {:href "/config"} "Configuration"]]
