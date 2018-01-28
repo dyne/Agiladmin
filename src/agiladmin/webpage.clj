@@ -299,7 +299,7 @@
    [:input {:class "btn btn-success btn-lg pull-top"
             :type "submit" :value "submit"}]])
 
-(defn git-log
+(defn render-git-log
   "list the last 20 git commits in the budget repo"
   [repo]
   [:div {:class "commitlog"}

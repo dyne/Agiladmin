@@ -1,5 +1,5 @@
-(defproject agiladmin "0.2.0-SNAPSHOT"
-  :description "Agile Administration for SME"
+(defproject agiladmin "0.3.0-SNAPSHOT"
+  :description "Agile Administration for SMEs"
   :url "http://agiladmin.dyne.org"
   :license {:name "Affero GPL v3"}
   :dependencies ^:replace [[org.clojure/clojure "1.9.0"]
@@ -24,6 +24,7 @@
 
                            ;; auxiliary lib functions
                            [org.clojars.dyne/auxiliary "0.5.0-SNAPSHOT"]
+                           [org.clojars.dyne/clj-storage "0.6.0-SNAPSHOT"]
 
                            ;; compojure, ring and middleware
                            [compojure "1.6.0"]
@@ -42,9 +43,6 @@
                            [dk.ative/docjure "1.12.0"]
                            [org.apache.poi/poi "3.17"]
                            [org.apache.poi/poi-ooxml "3.17"]
-
-                           ;; Data serialisation
-                           [com.taoensso/nippy "2.13.0"]
 
                            ;; Data validation
                            [prismatic/schema "1.1.7"]

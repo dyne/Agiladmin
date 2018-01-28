@@ -42,8 +42,8 @@
    [agiladmin.config :as conf]
    [agiladmin.graphics :refer [to-table]]
 
-   [clj-jgit.porcelain :refer :all]
-   [clj-jgit.querying  :refer :all]
+   [clj-jgit.porcelain :as git
+    :refer [with-identity load-repo git-clone git-pull]]
 
    [incanter.core :refer :all]
    [incanter.stats :refer :all]
@@ -136,7 +136,7 @@
                      :method "post"}
               [:h1 "Configuration editor"]
               (web/edit-edn conf)]]))))
-  
+
   (POST "/config/edit" request
         (if-let [config (web/check-session request)]
           (web/render
@@ -196,7 +196,7 @@
             (-> costs-json json/read-str web/render-html web/render)
 
             )))
-         
+
   (GET "/projects/list" request
        (let [config (web/check-session request)]
          (web/render [:div {:class "container-fluid"}
@@ -252,19 +252,19 @@
                  ;; one) TODO: analyse contents of path, detect git
                  ;; repo and correct agiladmin environment, detect
                  ;; errors and report them
-                 (let [repo (load-repo (:path budgets))]
+                 (let [repo (git/load-repo (:path budgets))]
                    (log/info
                     (str "Path is a directory, trying to pull in: "
                          (:path budgets)))
 
-                   (with-identity {:name (slurp (:ssh-key budgets))
-                                   :private (slurp (:ssh-key budgets))
-                                   :public  (slurp (str (:ssh-key budgets) ".pub")
-                                                   :passphrase "")
-                                   :exclusive true})
+                   (git/with-identity {:name (slurp (:ssh-key budgets))
+                                       :private (slurp (:ssh-key budgets))
+                                       :public  (slurp (str (:ssh-key budgets) ".pub")
+                                                       :passphrase "")
+                                       :exclusive true})
                    (web/render
                     [:div {:class "container-fluid"}
-                     (try (git-pull repo)
+                     (try (git/git-pull repo)
                           (catch Exception ex
                             (web/render-error
                              (log/spy :error [:p "Error in git-pull: " ex]))))
@@ -272,7 +272,7 @@
                      [:div [:h1 "Config"]
                       (web/render-yaml config)]
                      [:div [:h1 "Log (last 20 changes)"]
-                      (web/git-log repo)]
+                      (web/render-git-log repo)]
                      ]))
 
 
@@ -288,13 +288,13 @@
                  ;; doesn't exists at all
                  (web/render
                   [:div {:class "container-fluid"}
-                   (with-identity {:name (slurp keypath)
+                   (git/with-identity {:name (slurp keypath)
                                    :private (slurp keypath)
                                    :public  (slurp (str keypath ".pub")
                                                    :passphrase "")
                                    :exclusive true}
 
-                     (try (git-clone gitpath "budgets")
+                     (try (git/git-clone gitpath "budgets")
                           (catch Exception ex
                             (web/render-error
                              (log/spy
@@ -303,12 +303,12 @@
                                "Add your public key to the repository to access it:"
                                (-> (str keypath ".pub") slurp str)]))))
 
-                     (let [repo (load-repo (:path budgets))]
+                     (let [repo (git/load-repo (:path budgets))]
                        [:div {:class "row"}
                         [:div {:class "col-lg-4"}
                          (web/render-yaml config)]
                         [:div {:class "col-lg-8"}
-                         (web/git-log repo)]]))])
+                         (web/render-git-log repo)]]))])
                  ;; end of POST /reload
                  ))))
 
@@ -349,7 +349,7 @@
                                "hr" :qs 1]})))
 (defn start-backend []
   (let [config (conf/load-config "agiladmin" {})]
-    (log/info "Starting backend") 
+    (log/info "Starting backend")
     (run-jetty app {})))
 
 (defn stop-backend [server] (.stop server))
