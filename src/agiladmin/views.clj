@@ -31,7 +31,6 @@
    [taoensso.timbre :as log]
    [cheshire.core :as json]
    [hiccup.form :as hf]
-   [json-html.core :as present]
    [incanter.core :refer :all]
    [incanter.charts :refer :all]))
 

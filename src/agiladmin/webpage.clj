@@ -55,8 +55,22 @@
   ([url text field type]
    (hf/form-to [:post url]
                field ;; can be an hidden key/value field (project,
-                     ;; person, etc using hf/hidden-field)
+               ;; person, etc using hf/hidden-field)
                (hf/submit-button {:class (str "btn " type)} text))))
+
+(defn button-cancel-submit [argmap]
+  [:div
+   {:class
+    (str "col-md-2 btn-group btn-group-lg " (:btn-group-class argmap))
+    :role "group"}
+   (button
+    "/" "Cancel"
+    (list (hf/hidden-field "message" (:cancel-message argmap)))
+    "btn-primary btn-lg btn-danger")
+   (button
+    (:submit-url argmap) "Submit"
+    (:submit-params argmap)
+    "btn-primary btn-lg btn-success")])
 
 (defn person-download-toolbar
   [person year costs]
@@ -81,7 +95,7 @@
   ;; TODO: validation of all data loaded via prismatic schema
   (conf/load-config "agiladmin" conf/default-settings)
 
-)
+  )
 
 
 (defn check-session [request]
@@ -104,13 +118,8 @@
           (render-head)
           [:body {:class "fxc static"}
            (render-navbar)
-           
-           [:div {:class "container"}
-           ;;  [:img {:src "/static/img/secret_ladies.jpg"
-           ;;         :class "pull-right img-responsive"
-           ;;         :style "width: 16em; border:1px solid #010a40"}]
-           ;;  [:h1 "Simple Secret Sharing Service" ] body]
-           body]
+
+           [:div {:class "container"} body]
 
            (render-footer)
            ])})
@@ -165,39 +174,73 @@
     [:meta {:name "twitter:image" :content (str url "/static/img/secret_ladies.jpg") }]
 
     [:title title]
+
+    ;; javascript scripts
     (page/include-js  "/static/js/dhtmlxgantt.js")
     (page/include-js  "/static/js/dhtmlxgantt_marker.js")
     (page/include-js  "/static/js/sorttable.js")
     (page/include-js  "/static/js/jquery-3.2.1.min.js")
     (page/include-js  "/static/js/bootstrap.min.js")
     (page/include-js  "/static/js/highlight.pack.js")
+    (page/include-js  "/static/js/jsondiffpatch.min.js")
+    (page/include-js  "/static/js/jsondiffpatch-formatters.min.js")
+    (page/include-js  "/static/js/diff_match_patch_uncompressed.js")
+
+    ;; cascade style sheets
     (page/include-css "/static/css/bootstrap.min.css")
     (page/include-css "/static/css/dhtmlxgantt.css")
     (page/include-css "/static/css/bootstrap-theme.min.css")
     (page/include-css "/static/css/json-html.css")
     (page/include-css "/static/css/highlight-tomorrow.css")
+    (page/include-css "/static/css/formatters-styles/html.css")
+    (page/include-css "/static/css/formatters-styles/annotated.css")
+    (page/include-css "/static/css/fa-regular.min.css")
+    (page/include-css "/static/css/fontawesome.min.css")
     (page/include-css "/static/css/agiladmin.css")]))
 
 (defn render-navbar []
-  [:nav {:class "navbar navbar-default navbar-fixed-top"}
-   [:div {:class "container"}
-    [:ul {:class "nav navbar-nav"}
-     [:li [:a {:href "/"} "Home"]]
-     [:li {:role "separator" :class "divider"} ]
-     [:li [:a {:href "/persons/list"} "Persons"]]
-     [:li [:a {:href "/projects/list"} "Projects"]]
-     [:li [:a {:href "/timesheets"} "Upload"]]
-     [:li [:a {:href "/reload"} "Reload"]]
-     [:li {:role "separator" :class "divider"} ]
-     [:li [:a {:href "/config"} "Configuration"]]
-     ]]])
+  [:nav {:class "navbar navbar-default navbar-fixed-top navbar-expand-lg"}
+
+    [:div {:class "navbar-header"}
+     [:button {:class "navbar-toggle" :type "button"
+               :data-toggle "collapse" :data-target "#navbarResponsive"
+               :aria-controls "navbarResponsive" :aria-expanded "false"
+               :aria-label "Toggle navigation"}
+      [:span {:class "sr-only"} "Toggle navigation"]
+      [:span {:class "icon-bar"}]
+      [:span {:class "icon-bar"}]
+      [:span {:class "icon-bar"}]]
+     [:a {:class "navbar-brand far fa-handshake" :href "/"} "Agiladmin"]]
+
+    [:div {:class "collapse navbar-collapse" :id "navbarResponsive"}
+     [:ul {:class "nav navbar-nav hidden-sm hidden-md ml-auto"}
+      ;; --
+      [:li {:class "divider" :role "separator"}]
+      [:li {:class "nav-item"}
+       [:a {:class "nav-link far fa-address-card"
+            :href "/persons/list"} " Persons"]]
+      [:li {:class "nav-item"}
+       [:a {:class "nav-link far fa-paper-plane"
+            :href "/projects/list"} " Projects"]]
+      [:li {:class "nav-item"}
+       [:a {:class "nav-link far fa-plus-square"
+            :href "/timesheets"} " Upload"]]
+      [:li {:class "nav-item"}
+       [:a {:class "nav-link far fa-save"
+            :href "/reload"} " Reload"]]
+      ;; --
+      [:li {:role "separator" :class "divider"} ]
+      [:li {:class "nav-item"}
+       [:a {:class "nav-link far fa-file-code"
+            :href "/config"} " Configuration"]]
+      ]]])
 
 (defn render-footer []
   [:footer {:class "row" :style "margin: 20px"}
    [:hr]
 
    [:div {:class "footer col-lg-3"}
-    [:img {:src "static/img/AGPLv3.png" :style "margin-top: 2.5em"
+    [:img {:src "/static/img/AGPLv3.png" :style "margin-top: 2.5em"
            :alt "Affero GPLv3 License"
            :title "Affero GPLv3 License"} ]]
 
@@ -232,12 +275,12 @@
 
      (render-navbar)
 
-      [:div {:class "container-fluid"}
-       [:h1 "Agiladmin" ]
-       [:h3 section]
-       body]
+     [:div {:class "container-fluid"}
+      [:h1 "Agiladmin" ]
+      [:h3 section]
+      body]
 
-      (render-footer))))
+     (render-footer))))
 
 ;; highlight functions do no conversion, take the format they highlight
 ;; render functions take edn and convert to the highlight format
@@ -273,14 +316,14 @@
    [:pre [:code {:class "json"}
           data]]
    [:script "hljs.initHighlightingOnLoad();"]])
-  
+
 (defn download-csv
   "takes an edn, returns a csv plain/text for download"
   [data]
   {:headers {"Content-Type"
              "text/plain; charset=utf-8"}
    :body (with-out-str (csv/write-csv *out* data))})
-  
+
 (defn edit-edn
   "renders an editor for the edn in yaml format"
   [data]
@@ -307,4 +350,3 @@
         (map #(gitq/commit-info repo %))
         (map #(select-keys % [:author :message :time :changed_files]))
         (take 20) render-yaml)])
-
