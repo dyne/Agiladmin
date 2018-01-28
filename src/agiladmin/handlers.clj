@@ -46,9 +46,6 @@
     :refer [with-identity load-repo git-clone git-pull]]
 
    [incanter.core :refer :all]
-   [incanter.stats :refer :all]
-   [incanter.charts :refer :all]
-   [incanter.datasets :refer :all]
 
    [taoensso.timbre :as log]
 
@@ -56,8 +53,9 @@
    [clj-openssh-keygen.core :refer :all]
 
    [agiladmin.core :refer :all]
-   [agiladmin.utils :refer :all]
+   [agiladmin.utils :as util]
    [agiladmin.views :as views]
+   [agiladmin.view-timesheet :as view-timesheet]
    [agiladmin.webpage :as web]
    [agiladmin.graphics :refer :all]
    [agiladmin.config :refer :all])
@@ -106,6 +104,13 @@
                 (log/spy :error)
                 web/render-error-page)
            :else (readme request))))
+
+  (POST "/" request
+        ;; generic endpoint for canceled operations
+       (let [config (web/check-session request)]
+         (web/render
+          [:div {:class (str "alert alert-danger") :role "alert"}
+           (get-in request [:params :message])])))
 
   (GET "/config" request
        (let [config (web/check-session request)]
@@ -206,23 +211,22 @@
         (if-let [config (web/check-session request)]
           (views/project-edit config request)))
 
-  (POST "/timesheets/upload"
-        {{{tempfile :tempfile filename :filename} :file}
-         :params :as params}
-        (cond
-          (empty? filename)
-          (web/render-error-page params "Attempt to upload empty file.")
-          :else
-          (let [file (io/copy tempfile (io/file "/tmp" filename))
-                path (str "/tmp/" filename)]
-            (io/delete-file tempfile)
-            (web/render
-             [:div [:h1 "Timesheet uploaded:"]
-              [:h2 filename]
-              (let [costs (map-timesheets
-                           [(load-timesheet path)]
-                           load-monthly-hours (fn [_] true))]
-                (to-table costs))]))))
+  (POST "/timesheets/upload" request
+        (let [config (web/check-session request)
+              tempfile (get-in request [:params :file :tempfile])
+              filename (get-in request [:params :file :filename])
+              params   (:params request)]
+          (log/debug (clojure.pprint/pprint params))
+          (cond
+            (> (get-in params [:file :size]) 500000)
+            ;; max upload size in bytes
+            ;; TODO: put in config
+            (web/render-error-page params "File too big in upload.")
+            :else
+            (let [file (io/copy tempfile (io/file "/tmp" filename))
+                  path (str "/tmp/" filename)]
+              (io/delete-file tempfile)
+              (view-timesheet/upload config path)))))
 
   (GET "/home" request
        (let [config (web/check-session request)

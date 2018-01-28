@@ -50,6 +50,9 @@
                            ;; git
                            [clj-jgit "0.9.1-SNAPSHOT"]
 
+                           ;; filesystem utilities
+                           [me.raynes/fs "1.4.6"]
+
                            ;; graphical visualization
                            [incanter "1.5.7" :upgrade false]
 
