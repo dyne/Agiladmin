@@ -153,21 +153,21 @@ gantt.parse(tasks);
 
       [:div {:class "container-fluid"}
        [:h1 "Totals"]
-       (let [billed (-> ($ :cost project-hours) wrap sum round)
-             hours (-> ($ :hours project-hours) wrap sum round)
+       (let [billed (-> ($ :cost project-hours) util/wrap sum util/round)
+             hours (-> ($ :hours project-hours) util/wrap sum util/round)
              tasks (:tasks conf)]
          (-> [{:total "Current"
                :cost billed
                :hours hours
-               :cph (round (/ billed hours))}]
+               :cph (util/round (/ billed hours))}]
              (concat
               (if (empty? tasks) []
                   (let [max_hours (-> (map #(* (get % :pm) 150) tasks)
-                                      wrap sum)
+                                      util/wrap sum)
                         max_cost (* (:cph conf) max_hours)]
                     [{:total "Progress"
-                      :cost (percentage billed max_cost)
-                      :hours (percentage hours max_hours)
+                      :cost (util/percentage billed max_cost)
+                      :hours (util/percentage hours max_hours)
                       :CPH ""}
                      {:total "Total"
                       :cost max_cost
@@ -240,13 +240,13 @@ gantt.parse(tasks);
 
         [:div {:class "container-fluid"}
          [:h1 "Yearly totals"]         
-         (-> {:Total_hours  (-> ($ :hours costs) wrap sum round)
+         (-> {:Total_hours  (-> ($ :hours costs) util/wrap sum util/round)
               :Voluntary_hours (->> ($where {:tag "VOL"} costs)
-                                    ($ :hours) wrap sum round)
+                                    ($ :hours) util/wrap sum util/round)
               :Total_billed (->> ($where ($fn [tag] (not (strcasecmp tag "VOL")))
-                                         costs) ($ :cost) wrap sum round)
+                                         costs) ($ :cost) util/wrap sum util/round)
               :Monthly_average (->> ($rollup :sum :cost :month costs)
-                                    (average :cost) round)}
+                                    (average :cost) util/round)}
              to-dataset to-table)
          (web/person-download-toolbar
           person year
@@ -263,20 +263,20 @@ gantt.parse(tasks);
          ;; cycle all months to 13 (off-by-one)
          (for [m (-> (range 1 13) vec rseq)
                :let [worked ($where {:month (str year '- m)} costs)
-                     mtot (-> ($ :hours worked) wrap sum)]
+                     mtot (-> ($ :hours worked) util/wrap sum)]
                :when (> mtot 0)]
 
            [:span
             [:strong (util/month-name m)] " total bill for "
             (util/dotname person) " is "
-            [:strong (-> ($ :cost worked) wrap sum)]
+            [:strong (-> ($ :cost worked) util/wrap sum)]
             " for " mtot
             " hours worked across "
             (keep #(when (= (:month %) (str year '- m))
                      (:days %)) (:sheets timesheet))
             " days, including "
             (->> ($where {:tag "VOL"} worked)
-                 ($ :hours) wrap sum) " voluntary hours."
+                 ($ :hours) util/wrap sum) " voluntary hours."
 
             [:div {:class "month-detail"}
              (->> (derive-cost-per-hour worked config projects)

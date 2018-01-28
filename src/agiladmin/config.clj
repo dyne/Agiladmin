@@ -70,6 +70,14 @@
     (binding [*out* *err*] (pprint edn)))
   edn)
 
+(defn < [conf path] ;; query a variable inside the config
+  {:pre [(coll? path)]} 
+  (try ;; adds an extra check every time configuration is read
+    (s/validate Config conf)
+    (catch Exception ex
+      (f/fail (log/spy :error ["Invalid configuration: " conf ex]))))
+  (get-in conf path))
+
 (defn load-config [name default]
   (log/info (str "Loading configuration: " name))
   (->> (aux/config-read name default)
@@ -86,7 +94,6 @@
         (s/validate Project pconf)
         (catch Exception ex
           (f/fail (log/spy :error ["Invalid project configuration: " proj ex]))))
-
 
       ;; capitalise all project name keys 
       (into

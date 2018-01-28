@@ -61,16 +61,17 @@
 (defn button-cancel-submit [argmap]
   [:div
    {:class
-    (str "col-md-2 btn-group btn-group-lg " (:btn-group-class argmap))
+    (str "row col-md-6 btn-group btn-group-lg "
+         (:btn-group-class argmap))
     :role "group"}
    (button
-    "/" "Cancel"
-    (list (hf/hidden-field "message" (:cancel-message argmap)))
-    "btn-primary btn-lg btn-danger")
+    (:cancel-url argmap) "Cancel"
+    (:cancel-params argmap)
+    "btn-primary btn-lg btn-danger col-md-3")
    (button
     (:submit-url argmap) "Submit"
     (:submit-params argmap)
-    "btn-primary btn-lg btn-success")])
+    "btn-primary btn-lg btn-success col-md-3")])
 
 (defn person-download-toolbar
   [person year costs]

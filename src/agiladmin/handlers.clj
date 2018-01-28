@@ -39,6 +39,9 @@
    [markdown.core :as md]
    [yaml.core :as yaml]
 
+   [me.raynes.fs :as fs]
+   [failjure.core :as f]
+
    [agiladmin.config :as conf]
    [agiladmin.graphics :refer [to-table]]
 
@@ -48,6 +51,7 @@
    [incanter.core :refer :all]
 
    [taoensso.timbre :as log]
+   [taoensso.nippy :as nippy]
 
    ;; ssh crypto
    [clj-openssh-keygen.core :refer :all]
@@ -65,12 +69,13 @@
 (defn readme [request]
   (conj {:session (web/check-session request)}
         (web/render
+         [:div {:class "container-fluid"}
          (slurp (let [accept (:accept request)
                       readme "public/static/README-"
                       lang (:language accept)
                       locale (io/resource (str readme lang ".html"))]
                   (if (nil? locale) (io/resource "public/static/README.html")
-                      locale))))))
+                      locale)))])))
 
 (defn select-person-month [config url text person]
   (hf/form-to [:post url]
@@ -107,10 +112,10 @@
 
   (POST "/" request
         ;; generic endpoint for canceled operations
-       (let [config (web/check-session request)]
-         (web/render
-          [:div {:class (str "alert alert-danger") :role "alert"}
-           (get-in request [:params :message])])))
+        (let [config (web/check-session request)]
+          (web/render
+           [:div {:class (str "alert alert-danger") :role "alert"}
+            (get-in request [:params :message])])))
 
   (GET "/config" request
        (let [config (web/check-session request)]
@@ -153,7 +158,7 @@
 
   (POST "/project" request
         (if-let [config (web/check-session request)]
-              (views/project-view config request)))
+          (views/project-view config request)))
 
   (POST "/person" request
         (if-let [config (web/check-session request)]
@@ -172,8 +177,8 @@
                   (str "No timesheet found for " person " on year " year)))
                 (if-let [ymn (- (Integer/parseInt (re-find #"\A-?\d+" year)) 1)]
                   (web/button "/person" (str "Try previous year " ymn)
-                            (list (hf/hidden-field "person" person)
-                                  (hf/hidden-field "year" ymn))))])))))
+                              (list (hf/hidden-field "person" person)
+                                    (hf/hidden-field "year" ymn))))])))))
 
   ;;TODO: NEW API
   (GET "/persons/list" request
@@ -211,12 +216,22 @@
         (if-let [config (web/check-session request)]
           (views/project-edit config request)))
 
+  (GET "/timesheets" request
+       (let [config (web/check-session request)]
+         (view-timesheet/start)))
+  (POST "/timesheets/cancel" request
+       (let [config (web/check-session request)
+             tempfile (get-in request [:params :tempfile])]
+         (if-not (str/blank? tempfile) (io/delete-file tempfile))         
+         (web/render
+          [:div {:class (str "alert alert-danger") :role "alert"}
+           (str "Canceled upload of timesheet: " tempfile)])))
+
   (POST "/timesheets/upload" request
         (let [config (web/check-session request)
               tempfile (get-in request [:params :file :tempfile])
               filename (get-in request [:params :file :filename])
               params   (:params request)]
-          (log/debug (clojure.pprint/pprint params))
           (cond
             (> (get-in params [:file :size]) 500000)
             ;; max upload size in bytes
@@ -227,6 +242,31 @@
                   path (str "/tmp/" filename)]
               (io/delete-file tempfile)
               (view-timesheet/upload config path)))))
+
+  (POST "/timesheets/submit" request
+        (let [config (web/check-session request)
+              path (get-in request [:params :path])]
+          (if (.exists (io/file path))
+            (let [repo (conf/< config [:agiladmin :budgets :path])
+                  dst (str repo (fs/base-name path))]
+              (web/render
+               [:div {:class "container-fluid"}
+                [:h1 dst ]
+                (io/copy path (io/file dst))
+                ;;(io/delete-file path)
+                (f/attempt-all
+                 [gitrepo  (git/load-repo repo)
+                  dircache (git/git-add gitrepo (fs/base-name dst))
+                  gitstatus (git/git-status gitrepo)]
+                 (web/render-yaml gitstatus)
+                 (f/when-failed [e]
+                   (web/render-error (log/spy :error ["Failure committing to git: " e]))))
+
+                        ;; git/git-status web/render-yaml)
+                [:p "Timesheet was succesfully archived"]]))
+               ;; else
+               (web/render-error-page
+                (str "Where is this file gone?! " path)))))
 
   (GET "/home" request
        (let [config (web/check-session request)
@@ -293,10 +333,10 @@
                  (web/render
                   [:div {:class "container-fluid"}
                    (git/with-identity {:name (slurp keypath)
-                                   :private (slurp keypath)
-                                   :public  (slurp (str keypath ".pub")
-                                                   :passphrase "")
-                                   :exclusive true}
+                                       :private (slurp keypath)
+                                       :public  (slurp (str keypath ".pub")
+                                                       :passphrase "")
+                                       :exclusive true}
 
                      (try (git/git-clone gitpath "budgets")
                           (catch Exception ex

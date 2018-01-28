@@ -40,6 +40,65 @@
           :indent-objects? false
           :indent-arrays? false)))
 
+(defn- hours-prepare-diff [data]
+  ;; TOOD: better format to enhance diff visuals
+  (:rows data))
+
+;; (defn json-visual-diff2 [left right]
+;;   [:div {:class "timesheet-diff"}
+;;    (loop [[r & right-sections] (:rows right)
+;;           l (first (:rows left))
+;;           c 0 ;; counter
+;;           res []]
+;;      (let [i [:div {:class "row"}]]
+;;        (conj [[:div {:class "col-md-3 pull-left"}
+;;                (-> r (json/generate-string {:pretty true})
+;;                    web/highlight-json)]] res)
+;;        (conj [[:div {:class "col-md-4" :id (str "visual" c)}]] res)
+;;        (conj [[:div {:class "col-md-3"}
+;;                (-> l (json/generate-string {:pretty true})
+;;                    web/highligh-json)]] res)
+;;        (if (empty? right-sections) (conj i res)
+;;            (recur  right-sections (
+
+
+
+
+(defn json-visual-diff [left right]
+  [:div {:class "timesheet-diff"}
+   [:div {:class "col-md-3 timesheet-old-json"}
+    (web/highlight-json
+     (-> (:rows right) (json/generate-string {:pretty true})))]
+   [:div {:class "col-md-4" :id "visual"}]
+   [:script
+    (str "\n"
+         "function jsondiff() {\n"
+         " var left = " (-> left hours-prepare-diff json/generate-string) ";\n"
+         " var right = " (-> right hours-prepare-diff json/generate-string) ";\n"
+         " var delta = jsondiffpatch.diff(left,right);\n"
+         " jsondiffpatch.formatters.html.hideUnchanged();"
+         " document.getElementById('visual').innerHTML = jsondiffpatch.formatters.html.format(delta, left);\n}\n"
+         "window.onload = jsondiff;\n")]])
+
+(defn start []
+  (web/render
+   [:div {:class "container-fluid"}
+    [:h1 "Upload a new timesheet"]
+    [:p " Choose the file in your computer and click 'Submit' to
+proceed to validation."]
+    [:div {:class "form-group"}
+     [:form {:action "/timesheets/upload" :method "post"
+             :class "form-shell"
+             :enctype "multipart/form-data"}
+      [:fieldset {:class "fieldset btn btn-default btn-file btn-lg"}
+       [:input {:name "file" :type "file"}]]
+      ;; [:fieldset {:class "fieldset-submit"}
+      [:input {:class "btn btn-primary btn-lg"
+               :id "field-submit" :type "submit"
+               :name "submit" :value "submit"}]]]]))
+
+
+
 (defn upload [config filename]
   (if (.exists (io/file filename))
     ;; load into dataset
@@ -55,11 +114,14 @@
         [:h1 (str "Uploaded: " (fs/base-name filename))]
         (web/button-cancel-submit
          {:btn-group-class "pull-right"
+          :cancel-url "/timesheets/cancel"
+          :cancel-params
+          (list (hf/hidden-field "tempfile" filename))
           :cancel-message (str "Upload operation canceled: " filename)
           :submit-url "/timesheets/submit"
           :submit-params
           (list
-           (hf/hidden-field "hours" (-> hours nippy/freeze))
+           (hf/hidden-field "hours" (nippy/freeze hours))
            (hf/hidden-field "path" filename))})]
 
        [:div {:class "container"}
@@ -79,28 +141,15 @@
            (web/highlight-json
             (-> (:rows hours) (json/generate-string {:pretty true})))]
 
-          (if (.exists (io/file (log/spy (str (get-in config [:agiladmin :budgets :path])
-                                              (fs/base-name filename)))))
+          (if (.exists (io/file (str (get-in config [:agiladmin :budgets :path])
+                                     (fs/base-name filename))))
             ;; compare with old timesheet of same name
             (f/attempt-all
              [old-ts (load-timesheet
                       (str (get-in config [:agiladmin :budgets :path])
                            (fs/base-name filename)))
               old-hours (map-timesheets [old-ts])]
-             [:div {:class "timesheet-diff"}
-              [:div {:class "col-md-4" :id "visual"}]
-              [:script
-               (str "\n"
-                    "function jsondiff() {\n"
-                    " var left = " (-> (:rows old-hours) json/generate-string) ";\n"
-                    " var right = " (-> (:rows hours) json/generate-string) ";\n"
-                    " var delta = jsondiffpatch.diff(left,right);\n"
-                    " document.getElementById('visual').innerHTML = jsondiffpatch.formatters.html.format(delta, left);\n}\n"
-                    "window.onload = jsondiff;\n")]
-              [:div {:class "col-md-3 timesheet-old-json pull-right"}
-               (web/highlight-json
-                (-> (:rows old-hours) (json/generate-string {:pretty true})))]]
-
+             (json-visual-diff old-hours hours)
              (f/when-failed [e]
                (web/render-error
                 (log/spy :error ["Error parsing old timesheet: " e]))))
@@ -116,12 +165,12 @@
 
          ]]])
 
-      ;; handle failjure of timesheet loading from the uploaded file
+     ;; handle failjure of timesheet loading from the uploaded file
      (f/when-failed [e]
        (web/render-error-page
         (log/spy :error ["Error parsing timesheet: " e]))))
 
-      ;; uploaded file not existing
+    ;; uploaded file not existing
     (f/when-failed [e]
       (web/render-error-page
        (log/spy :error ["Uploaded file not found: " filename])))))
