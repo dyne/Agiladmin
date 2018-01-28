@@ -20,16 +20,16 @@
 
 (ns agiladmin.core
   (:require [clojure.string :refer [blank? split lower-case upper-case]]
-            [agiladmin.utils :refer :all]
+            [agiladmin.utils :as util]
             [agiladmin.graphics :refer :all]
             [agiladmin.config :as conf]
             [incanter.core :refer :all]
-            [clojure.contrib.humanize :refer :all]
             [auxiliary.core :as aux]
             [auxiliary.string :refer [strcasecmp]]
             [failjure.core :as f]
             [taoensso.timbre :as log]
-            [dk.ative.docjure.spreadsheet :refer :all])
+            [dk.ative.docjure.spreadsheet 
+             :refer [load-workbook select-sheet sheet-seq select-cell read-cell]])
   (:import (org.apache.poi.ss.usermodel Workbook Row CellStyle IndexedColors Font CellValue)
            (org.apache.poi.xssf.usermodel XSSFWorkbook XSSFFont)
            (java.util Date)
@@ -53,37 +53,17 @@
            '[agiladmin.utils :refer :all]
            '[agiladmin.config :refer :all]
            '[incanter.core :refer :all]
-           '[incanter.charts :refer :all]
-           '[json-html.core :as present]
            '[clojure.string :refer :all]
            '[clojure.java.io :as io]
            '[clojure.pprint :reder :all]
            :reload))
 
-(defn wrap
-  "wrap a single element into a collection, safety measure for dataset
-  operations on a columns that return a single element"
-  [ele] (if (coll? ele) ele (list ele)))
-
-(defn round
-  "rounds a float to the first 2 positions after the comma"
-  [^double f]
-  ;; TODO: error checking on nil and zero using failjure + tests
-    (let [factor (Math/pow 10 2)]
-      (/ (Math/floor (* f factor)) factor)))
-
-(defn percentage
-  "calculates a percentage and rounds"
-  ;; TODO: error checking on nil and zero using failjure + tests
-  [^double part ^double total]
-  (str (round (/ (* part 100) total)) "%"))
-
 (defn average
   "makes an average of the values of a certain column in a dataset"
   [col data]
   (let [count (nrow data)
-        tot   (-> ($ col data) wrap sum)]
-    (round (/ tot count))))
+        tot   (-> ($ col data) util/wrap sum)]
+    (util/round (/ tot count))))
 
 (defn get-cell
   "return the value of cell in sheet at column and row position"
@@ -172,7 +152,7 @@
   ;; TODO: make sure that project_file has no case sensitive
   ;; complication
   (get-in projects [(keyword projname) :rates
-                    (-> person dotname keyword)]))
+                    (-> person util/dotname keyword)]))
 
 (defn derive-costs
   "gets a dataset of hours and adds a 'cost' column deriving the
@@ -188,7 +168,7 @@
                                                            (keyword name)])]
                              (if (and (> cost 0) (not (strcasecmp tag "VOL")))
                                ;; then
-                               (round (* cost hours))
+                               (util/round (* cost hours))
                                ;; else
                                0)
                              ;; else
@@ -221,7 +201,7 @@
        (let [p   (-> proj keyword)
              t   (-> task keyword)]
          (if-let [tot (get-in conf [p :idx t :pm])]
-           (-> hours (/ (* tot 150)) round)))))))
+           (-> hours (/ (* tot 150)) util/round)))))))
 
 (defn derive-task-hours-totals
   "gets a dataset of project hours and costs and add a column deriving
@@ -254,7 +234,7 @@
   (let [ts (load-workbook path)
         shs (first (sheet-seq ts))
         year (first (split (get-cell shs 'B 2) #"-"))]
-    {:name (dotname (get-cell shs 'B 3))
+    {:name (util/dotname (get-cell shs 'B 3))
      :file path
      :year year
      :xls ts
@@ -272,23 +252,23 @@
         :days (get-cell sheet 'B 5)}
        )}))
 
-(defn write-workbook-sheet
-  "takes a dataset and writes it to file"
-  [file sheet-name data]
-  (let [wb (load-workbook file)
-        ;; or use add-sheet!
-        sheet (if-let [s (select-sheet sheet-name wb)]
-                s
-                (add-sheet! wb "Personnel hours"))]
-    (remove-all-rows! sheet)
-    (add-rows! sheet (to-excel ($order :month :asc data)))
-    (save-workbook! file wb)
-    wb))
+;; (defn write-workbook-sheet
+;;   "takes a dataset and writes it to file"
+;;   [file sheet-name data]
+;;   (let [wb (load-workbook file)
+;;         ;; or use add-sheet!
+;;         sheet (if-let [s (select-sheet sheet-name wb)]
+;;                 s
+;;                 (add-sheet! wb "Personnel hours"))]
+;;     (remove-all-rows! sheet)
+;;     (add-rows! sheet (to-excel ($order :month :asc data)))
+;;     (save-workbook! file wb)
+;;     wb))
 
 (defn load-all-timesheets
   "load all timesheets in a directory matching a certain filename pattern"
   [path regex]
-  (let [ts (list-files-matching path regex)]
+  (let [ts (util/list-files-matching path regex)]
     (for [l (map #(.getName %) ts)]
       (if (not= (first l) '\.)
         (load-timesheet (str path l))))))

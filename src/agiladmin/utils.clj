@@ -28,6 +28,25 @@
             [clj-time.local :as time-local]
             [clojure.walk :refer :all]))
 
+(defn wrap
+  "wrap a single element into a collection, safety measure for dataset
+  operations on a columns that return a single element"
+  [ele] (if (coll? ele) ele (list ele)))
+
+(defn round
+  "rounds a float to the first 2 positions after the comma"
+  [^double f]
+  {:pre (> f 0)}
+  ;; TODO: error checking on nil and zero using failjure + tests
+    (let [factor (Math/pow 10 2)]
+      (/ (Math/floor (* f factor)) factor)))
+
+(defn percentage
+  "calculates a percentage and rounds"
+  ;; TODO: error checking on nil and zero using failjure + tests
+  [^double part ^double total]
+  (str (round (/ (* part 100) total)) "%"))
+
 (defn now []
   (let [now (time-local/local-now)]
     {:year (time/year now)
