@@ -183,6 +183,7 @@
     (page/include-js  "/static/js/jquery-3.2.1.min.js")
     (page/include-js  "/static/js/bootstrap.min.js")
     (page/include-js  "/static/js/highlight.pack.js")
+    (page/include-js  "/static/js/diff.js")
     (page/include-js  "/static/js/jsondiffpatch.min.js")
     (page/include-js  "/static/js/jsondiffpatch-formatters.min.js")
     (page/include-js  "/static/js/diff_match_patch_uncompressed.js")

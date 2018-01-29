@@ -40,30 +40,33 @@
           :indent-objects? false
           :indent-arrays? false)))
 
-(defn- hours-prepare-diff [data]
-  ;; TOOD: better format to enhance diff visuals
-  (:rows data))
+(defn textual-diff [left right]
+  [:div {:class "row"}
+   [:div {:class "col-md-5"}
+    [:pre (str "\n" (with-out-str (print left)))]]
+   [:div {:class "col-md-5"}
+    [:pre {:id "display"}]
+    [:script
+     (str "\n"
+          "function dodiff() {\n"
+          "var left = `" (with-out-str (print left)) "`;\n"
+          "var right = `" (with-out-str (print right)) "`;\n"
+          "var color = '', span = null;\n"
+          "var diff = JsDiff.diffLines(left, right);\n"
+          "var display = document.getElementById('display')\n"
+          "var fragment = document.createDocumentFragment();\n"
+          "diff.forEach(function(part){\n
+  color = part.added ? 'green' : part.removed ? 'red' : 'darkgrey';\n
+  span = document.createElement('span');\n
+  span.style.color = color;\n
+  span.appendChild(document.createTextNode(part.value));\n
+  fragment.appendChild(span);\n
+});\n
+display.appendChild(fragment);\n
+}\n
+window.onload = dodiff;\n")]]])
 
-;; (defn json-visual-diff2 [left right]
-;;   [:div {:class "timesheet-diff"}
-;;    (loop [[r & right-sections] (:rows right)
-;;           l (first (:rows left))
-;;           c 0 ;; counter
-;;           res []]
-;;      (let [i [:div {:class "row"}]]
-;;        (conj [[:div {:class "col-md-3 pull-left"}
-;;                (-> r (json/generate-string {:pretty true})
-;;                    web/highlight-json)]] res)
-;;        (conj [[:div {:class "col-md-4" :id (str "visual" c)}]] res)
-;;        (conj [[:div {:class "col-md-3"}
-;;                (-> l (json/generate-string {:pretty true})
-;;                    web/highligh-json)]] res)
-;;        (if (empty? right-sections) (conj i res)
-;;            (recur  right-sections (
-
-
-
-
+(defn- hours-prepare-diff [data] (:rows data))
 (defn json-visual-diff [left right]
   [:div {:class "timesheet-diff"}
    [:div {:class "col-md-3 timesheet-old-json"}
@@ -109,9 +112,9 @@ proceed to validation."]
 
      (web/render
       [:div {:class "container-fluid"}
-
        [:div {:class "timesheet-dataset-contents"}
         [:h1 (str "Uploaded: " (fs/base-name filename))]
+        ;; TODO: do not visualise submit button if diff is equal
         (web/button-cancel-submit
          {:btn-group-class "pull-right"
           :cancel-url "/timesheets/cancel"
@@ -120,50 +123,41 @@ proceed to validation."]
           :cancel-message (str "Upload operation canceled: " filename)
           :submit-url "/timesheets/submit"
           :submit-params
-          (list
-           (hf/hidden-field "hours" (nippy/freeze hours))
-           (hf/hidden-field "path" filename))})]
+          (list (hf/hidden-field "path" filename))})
+        [:div {:class "container"}
+         [:ul {:class "nav nav-pills"}
+          [:li {:class "active"}
+           [:a {:href "#diff" :data-toggle "pill" } "Differences"]]
+          [:li [:a {:href "#content" :data-toggle "pill" } "Contents"]]]
+         [:div {:class "tab-content clearfix"}
 
-       [:div {:class "container"}
-        [:ul {:class "nav nav-pills"}
-         [:li {:class "active"}
-          [:a {:href "#diff" :data-toggle "pill" } "Differences"]]
-         [:li [:a {:href "#content" :data-toggle "pill" } "Contents"]]]
+          ;; -------------------------------------------------------
+          ;; DIFF (default tab
+          [:div {:class "tab-pane fade in active" :id "diff"}
+           [:h2 "Differences: old (to the left) and new (to the right)"]
+           (if (.exists (io/file (str (conf/< config
+                                              [:agiladmin :budgets :path])
+                                      (fs/base-name filename))))
+             ;; compare with old timesheet of same name
+             (f/attempt-all
+              [old-ts (load-timesheet
+                       (str (conf/< config [:agiladmin :budgets :path])
+                            (fs/base-name filename)))
+               old-hours (map-timesheets [old-ts])]
+              ;; ---------------
+              (textual-diff old-hours hours)
+              (f/when-failed [e]
+                (web/render-error
+                 (log/spy :error ["Error parsing old timesheet: " e]))))
+             ;; else - this timesheet did not exist before (new year)
+             [:div {:class "alert alert-info" :role "alert"}
+              "This is a new timesheet, no historical information available to compare"])]
 
-        [:div {:class "tab-content clearfix"}
-
-         ;; -------------------------------------------------------
-         ;; DIFF (default tab
-         [:div {:class "tab-pane fade in active" :id "diff"}
-          [:h2 "Differences: new (to the left) and old (to the right)"]
-
-          [:div {:class "col-md-3 timesheet-new-json pull-left"}
-           (web/highlight-json
-            (-> (:rows hours) (json/generate-string {:pretty true})))]
-
-          (if (.exists (io/file (str (get-in config [:agiladmin :budgets :path])
-                                     (fs/base-name filename))))
-            ;; compare with old timesheet of same name
-            (f/attempt-all
-             [old-ts (load-timesheet
-                      (str (get-in config [:agiladmin :budgets :path])
-                           (fs/base-name filename)))
-              old-hours (map-timesheets [old-ts])]
-             (json-visual-diff old-hours hours)
-             (f/when-failed [e]
-               (web/render-error
-                (log/spy :error ["Error parsing old timesheet: " e]))))
-            ;; else - this timesheet did not exist before (new year)
-            [:div {:class "alert alert-info" :role "alert"}
-             "This is a new timesheet, no historical information available to compare"])]
-
-         ;; -------------------------------------------------------
-         ;; CONTENT tab
-         [:div {:class "tab-pane fade" :id "content"}
-          [:h2 "Contents of the new timesheet"]
-          (to-table (sel hours :except-cols :name))]
-
-         ]]])
+          ;; -------------------------------------------------------
+          ;; CONTENT tab
+          [:div {:class "tab-pane fade" :id "content"}
+           [:h2 "Contents of the new timesheet"]
+           (to-table (sel hours :except-cols :name))]]]]])
 
      ;; handle failjure of timesheet loading from the uploaded file
      (f/when-failed [e]

@@ -252,18 +252,25 @@
               (web/render
                [:div {:class "container-fluid"}
                 [:h1 dst ]
-                (io/copy path (io/file dst))
-                ;;(io/delete-file path)
+                (io/copy (io/file path) (io/file dst))
+                (io/delete-file path)
                 (f/attempt-all
                  [gitrepo  (git/load-repo repo)
                   dircache (git/git-add gitrepo (fs/base-name dst))
-                  gitstatus (git/git-status gitrepo)]
-                 (web/render-yaml gitstatus)
+                  gitstatus (git/git-status gitrepo)
+                  gitcommit (git/git-commit
+                             gitrepo
+                             (str "Updated timesheet "
+                                  (fs/base-name path))
+                             ;; {"Agiladmin" "agiladmin@dyne.org"}
+                             )]
+                 [:div
+                  (web/render-yaml gitstatus)
+                  [:p "Timesheet was succesfully archived"]
+                  (-> gitrepo git/git-log first web/render-yaml)]
+                 ;; TODO: add link to the person page here
                  (f/when-failed [e]
-                   (web/render-error (log/spy :error ["Failure committing to git: " e]))))
-
-                        ;; git/git-status web/render-yaml)
-                [:p "Timesheet was succesfully archived"]]))
+                   (web/render-error (log/spy :error ["Failure committing to git: " e]))))]))
                ;; else
                (web/render-error-page
                 (str "Where is this file gone?! " path)))))
