@@ -28,7 +28,7 @@
             [auxiliary.string :refer [strcasecmp]]
             [failjure.core :as f]
             [taoensso.timbre :as log]
-            [dk.ative.docjure.spreadsheet 
+            [dk.ative.docjure.spreadsheet
              :refer [load-workbook select-sheet sheet-seq select-cell read-cell]])
   (:import (org.apache.poi.ss.usermodel Workbook Row CellStyle IndexedColors Font CellValue)
            (org.apache.poi.xssf.usermodel XSSFWorkbook XSSFFont)
@@ -82,38 +82,38 @@
   ([timesheet month]
    (load-monthly-hours timesheet month #(true)))
   ([timesheet month cond-fn]
-  (if-let [sheet (select-sheet month (:xls timesheet))]
-    (loop [[n & cols] timesheet-cols-projects
-           res []]
-      (let [proj  (f/ok-> (get-cell sheet n "7") str) ;; row project
-            task  (f/ok-> (get-cell sheet n "8") str) ;; row task
-            tag   (f/ok-> (get-cell sheet n "9") str) ;; row tag(s) (TODO: support multiple tags)
-            ;; take lowest in row totals starting from 42 (as month lenght varies)
-            hours  (first (for [i timesheet-rows-hourtots
-                                :let  [cell (get-cell sheet n i)]
-                                :when  (not (nil? cell))]
-                            cell))
-            entry  (if (and (not (nil? hours))
-                            (> hours 0.0)
-                            (not (blank? proj))
-                            (cond-fn {:project proj
-                                      :task    task
-                                      :tag     tag
-                                      :hours   hours}))
-                     ;; (not (strcasecmp tag "vol"))
-                     ;; (strcasecmp project proj))
-                     {:month month
-                      :name (:name timesheet)
-                      :project (upper-case proj)
-                      :task (if-not (blank? task) (upper-case task) "")
-                      :tag  (if-not (blank? tag)  (upper-case tag)  "")
-                      :hours hours} nil)]
-        ;; check for errors
-        (map #(when (f/failed? %) (log/error (f/message %)))
-             [proj task tag])
+   (if-let [sheet (select-sheet month (:xls timesheet))]
+     (loop [[n & cols] timesheet-cols-projects
+            res []]
+       (let [proj  (f/ok-> (get-cell sheet n "7") str) ;; row project
+             task  (f/ok-> (get-cell sheet n "8") str) ;; row task
+             tag   (f/ok-> (get-cell sheet n "9") str) ;; row tag(s) (TODO: support multiple tags)
+             ;; take lowest in row totals starting from 42 (as month lenght varies)
+             hours  (first (for [i timesheet-rows-hourtots
+                                 :let  [cell (get-cell sheet n i)]
+                                 :when  (not (nil? cell))]
+                             cell))
+             entry  (if (and (not (nil? hours))
+                             (> hours 0.0)
+                             (not (blank? proj))
+                             (cond-fn {:project proj
+                                       :task    task
+                                       :tag     tag
+                                       :hours   hours}))
+                      ;; (not (strcasecmp tag "vol"))
+                      ;; (strcasecmp project proj))
+                      {:month month
+                       :name (:name timesheet)
+                       :project (upper-case proj)
+                       :task (if-not (blank? task) (upper-case task) "")
+                       :tag  (if-not (blank? tag)  (upper-case tag)  "")
+                       :hours hours} nil)]
+         ;; check for errors
+         (map #(when (f/failed? %) (log/error (f/message %)))
+              [proj task tag])
 
-        (if (empty? cols) (if (nil? entry) res (conj res entry))
-            (recur  cols  (if (nil? entry) res (conj res entry)))))))))
+         (if (empty? cols) (if (nil? entry) res (conj res entry))
+             (recur  cols  (if (nil? entry) res (conj res entry)))))))))
 
 (defn map-timesheets
   "Map a function across all loaded timesheets. The function prototype
@@ -126,15 +126,15 @@
    (map-timesheets timesheets loop-fn (fn [_] true)))
   ([timesheets loop-fn cond-fn]
    (->> (for [t timesheets]
-         (loop [[m & months]
-                (for [ts (:sheets t)
-                      :let [xls (:xls t)]]
-                  (loop-fn t (:month ts) cond-fn))
-                res []]
-           (let [f (doall m)]
-             (if (empty? months) (if (not-empty f) (concat res f) res)
-                 (recur  months  (if (not-empty f) (concat res f) res))))))
-       (mapcat identity) vec to-dataset)))
+          (loop [[m & months]
+                 (for [ts (:sheets t)
+                       :let [xls (:xls t)]]
+                   (loop-fn t (:month ts) cond-fn))
+                 res []]
+            (let [f (doall m)]
+              (if (empty? months) (if (not-empty f) (concat res f) res)
+                  (recur  months  (if (not-empty f) (concat res f) res))))))
+        (mapcat identity) vec to-dataset)))
 
 (defn load-project-monthly-hours
   "load the named project hours from a sequence of timesheets and
@@ -231,55 +231,61 @@
          (get-in conf [p :idx t :text]))))))
 
 (defn load-timesheet [path]
-  (let [ts (load-workbook path)
-        shs (first (sheet-seq ts))
-        year (first (split (get-cell shs 'B 2) #"-"))]
-    {:name (util/dotname (get-cell shs 'B 3))
-     :file path
-     :year year
-     :xls ts
-     :sheets
-     (for [m [1 2 3 4 5 6 7 8 9 10 11 12]
-           :let [ms (str year "-" m)
-                 sheet (try (select-sheet ms ts)
-                            (catch Exception ex
-                              (log/error
-                               (str "Error: load-timesheet: select-sheet can't find tab: " ms))))
-                 h (get-cell sheet 'B 4)]
-           :when (not= h 0.0)]
-       {:month ms
-        :hours h
-        :days (get-cell sheet 'B 5)}
-       )}))
+  (if-let [ts (try (load-workbook path)
+                   (catch Exception ex
+                     (log/error
+                      ["Error in load-workbook: " ex])))]
+    (let [shs (first (sheet-seq ts))
+          year (first (split (get-cell shs 'B 2) #"-"))]
+      {:name (util/dotname (get-cell shs 'B 3))
+       :file path
+       :year year
+       :xls ts
+       :sheets
+       (for [m [1 2 3 4 5 6 7 8 9 10 11 12]
+             :let [ms (str year "-" m)
+                   sheet (try (select-sheet ms ts)
+                              (catch Exception ex
+                                (log/error
+                                 (str "Error: load-timesheet: select-sheet can't find tab: " ms))))
+                   h (get-cell sheet 'B 4)]
+             :when (not= h 0.0)]
+         {:month ms
+          :hours h
+          :days (get-cell sheet 'B 5)}
+         )})
+    (f/fail (str "Error in core/load-timesheet: " path))))
 
-;; (defn write-workbook-sheet
-;;   "takes a dataset and writes it to file"
-;;   [file sheet-name data]
-;;   (let [wb (load-workbook file)
-;;         ;; or use add-sheet!
-;;         sheet (if-let [s (select-sheet sheet-name wb)]
-;;                 s
-;;                 (add-sheet! wb "Personnel hours"))]
-;;     (remove-all-rows! sheet)
-;;     (add-rows! sheet (to-excel ($order :month :asc data)))
-;;     (save-workbook! file wb)
-;;     wb))
 
-(defn load-all-timesheets
-  "load all timesheets in a directory matching a certain filename pattern"
-  [path regex]
-  (let [ts (util/list-files-matching path regex)]
-    (for [l (map #(.getName %) ts)]
-      (if (not= (first l) '\.)
-        (load-timesheet (str path l))))))
 
-(defn load-all-projects [conf]
-  "load all project budgets specified in a directory"
-  (loop [[p & projects] (get-in conf [:agiladmin :projects])
-         res {}]
-    (let [r (conf/load-project conf p)]
-      ;; cannot use failjure inside a loop/recur?
-      ;; tried (when (f/failed?)) here but no
-      ;; attempt all also cannot allow recur to be last
-     (if (empty? projects) (conj r res)
-         (recur  projects  (conj r res))))))
+  ;; (defn write-workbook-sheet
+  ;;   "takes a dataset and writes it to file"
+  ;;   [file sheet-name data]
+  ;;   (let [wb (load-workbook file)
+  ;;         ;; or use add-sheet!
+  ;;         sheet (if-let [s (select-sheet sheet-name wb)]
+  ;;                 s
+  ;;                 (add-sheet! wb "Personnel hours"))]
+  ;;     (remove-all-rows! sheet)
+  ;;     (add-rows! sheet (to-excel ($order :month :asc data)))
+  ;;     (save-workbook! file wb)
+  ;;     wb))
+
+  (defn load-all-timesheets
+    "load all timesheets in a directory matching a certain filename pattern"
+    [path regex]
+    (let [ts (util/list-files-matching path regex)]
+      (for [l (map #(.getName %) ts)]
+        (if (not= (first l) '\.)
+          (load-timesheet (str path l))))))
+
+  (defn load-all-projects [conf]
+    "load all project budgets specified in a directory"
+    (loop [[p & projects] (get-in conf [:agiladmin :projects])
+           res {}]
+      (let [r (conf/load-project conf p)]
+        ;; cannot use failjure inside a loop/recur?
+        ;; tried (when (f/failed?)) here but no
+        ;; attempt all also cannot allow recur to be last
+        (if (empty? projects) (conj r res)
+            (recur  projects  (conj r res))))))
