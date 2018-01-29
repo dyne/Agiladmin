@@ -24,9 +24,10 @@
             [auxiliary.maps :refer [compress]]
             [auxiliary.string :refer [strcasecmp]]
             [taoensso.timbre :as log]
+            [failjure.core :as f]
             [clj-time.core :as time]
             [clj-time.local :as time-local]
-            [clojure.walk :refer :all]))
+            [clojure.walk :refer :all]))            
 
 (defn wrap
   "wrap a single element into a collection, safety measure for dataset

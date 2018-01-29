@@ -135,13 +135,13 @@ proceed to validation."]
           ;; DIFF (default tab
           [:div {:class "tab-pane fade in active" :id "diff"}
            [:h2 "Differences: old (to the left) and new (to the right)"]
-           (if (.exists (io/file (str (conf/< config
+           (if (.exists (io/file (str (conf/q config
                                               [:agiladmin :budgets :path])
                                       (fs/base-name filename))))
              ;; compare with old timesheet of same name
              (f/attempt-all
               [old-ts (load-timesheet
-                       (str (conf/< config [:agiladmin :budgets :path])
+                       (str (conf/q config [:agiladmin :budgets :path])
                             (fs/base-name filename)))
                old-hours (map-timesheets [old-ts])]
               ;; ---------------

@@ -70,7 +70,7 @@
     (binding [*out* *err*] (pprint edn)))
   edn)
 
-(defn < [conf path] ;; query a variable inside the config
+(defn q [conf path] ;; query a variable inside the config
   {:pre [(coll? path)]} 
   (try ;; adds an extra check every time configuration is read
     (s/validate Config conf)

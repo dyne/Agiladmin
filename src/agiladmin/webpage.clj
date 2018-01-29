@@ -40,6 +40,11 @@
 (declare render-error-page)
 (declare render-static)
 
+(defn q [req]
+  "wrapper to retrieve parameters"
+  ;; TODO: sanitise and check for irregular chars
+  (get-in req (conj [:params] req)))
+
 (defn show-config [session]
   (present/edn->html (dissoc session
                              :salt :prime :length :entropy
@@ -117,10 +122,10 @@
              "text/html; charset=utf-8"}
    :body (page/html5
           (render-head)
-          [:body {:class "fxc static"}
+          [:body ;; {:class "static"}
            (render-navbar)
 
-           [:div {:class "container"} body]
+           [:div {:class "container-fluid"} body]
 
            (render-footer)
            ])})
@@ -129,7 +134,7 @@
   "render an error message without ending the page"
   [err]
   [:div {:class "alert alert-danger" :role "alert"}
-   [:span {:class "glyphicon glyphicon-exclamation-sign"
+   [:span {:class "far fa-meh"
            :aria-hidden "true" :style "padding: .5em"}]
    [:span {:class "sr-only"} "Error:" ]
    err])
@@ -159,20 +164,6 @@
     [:meta
      {:name "viewport"
       :content "width=device-width, initial-scale=1, maximum-scale=1"}]
-
-    ;; social stuff
-    [:meta {:name "description"  :content desc }]
-    [:meta {:property "og:title" :content title }]
-    [:meta {:property "og:description" :content desc }]
-    [:meta {:property "og:type" :content "website" }]
-    [:meta {:property "og:url" :content url }]
-    [:meta {:property "og:image" :content (str url "/static/img/secret_ladies.jpg") }]
-
-    [:meta {:name "twitter:card" :content "summary"}]
-    [:meta {:name "twitter:site" :content "@DyneOrg"}]
-    [:meta {:name "twitter:title" :content title }]
-    [:meta {:name "twitter:description" :content desc }]
-    [:meta {:name "twitter:image" :content (str url "/static/img/secret_ladies.jpg") }]
 
     [:title title]
 
