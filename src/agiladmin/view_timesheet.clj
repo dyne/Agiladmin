@@ -113,7 +113,8 @@ proceed to validation."]
      (web/render
       [:div {:class "container-fluid"}
        [:div {:class "timesheet-dataset-contents"}
-        [:h1 (str "Uploaded: " (fs/base-name filename))]
+        [:div {:class "alert alert-info"}
+         (str "Uploaded: " (fs/base-name filename))]
         ;; TODO: do not visualise submit button if diff is equal
         (web/button-cancel-submit
          {:btn-group-class "pull-right"

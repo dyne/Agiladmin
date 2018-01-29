@@ -311,23 +311,25 @@
                     (str "Path is a directory, trying to pull in: "
                          (:path budgets)))
 
-                   (git/with-identity {:name (slurp (:ssh-key budgets))
-                                       ;;:private (slurp (:ssh-key budgets))
-                                       ;; :public  (slurp (str (:ssh-key budgets) ".pub"))
-                                       :passphrase ""
-                                       :exclusive true})
                    (web/render
                     [:div {:class "container-fluid"}
-                     (try (git/git-pull repo)
-                          (catch Exception ex
-                            (web/render-error
-                             (log/spy :error [:p "Error in git-pull: " ex]))))
+                     (git/with-identity {:name (:ssh-key budgets)
+                                         :passphrase ""
+                                         :exclusive true}
+                       (let [res (try (git/git-pull repo)
+                                      (catch Exception ex
+                                        (web/render-error
+                                         (log/spy :error [:p "Error in git-pull: " ex]))))]
+                         (if (= (type res) org.eclipse.jgit.api.PullResult)
+                           [:div {:class "alert alert-success"}
+                            (str "Reloaded successfully from " (:git budgets))]
+                           res)))
 
                      [:div [:h1 "Git status"]
                       (web/render-yaml (git/git-status repo))]
-                     [:div [:h1 "Log (last 20 changes)"]
+                     [:div {:class "col-md-6"} [:h1 "Log (last 20 changes)"]
                       (web/render-git-log repo)]
-                     [:div [:h1 "Config"] (web/render-yaml config)]
+                     [:div {:class "col-md-6"}  [:h1 "Config"] (web/render-yaml config)]
                      ]))
 
 
@@ -343,27 +345,26 @@
                  ;; doesn't exists at all
                  (web/render
                   [:div {:class "container-fluid"}
-                   (git/with-identity {:name (slurp keypath)
+                   (git/with-identity {:name keypath
                                        ;; :private (slurp keypath)
                                        ;; :public  (slurp (str keypath ".pub")
                                        :passphrase ""
                                        :exclusive true}
-
                      (try (git/git-clone (:path budgets) "budgets")
                           (catch Exception ex
                             (web/render-error
-                             (log/spy
-                              :error
-                              [:p "Error cloning git repo" ex
-                               "Add your public key to the repository to access it:"
-                               (-> (str keypath ".pub") slurp str)]))))
+                             (log/spy :error
+                                      [:p "Error cloning git repo" ex
+                                       "Add your public key to the repository to access it:"
+                                       (-> (str keypath ".pub") slurp str)])))))
 
-                     (let [repo (git/load-repo (:path budgets))]
-                       [:div {:class "row"}
-                        [:div {:class "col-lg-4"}
-                         (web/render-yaml config)]
-                        [:div {:class "col-lg-8"}
-                         (web/render-git-log repo)]]))])
+                     (if-let [repo (git/load-repo (:path budgets))]
+                       [:div
+                        [:div [:h1 "Git status"]
+                         (web/render-yaml (git/git-status repo))]
+                        [:div {:class "col-md-6"} [:h1 "Log (last 20 changes)"]
+                         (web/render-git-log repo)]
+                        [:div {:class "col-md-6"}  [:h1 "Config"] (web/render-yaml config)]])])
                  ;; end of POST /reload
                  ))))
 
