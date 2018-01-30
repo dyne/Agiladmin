@@ -29,21 +29,21 @@
 
 (s/defschema Config
   {s/Keyword
-   {:budgets {:git s/Str
-              :ssh-key s/Str
-              :path s/Str}
-    :source  {:git s/Str
-              :update s/Bool}
-    :projects [s/Str]
+   {(s/optional-key :budgets) {:git s/Str
+							   :ssh-key s/Str
+							   :path s/Str}
+    (s/optional-key :source)  {:git s/Str
+							   :update s/Bool}
+	(s/optional-key :projects) [s/Str]
     (s/optional-key
      :webserver) {(s/optional-key :port) s/Num
                   (s/optional-key :host) s/Str
                   (s/optional-key :anti-forgery) s/Bool
                   (s/optional-key :ssl-redirect) s/Bool}
     }
-   :appname s/Str
-   :paths [s/Str]
-   :filename s/Str
+   (s/optional-key :appname) s/Str
+   (s/optional-key :paths) [s/Str]
+   (s/optional-key :filename) s/Str
    })
 
 (s/defschema Project
@@ -71,7 +71,7 @@
   edn)
 
 (defn q [conf path] ;; query a variable inside the config
-  {:pre [(coll? path)]} 
+  {:pre [(coll? path)]}
   (try ;; adds an extra check every time configuration is read
     (s/validate Config conf)
     (catch Exception ex
@@ -79,9 +79,9 @@
   (get-in conf path))
 
 (defn load-config [name default]
-  (log/info (str "Loading configuration: " name))
-  (->> (aux/config-read name default)
-       (s/validate Config)))
+  (log/debug (str "Loading configuration: " name))
+  (let [conf (aux/config-read name default)]
+       (if-not (empty? conf) (s/validate Config conf)) {}))
 
 
 (defn load-project [conf proj]
@@ -95,7 +95,7 @@
         (catch Exception ex
           (f/fail (log/spy :error ["Invalid project configuration: " proj ex]))))
 
-      ;; capitalise all project name keys 
+      ;; capitalise all project name keys
       (into
        {} (for [[k v] pconf]
             [(-> k name upper-case keyword)

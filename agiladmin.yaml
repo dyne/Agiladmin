@@ -1,0 +1,18 @@
+appname: agiladmin
+paths: [test/assets/]
+filename: agiladmin.yaml
+agiladmin:
+
+  budgets:
+    git: ssh://dyne.org/dyne/budgets
+    ssh-key: id_rsa
+    path: test/assets/
+
+  source:
+    git: https://github.com/dyne/agiladmin
+    update: yes
+
+  projects:
+    - UNO
+    - DUE
+    - TRE

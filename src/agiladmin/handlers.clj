@@ -222,7 +222,7 @@
   (POST "/timesheets/cancel" request
        (let [config (web/check-session request)
              tempfile (get-in request [:params :tempfile])]
-         (if-not (str/blank? tempfile) (io/delete-file tempfile))         
+         (if-not (str/blank? tempfile) (io/delete-file tempfile))
          (web/render
           [:div {:class (str "alert alert-danger") :role "alert"}
            (str "Canceled upload of timesheet: " tempfile)])))
