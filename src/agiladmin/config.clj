@@ -20,30 +20,29 @@
   (:require [clojure.pprint :refer [pprint]]
             [clojure.string :refer [upper-case]]
             [clojure.java.io :as io]
-            [auxiliary.config :as aux]
+            [clojure.walk :refer [keywordize-keys]]
             [auxiliary.core :refer :all]
             [taoensso.timbre :as log]
             [failjure.core :as f]
             [schema.core :as s]
+            [yaml.core :as yaml]
             [cheshire.core :refer :all]))
 
 (s/defschema Config
   {s/Keyword
-   {(s/optional-key :budgets) {:git s/Str
-							   :ssh-key s/Str
-							   :path s/Str}
-    (s/optional-key :source)  {:git s/Str
-							   :update s/Bool}
-	(s/optional-key :projects) [s/Str]
+   {:budgets {:git s/Str
+              :ssh-key s/Str
+              :path s/Str}
+    :projects [s/Str]
     (s/optional-key
      :webserver) {(s/optional-key :port) s/Num
                   (s/optional-key :host) s/Str
                   (s/optional-key :anti-forgery) s/Bool
                   (s/optional-key :ssl-redirect) s/Bool}
     }
-   (s/optional-key :appname) s/Str
-   (s/optional-key :paths) [s/Str]
-   (s/optional-key :filename) s/Str
+   :appname s/Str
+   :paths [s/Str]
+   :filename s/Str
    })
 
 (s/defschema Project
@@ -61,8 +60,48 @@
 
 (def run-mode (atom :web))
 
-(def default-settings {})
+(def default-settings {:budgets
+                       {:git "ssh://git@my.server.org/admin-budgets"
+                        :ssh-key "id_rsa"
+                        :path "budgets/"}
+                       :projects [ "TEST" "ADMIN" "CODE" ]
+                       :webserver
+                       {:anti-forgery false
+                        :ssl-redirect false}})
+
 (def project-defaults {})
+
+
+(defn- yaml-read [path]
+  (if (.exists (io/as-file path))
+    (-> path yaml/from-file keywordize-keys)))
+
+
+(defn- config-read
+  "Read configurations from standard locations, overriding defaults or
+  system-wide with user specific paths. Requires the application name
+  and optionally default values."
+  ([appname] (config-read appname {}))
+  ([appname defaults & flags]
+   (let [home (System/getenv "HOME")
+         pwd  (System/getenv "PWD" )
+         file (str appname ".yaml")
+         conf (-> {:appname appname
+                   :filename file
+                   :paths [(str      "/etc/" appname "/" file)
+                           (str home "/."    appname "/" file)
+                           (str pwd  "/"     file)
+                           ;; TODO: this should be resources
+                           (str pwd "/resources/"  file)
+                           (str pwd "/test-resources/" file)]}
+                  (conj defaults))]
+     (loop [[p & paths] (:paths conf)
+            res defaults]
+       (let [res (merge res
+                        (if (.exists (io/as-file p))
+                          (conj res (yaml-read p))))]
+         (if (empty? paths) (conj conf {(keyword appname) res})
+             (recur paths res)))))))
 
 (defn- spy "Print out a config structure nicely formatted"
   [edn]
@@ -71,7 +110,7 @@
   edn)
 
 (defn q [conf path] ;; query a variable inside the config
-  {:pre [(coll? path)]}
+  {:pre [(coll? path)]} 
   (try ;; adds an extra check every time configuration is read
     (s/validate Config conf)
     (catch Exception ex
@@ -79,16 +118,16 @@
   (get-in conf path))
 
 (defn load-config [name default]
-  (log/debug (str "Loading configuration: " name))
-  (let [conf (aux/config-read name default)]
-       (if-not (empty? conf) (s/validate Config conf)) {}))
+  (log/info (str "Loading configuration: " name))
+  (->> (config-read name default)))
+
 
 
 (defn load-project [conf proj]
   (log/debug (str "Loading project: " proj))
   (if (contains? (-> conf (get-in [:agiladmin :projects]) set) proj)
     (let [path  (str (get-in conf [:agiladmin :budgets :path]) proj ".yaml")
-          pconf (aux/yaml-read path)]
+          pconf (yaml-read path)]
 
       (try ;; validate project configuration schema
         (s/validate Project pconf)

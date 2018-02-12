@@ -91,8 +91,8 @@
 
   (GET "/" request
        (let [config  (web/check-session request)
-             conf    (merge default-settings config)
-             keypath (get-in conf [:agiladmin :budgets :ssh-key])]
+             conf    (merge (conf/load-config config conf/default-settings) config)
+             keypath (conf/q conf [:agiladmin :budgets :ssh-key])]
          (if-not (.exists (io/as-file keypath))
            (let [kp (generate-key-pair)]
              (log/info "Generating SSH keypair...")
@@ -319,7 +319,8 @@
                        (let [res (try (git/git-pull repo)
                                       (catch Exception ex
                                         (web/render-error
-                                         (log/spy :error [:p "Error in git-pull: " ex]))))]
+                                         (log/spy :error [:div [:h2 "Error in git-pull: " (.getMessage ex)]
+                                                          [:p (-> ex Throwable->map :via)]]))))]
                          (if (= (type res) org.eclipse.jgit.api.PullResult)
                            [:div {:class "alert alert-success"}
                             (str "Reloaded successfully from " (:git budgets))]
@@ -385,7 +386,9 @@
                     :ns-blacklist  ["org.eclipse.jetty.*"]})
 
 (def app-defaults
-  (let [config (conf/load-config "agiladmin" {})]
+  (let [config (conf/load-config
+                (or (System/getenv "AGILADMIN_CONF") "agiladmin")
+                conf/default-settings)]
     (-> site-defaults
         (assoc-in [:cookies] true)
         (assoc-in [:security :anti-forgery]
