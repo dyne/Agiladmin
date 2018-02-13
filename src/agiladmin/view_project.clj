@@ -18,23 +18,21 @@
 ;; You should have received a copy of the GNU Affero General Public License
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-(ns agiladmin.views
+(ns agiladmin.view-project
   (:require
    [clojure.java.io :as io]
-   [clojure.pprint :refer [pprint]]
    [agiladmin.core :refer :all]
    [agiladmin.utils :as util]
    [agiladmin.graphics :refer :all]
    [agiladmin.webpage :as web]
    [agiladmin.config :as conf]
-   [auxiliary.string :refer [strcasecmp]]
-   [taoensso.timbre :as log]
-   [cheshire.core :as json]
+   [taoensso.timbre :as log :refer [debug]]
+   [cheshire.core :as chesh :refer [generate-string]]
    [hiccup.form :as hf]
-   [incanter.core :refer :all]
-   [incanter.charts :refer :all]))
+   [incanter.core :refer :all]))
+;;   [incanter.charts :refer :all]))
 
-(defn projects-list
+(defn list-all
   "list all projects"
   [config]
 
@@ -46,7 +44,7 @@
       (web/button "/project" f
                   (hf/hidden-field "project" f))])])
 
-(defn project-edit [config request]
+(defn edit [config request]
   (let [projname      (get-in request [:params :project])
         project-conf  (conf/load-project config projname)
         conf          (get project-conf (keyword projname))]
@@ -67,7 +65,7 @@
         (web/edit-edn project-conf)
         [:input {:type "hidden" :name "project" :value projname}]]))))
 
-(defn project-view [config request]
+(defn start [config request]
   (let [projname      (get-in request [:params :project])
         project-conf  (conf/load-project config projname)
         conf          (get project-conf (keyword projname))
@@ -90,12 +88,17 @@
          ;; GANTT chart
          [:div {:class "row-fluid"
                 :style "width:100%; min-height:20em; position: relative;" :id "gantt"}]
-         [:script {:type "text/javascript"}
-          (str (slurp (io/resource "gantt-loader.js")) "
-var tasks = { data:" (-> (:tasks conf) json/generate-string) "};
+          (let [today (util/now)]
+            [:script {:type "text/javascript"}
+             (str "\nvar today = new Date("
+                  (:year today)", "
+                  (dec (:month today))", "
+                  (:day today)");\n")
+             (str (slurp (io/resource "gantt-loader.js")) "
+var tasks = { data:" (-> (:tasks conf) chesh/generate-string) "};
 gantt.init('gantt');
 gantt.parse(tasks);
-")]]
+")])]
         ;; else
         [:h1 projname])
 
@@ -140,7 +143,9 @@ gantt.parse(tasks);
          (-> [{:total "Current"
                :cost billed
                :hours hours
-               :cph (util/round (/ billed hours))}]
+               :cph (if (or (zero? billed) (zero? hours)) 0
+                        ;; else
+                        (util/round (/ billed hours)))}]
              (concat
               (if (empty? tasks) []
                   (let [max_hours (-> (map #(* (get % :pm) 150) tasks)

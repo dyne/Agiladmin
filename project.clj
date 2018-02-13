@@ -1,4 +1,4 @@
-(defproject agiladmin "0.3.0-SNAPSHOT"
+(defproject agiladmin "0.4.0-SNAPSHOT"
   :description "Agile Administration for SMEs"
   :url "http://agiladmin.dyne.org"
   :license {:name "Affero GPL v3"}

@@ -31,15 +31,9 @@
    [ring.middleware.accept :refer [wrap-accept]]
    [ring.middleware.defaults :refer [wrap-defaults site-defaults]]
 
-   [hiccup.page :as page]
-   [hiccup.form :as hf]
-   [hiccup.element :as ele]
-   [hiccup.middleware :refer [wrap-base-url]]
-   [json-html.core :as present]
-   [markdown.core :as md]
-   [yaml.core :as yaml]
+   [hiccup.form :as hf :refer [hidden-field]]
 
-   [me.raynes.fs :as fs]
+   [me.raynes.fs :as fs :refer [base-name]]
    [failjure.core :as f]
 
    [agiladmin.config :as conf]
@@ -51,20 +45,18 @@
    [incanter.core :refer :all]
 
    [taoensso.timbre :as log]
-   [taoensso.nippy :as nippy]
 
    ;; ssh crypto
-   [clj-openssh-keygen.core :refer :all]
+   [clj-openssh-keygen.core :refer [generate-key-pair
+                                    write-key-pair]]
 
    [agiladmin.core :refer :all]
    [agiladmin.utils :as util]
-   [agiladmin.views :as views]
+   [agiladmin.view-project :as view-project]
    [agiladmin.view-timesheet :as view-timesheet]
    [agiladmin.view-reload :as view-reload]
    [agiladmin.view-person :as view-person]
-   [agiladmin.webpage :as web]
-   [agiladmin.graphics :refer :all]
-   [agiladmin.config :refer :all])
+   [agiladmin.webpage :as web])
   (:import java.io.File)
   (:gen-class))
 
@@ -78,15 +70,6 @@
                       locale (io/resource (str readme lang ".html"))]
                   (if (nil? locale) (io/resource "public/static/README.html")
                       locale)))])))
-
-(defn select-person-month [config url text person]
-  (hf/form-to [:post url]
-              (hf/submit-button text)
-
-              "Year:"  [:select "year" (hf/select-options (range 2016 2020))]
-                                        ; "Month:" [:select "month" (hf/select-options (range 1 12))]
-              (hf/hidden-field "person" person)
-              ))
 
 
 (defroutes app-routes
@@ -122,7 +105,7 @@
   (GET "/config" request
        (let [config (web/check-session request)]
          (web/render
-          (let [conf (merge default-settings config)]
+          (let [conf (merge conf/default-settings config)]
             [:div {:class "container-fluid"}
              [:div {:class "row-fluid"}
               [:h1 "SSH authentication keys"]
@@ -142,7 +125,7 @@
   (GET "/config/edit" request
        (let [config (web/check-session request)]
          (web/render
-          (let [conf (merge default-settings config)]
+          (let [conf (merge conf/default-settings config)]
             [:div {:class "container-fluid"}
              [:form {:action "/config/edit"
                      :method "post"}
@@ -160,7 +143,7 @@
 
   (POST "/project" request
         (if-let [config (web/check-session request)]
-          (views/project-view config request)))
+          (view-project/start config request)))
 
   (POST "/person" request
         (if-let [config (web/check-session request)]
@@ -195,11 +178,11 @@
   (GET "/projects/list" request
        (let [config (web/check-session request)]
          (web/render [:div {:class "container-fluid"}
-                      (views/projects-list config)])))
+                      (view-project/list-all config)])))
 
   (POST "/projects/edit" request
         (if-let [config (web/check-session request)]
-          (views/project-edit config request)))
+          (view-project/edit config request)))
 
   (GET "/timesheets" request
        (let [config (web/check-session request)]
@@ -269,7 +252,7 @@
                             [:div {:class "col-lg-4"}
                              (view-person/list-all config)]
                             [:div {:class "col-lg-8"}
-                             (views/projects-list config)]]))))
+                             (view-project/list-all config)]]))))
 
   (GET "/error" request
        (let [config (web/check-session request)]

@@ -15,7 +15,7 @@ gantt.config.lightbox.project_sections = [
 ];
 
 var date_to_str = gantt.date.date_to_str(gantt.config.task_date);
-var today = new Date(2017, 10, 12);
+// var today = new Date(2017, 10, 12);
 gantt.addMarker({
     start_date: today,
     css: "today",
