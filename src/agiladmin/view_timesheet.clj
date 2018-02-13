@@ -25,7 +25,6 @@
    [agiladmin.webpage :as web]
    [agiladmin.config :as conf]
    [taoensso.timbre :as log]
-   [taoensso.nippy :as nippy]
    [cheshire.core :as json]
    [failjure.core :as f]
    [hiccup.form :as hf]
@@ -163,9 +162,11 @@ proceed to validation."]
      ;; handle failjure of timesheet loading from the uploaded file
      (f/when-failed [e]
        (web/render-error-page
-        (log/spy :error ["Error parsing timesheet: " e]))))
+        (log/spy :error [:div
+                         [:h1 "Error parsing timesheet"]
+                         (web/render-yaml e)])))))
 
     ;; uploaded file not existing
     (f/when-failed [e]
       (web/render-error-page
-       (log/spy :error ["Uploaded file not found: " filename])))))
+       (log/spy :error [:h1 (str "Uploaded file not found: " filename)]))))
