@@ -72,7 +72,7 @@
 (def project-defaults {})
 
 
-(defn- yaml-read [path]
+(defn yaml-read [path]
   (if (.exists (io/as-file path))
     (-> path yaml/from-file keywordize-keys)))
 

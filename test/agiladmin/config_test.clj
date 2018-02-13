@@ -1,12 +1,11 @@
 (ns agiladmin.config-test
   (:use midje.sweet)
-  (:require [auxiliary.config :as aux]
-            [agiladmin.config :as conf]
+  (:require [agiladmin.config :as conf]
             [failjure.core :as f]
             [schema.core :as s]
             [clojure.pprint :refer [pprint]]))
 
-(def config (aux/yaml-read "test/assets/agiladmin.yaml"))
+(def config (yaml-read "test/assets/agiladmin.yaml"))
 
 (fact "Configuration loading tests"
 

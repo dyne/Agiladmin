@@ -319,8 +319,8 @@
                        (let [res (try (git/git-pull repo)
                                       (catch Exception ex
                                         (web/render-error
-                                         (log/spy :error [:div [:h2 "Error in git-pull: " (.getMessage ex)]
-                                                          [:p (-> ex Throwable->map :via)]]))))]
+                                         (log/spy :error [:div [:p (str "Error in git-pull: " (.getMessage ex))]
+                                                          [:p (-> ex Throwable->map :cause)]]))))]
                          (if (= (type res) org.eclipse.jgit.api.PullResult)
                            [:div {:class "alert alert-success"}
                             (str "Reloaded successfully from " (:git budgets))]
