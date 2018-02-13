@@ -34,25 +34,6 @@
    [incanter.core :refer :all]
    [incanter.charts :refer :all]))
 
-(defn persons-list
-  "list all persons"
-  [config]
-  [:div {:class "persons"}
-   [:h2 "Persons"]
-   ;; list all persons
-   (let [year (:year (util/now))]
-     (for [f (->> (util/list-files-matching
-                   (get-in config [:agiladmin :budgets :path])
-                   #".*_timesheet_.*xlsx$")
-                  (map #(second
-                         (re-find util/regex-timesheet-to-name
-                                  (.getName %)))) sort distinct)]
-       ;; (map #(.getName %)) distinct)]
-       [:div {:class "row log-person"}
-        (web/button "/person" f
-                    (list (hf/hidden-field "person" f)
-                          (hf/hidden-field "year" year)))]))])
-
 (defn projects-list
   "list all projects"
   [config]
@@ -221,70 +202,3 @@ gantt.parse(tasks);
 
         [:div [:h2 "Project configuration"]
          (web/render-yaml project-conf)]]]])))
-
-(defn person-view [config request]
-  (let [person (get-in request [:params :person])
-        year   (get-in request [:params :year])]
-    (log/info (str "Loading person: " person " (" year")"))
-    (web/render
-     [:div
-      [:h1 (str year " - " (util/dotname person))]
-
-      (let [ts-path (get-in config [:agiladmin :budgets :path])
-            timesheet (load-timesheet
-                       (str ts-path year "_timesheet_" person ".xlsx"))
-            projects (load-all-projects config)
-            costs (-> (map-timesheets
-                       [timesheet] load-monthly-hours (fn [_] true))
-                      (derive-costs config projects))]
-
-        [:div {:class "container-fluid"}
-         [:h1 "Yearly totals"]         
-         (-> {:Total_hours  (-> ($ :hours costs) util/wrap sum util/round)
-              :Voluntary_hours (->> ($where {:tag "VOL"} costs)
-                                    ($ :hours) util/wrap sum util/round)
-              :Total_billed (->> ($where ($fn [tag] (not (strcasecmp tag "VOL")))
-                                         costs) ($ :cost) util/wrap sum util/round)
-              :Monthly_average (->> ($rollup :sum :cost :month costs)
-                                    (average :cost) util/round)}
-             to-dataset to-table)
-         (web/person-download-toolbar
-          person year
-          (into [["Date" "Name" "Project" "Task" "Tags" "Hours" "Cost" "CPH"]]
-                (-> costs (derive-cost-per-hour config projects) to-list)))
-
-         [:hr]
-          ;; (->> (derive-cost-per-hour costs config projects)
-          ;;      ($ [:project :task :tag :hours :cost :cph])
-          ;;      to-list))
-
-
-         [:h1 "Monthly totals"]
-         ;; cycle all months to 13 (off-by-one)
-         (for [m (-> (range 1 13) vec rseq)
-               :let [worked ($where {:month (str year '- m)} costs)
-                     mtot (-> ($ :hours worked) util/wrap sum)]
-               :when (> mtot 0)]
-
-           [:span
-            [:strong (util/month-name m)] " total bill for "
-            (util/dotname person) " is "
-            [:strong (-> ($ :cost worked) util/wrap sum)]
-            " for " mtot
-            " hours worked across "
-            (keep #(when (= (:month %) (str year '- m))
-                     (:days %)) (:sheets timesheet))
-            " days, including "
-            (->> ($where {:tag "VOL"} worked)
-                 ($ :hours) util/wrap sum) " voluntary hours."
-
-            [:div {:class "month-detail"}
-             (->> (derive-cost-per-hour worked config projects)
-                  ($ [:project :task :tag :hours :cost :cph])
-                  (to-monthly-bill-table projects))]])
-
-         [:div {:class "col-lg-2"}
-          (web/button "/person" "Previous year"
-                      (list
-                       (hf/hidden-field "year" (dec (Integer. year)))
-                       (hf/hidden-field "person" person)))]])])))

@@ -61,6 +61,7 @@
    [agiladmin.views :as views]
    [agiladmin.view-timesheet :as view-timesheet]
    [agiladmin.view-reload :as view-reload]
+   [agiladmin.view-person :as view-person]
    [agiladmin.webpage :as web]
    [agiladmin.graphics :refer :all]
    [agiladmin.config :refer :all])
@@ -168,7 +169,7 @@
                 ts-path (get-in config [:agiladmin :budgets :path])]
             ;; check if current year's timesheet exists, else point to previous
             (if (.exists (io/as-file (str ts-path year "_timesheet_" person ".xlsx")))
-              (views/person-view config request)
+              (view-person/start config (:params request))
               ;; else
               (web/render
                [:div {:class "container-fluid"}
@@ -185,28 +186,11 @@
   (GET "/persons/list" request
        (let [config (web/check-session request)]
          (web/render [:div {:class "container-fluid"}
-                      (views/persons-list config)])))
+                      (view-person/list-all config)])))
 
   (POST "/persons/spreadsheet" request
-        (let [config (web/check-session request)
-              format (get-in request [:params :format2])
-              costs-json (get-in request [:params :costs])]
-          (cond
-            (= "excel" (get-in request [:params :format1]))
-            (web/render "TODO")
-
-            (= "json"  (get-in request [:params :format2]))
-            {:headers {"Content-Type"
-                       "text/json; charset=utf-8"}
-             :body costs-json} ;; its already a json
-
-            (= "csv"   (get-in request [:params :format3]))
-            (-> costs-json json/read-str web/download-csv)
-
-            (= "html"   (get-in request [:params :format4]))
-            (-> costs-json json/read-str web/render-html web/render)
-
-            )))
+        (if-let [config (web/check-session request)]
+          (view-person/download (:params request))))
 
   (GET "/projects/list" request
        (let [config (web/check-session request)]
@@ -283,7 +267,7 @@
          (conj {:session config}
                (web/render [:div {:class "container-fluid"}
                             [:div {:class "col-lg-4"}
-                             (views/persons-list config)]
+                             (view-person/list-all config)]
                             [:div {:class "col-lg-8"}
                              (views/projects-list config)]]))))
 

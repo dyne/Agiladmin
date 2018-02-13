@@ -78,24 +78,6 @@
     (:submit-params argmap)
     "btn-primary btn-lg btn-success col-md-3")])
 
-(defn person-download-toolbar
-  [person year costs]
-  [:form {:action "/persons/spreadsheet"
-          :method "post"}
-   [:h3 "Download yearly totals:"]
-   (hf/hidden-field "format" "excel")
-   (hf/hidden-field "person" person)
-   (hf/hidden-field "year" year)
-   (hf/hidden-field "costs" (-> costs json/write-str))
-   [:input {:type "submit" :name "format1" :value "excel"
-            :class "btn btn-default"}]
-   [:input {:type "submit" :name "format2" :value "json"
-            :class "btn btn-default"}]
-   [:input {:type "submit" :name "format3" :value "csv"
-            :class "btn btn-default"}]
-   [:input {:type "submit" :name "format4" :value "html"
-            :class "btn btn-default"}]])
-
 
 (defn reload-session [request]
   ;; TODO: validation of all data loaded via prismatic schema
