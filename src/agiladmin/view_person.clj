@@ -98,19 +98,22 @@
                       (derive-costs config projects))]
 
         [:div {:class "container-fluid"}
-         [:h1 "Yearly totals"]
-         (-> {:Total_hours  (-> ($ :hours costs) util/wrap sum util/round)
-              :Voluntary_hours (->> ($where {:tag "VOL"} costs)
-                                    ($ :hours) util/wrap sum util/round)
-              :Total_billed (->> ($where ($fn [tag] (not (strcasecmp tag "VOL")))
-                                         costs) ($ :cost) util/wrap sum util/round)
-              :Monthly_average (->> ($rollup :sum :cost :month costs)
-                                    (average :cost) util/round)}
-             to-dataset to-table)
-         (person-download-toolbar
-          person year
-          (into [["Date" "Name" "Project" "Task" "Tags" "Hours" "Cost" "CPH"]]
-                (-> costs (derive-cost-per-hour config projects) to-list)))
+         (if (zero? (->> ($ :cost costs) sum))
+           (web/render-error (log/spy :error [:p "No costs found (blank timesheet)"]))
+             ;; else
+             [:div [:h1 "Yearly totals"]
+              (-> {:Total_hours  (-> ($ :hours costs) util/wrap sum util/round)
+                   :Voluntary_hours (->> ($where {:tag "VOL"} costs)
+                                         ($ :hours) util/wrap sum util/round)
+                   :Total_billed (->> ($where ($fn [tag] (not (strcasecmp tag "VOL")))
+                                              costs) ($ :cost) util/wrap sum util/round)
+                   :Monthly_average  (->> ($rollup :sum :cost :month costs)
+                                          (average :cost) util/round)}
+                  to-dataset to-table)
+              (person-download-toolbar
+               person year
+               (into [["Date" "Name" "Project" "Task" "Tags" "Hours" "Cost" "CPH"]]
+                     (-> costs (derive-cost-per-hour config projects) to-list)))
 
          [:hr]
          ;; (->> (derive-cost-per-hour costs config projects)
@@ -140,10 +143,10 @@
             [:div {:class "month-detail"}
              (->> (derive-cost-per-hour worked config projects)
                   ($ [:project :task :tag :hours :cost :cph])
-                  (to-monthly-bill-table projects))]])
+                  (to-monthly-bill-table projects))]])])
 
          [:div {:class "col-lg-2"}
-          (web/button "/person" "Previous year"
+          (web/button "/person" (str "Go to previous year ("(-> year Integer. dec)")")
                       (list
-                       (hf/hidden-field "year" (dec (Integer. year)))
+                       (hf/hidden-field "year" (-> year Integer. dec))
                        (hf/hidden-field "person" person)))]])])))

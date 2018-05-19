@@ -102,8 +102,10 @@ proceed to validation."]
 
 
 (defn upload [config filename]
-  (if (.exists (io/file filename))
-    ;; load into dataset
+  (if (not (.exists (io/file filename)))
+    (web/render-error-page
+     (log/spy :error [:h1 (str "Uploaded file not found: " filename)]))
+    ;; else load into dataset
     (f/attempt-all
      [ts (load-timesheet filename)
       all-pjs (load-all-projects config)
@@ -164,9 +166,4 @@ proceed to validation."]
        (web/render-error-page
         (log/spy :error [:div
                          [:h1 "Error parsing timesheet"]
-                         (web/render-yaml e)])))))
-
-    ;; uploaded file not existing
-    (f/when-failed [e]
-      (web/render-error-page
-       (log/spy :error [:h1 (str "Uploaded file not found: " filename)]))))
+                         (web/render-yaml e)]))))))

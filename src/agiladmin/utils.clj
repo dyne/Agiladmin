@@ -37,10 +37,11 @@
 (defn round
   "rounds a float to the first 2 positions after the comma"
   [^double f]
-  {:pre (> f 0)}
   ;; TODO: error checking on nil and zero using failjure + tests
-    (let [factor (Math/pow 10 2)]
-      (/ (Math/floor (* f factor)) factor)))
+  (if (or (zero? f) (nil? f)) 0
+      ;; else
+      (let [factor (Math/pow 10 2)]
+        (/ (Math/floor (* f factor)) factor))))
 
 (defn percentage
   "calculates a percentage and rounds"
