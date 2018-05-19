@@ -39,6 +39,8 @@
                   (s/optional-key :host) s/Str
                   (s/optional-key :anti-forgery) s/Bool
                   (s/optional-key :ssl-redirect) s/Bool}
+    (s/optional-key :source) {:git s/Str
+                              :update s/Bool}
     }
    :appname s/Str
    :paths [s/Str]

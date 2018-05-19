@@ -5,7 +5,7 @@
             [schema.core :as s]
             [clojure.pprint :refer [pprint]]))
 
-(def config (yaml-read "test/assets/agiladmin.yaml"))
+(def config (conf/yaml-read "test/assets/agiladmin.yaml"))
 
 (fact "Configuration loading tests"
 
