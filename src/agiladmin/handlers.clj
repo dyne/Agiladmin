@@ -211,6 +211,17 @@
               (io/delete-file tempfile)
               (view-timesheet/upload config path)))))
 
+  (GET "/timesheets/download/:path" [path :as request]
+        (let [config (web/check-session request)
+              budgets (get-in config [:agiladmin :budgets :path])]
+          (if (.exists (io/as-file (str budgets path )))
+            {:headers
+             {"Content-Type"
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}
+             :body (io/file (str budgets path))}
+            (web/render-error-page
+             (str "Where is this file gone?! " (str budgets path))))))
+
   (POST "/timesheets/submit" request
         (let [config (web/check-session request)
               path (get-in request [:params :path])]

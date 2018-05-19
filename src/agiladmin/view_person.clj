@@ -31,6 +31,13 @@
    [hiccup.form :as hf]))
 
 
+(defn person-download-timesheet
+  [path]
+  [:a {:href (str "/timesheets/download/" path)}
+   [:button {:type "button"
+             :class "btn btn-primary"}
+    "Download current timesheet"]])
+
 (defn person-download-toolbar
   [person year costs]
   [:form {:action "/persons/spreadsheet"
@@ -99,7 +106,9 @@
 
         [:div {:class "container-fluid"}
          ;; insert the Git Id of the file (Git object in master)
-         [:p (str "<!-- ID: " (util/git-id config ts-file) "-->")]
+         [:p (str "<!-- ID: " (util/git-id config ts-file) "-->")
+          (person-download-timesheet ts-file)
+          ]
 
          (if (zero? (->> ($ :cost costs) sum))
            (web/render-error (log/spy :error [:p "No costs found (blank timesheet)"]))
