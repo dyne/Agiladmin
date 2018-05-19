@@ -90,14 +90,17 @@
       [:h1 (str year " - " (util/dotname person))]
 
       (let [ts-path (get-in config [:agiladmin :budgets :path])
-            timesheet (load-timesheet
-                       (str ts-path year "_timesheet_" person ".xlsx"))
+            ts-file (str year "_timesheet_" person ".xlsx")
+            timesheet (load-timesheet (str ts-path ts-file))
             projects (load-all-projects config)
             costs (-> (map-timesheets
                        [timesheet] load-monthly-hours (fn [_] true))
                       (derive-costs config projects))]
 
         [:div {:class "container-fluid"}
+         ;; insert the Git Id of the file (Git object in master)
+         [:p (str "<!-- ID: " (util/git-id config ts-file) "-->")]
+
          (if (zero? (->> ($ :cost costs) sum))
            (web/render-error (log/spy :error [:p "No costs found (blank timesheet)"]))
              ;; else

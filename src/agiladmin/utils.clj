@@ -21,12 +21,15 @@
 (ns agiladmin.utils
   (:require [clojure.string :refer [split replace blank? lower-case upper-case]]
             [clojure.java.io :as io]
+            [agiladmin.config :as conf]
             [auxiliary.maps :refer [compress]]
             [auxiliary.string :refer [strcasecmp]]
             [taoensso.timbre :as log]
             [failjure.core :as f]
             [clj-time.core :as time]
             [clj-time.local :as time-local]
+            [clj-jgit.porcelain :as git]
+            [clj-jgit.querying :as qgit]
             [clojure.walk :refer :all]))            
 
 (defn wrap
@@ -120,3 +123,15 @@
   (map
    #(.getTime (.parse (java.text.SimpleDateFormat. "yyyy-MM") %))
    mseq))
+
+(defn git-id
+  "Takes configuration and a path in repository, returns the Git Object
+  ID of it in current HEAD"
+  [config path]
+  (git/with-repo
+    (conf/q config [:agiladmin :budgets :path])
+    (git/get-blob
+     repo
+     (qgit/find-rev-commit repo rev-walk "HEAD")
+     path)))
+
