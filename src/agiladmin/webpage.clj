@@ -25,7 +25,6 @@
             [taoensso.timbre :as log]
             [hiccup.page :as page]
             [hiccup.form :as hf]
-            [json-html.core :as present]
             [clj-jgit.porcelain :as git]
             [clj-jgit.querying  :as gitq]))
 
@@ -44,13 +43,6 @@
   "wrapper to retrieve parameters"
   ;; TODO: sanitise and check for irregular chars
   (get-in req (conj [:params] req)))
-
-(defn show-config [session]
-  (present/edn->html (dissoc session
-                             :salt :prime :length :entropy
-                             :type "__anti-forgery-token")))
-
-
 
 (defn button
   ([url text] (button url text [:p]))
@@ -262,10 +254,6 @@
 ;; download functions all take an edn and convert it in target format
 ;; edit functions all take an edn and present an editor in the target format
 
-(defn render-html
-  "renders an edn into an organised html table"
-  [data]
-  (present/edn->html data))
 
 (defn render-yaml
   "renders an edn into an highlighted yaml"

@@ -39,8 +39,7 @@
    [agiladmin.config :as conf]
    [agiladmin.graphics :refer [to-table]]
 
-   [clj-jgit.porcelain :as git
-    :refer [with-identity load-repo git-clone git-pull]]
+   [clj-jgit.porcelain :as git]
 
    [incanter.core :refer :all]
 
