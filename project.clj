@@ -7,7 +7,7 @@
                            [org.clojure/data.csv "0.1.4"]
                            [org.clojure/data.codec "0.1.1"]
                            [org.clojure/tools.nrepl "0.2.13"]
-                           [clj-http "3.7.0"]
+                           [clj-http "3.9.0"]
                            [cheshire "5.8.0"]
                            [clojure-humanize "0.2.2"]
 
@@ -20,14 +20,14 @@
                            [org.slf4j/jcl-over-slf4j "1.7.25"]
 
                            ;; error handling
-                           [failjure "1.2.0"]
+                           [failjure "1.3.0"]
 
                            ;; auxiliary lib functions
                            [org.clojars.dyne/auxiliary "0.5.0-SNAPSHOT"]
                            [org.clojars.dyne/clj-storage "0.6.0-SNAPSHOT"]
 
                            ;; compojure, ring and middleware
-                           [compojure "1.6.0"]
+                           [compojure "1.6.1"]
                            [ring/ring-defaults "0.3.1"]
                            [ring-middleware-accept "2.0.3"]
 				           [ring/ring-core "1.6.3"]
@@ -37,7 +37,7 @@
                            [formidable "0.1.10"]
                            [markdown-clj "1.0.2"]
                            [json-html "0.4.4"]
-                           [io.forward/yaml "1.0.6"]
+                           [io.forward/yaml "1.0.8"]
 
                            ;; spreadsheet
                            [dk.ative/docjure "1.12.0"]
@@ -45,7 +45,7 @@
                            [org.apache.poi/poi-ooxml "3.17"]
 
                            ;; Data validation
-                           [prismatic/schema "1.1.7"]
+                           [prismatic/schema "1.1.9"]
 
                            ;; git
                            [clj-jgit "0.9.1-SNAPSHOT"]
@@ -59,7 +59,7 @@
                            [org.clojars.dyne/clj-openssh-keygen "0.1.0"]
 
                            ;; time from joda-time
-                           [clj-time "0.14.2"]
+                           [clj-time "0.14.4"]
 
                            ]
 
