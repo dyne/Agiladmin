@@ -27,6 +27,7 @@
    ;; auxiliary lib functions
    [org.clojars.dyne/auxiliary "0.5.0-SNAPSHOT"]
    [org.clojars.dyne/clj-storage "0.5.1"]
+   [org.clojars.dyne/just-auth "0.2.0"]
 
    ;; compojure, ring and middleware
    [compojure "1.6.1"]
@@ -55,7 +56,8 @@
    [me.raynes/fs "1.4.6"]
 
    ;; graphical visualization
-   [incanter "1.5.7" :upgrade false]
+   [incanter/incanter-core   "1.5.7" :upgrade false]
+   [incanter/incanter-charts "1.5.7" :upgrade false]
 
    [org.clojars.dyne/clj-openssh-keygen "0.1.0"]
 
@@ -69,9 +71,11 @@
   :resource-paths ["resources"]
 
   :plugins [[lein-ring "0.9.7"]]
-  :ring    {:handler agiladmin.handlers/app}
-  :uberwar {:handler agiladmin.handlers/app}
-
+  :ring    {:init agiladmin.ring/init
+            :handler agiladmin.handlers/app}
+  :uberwar {:init agiladmin.ring/init
+            :handler agiladmin.handlers/app}
+  
   :main agiladmin.handlers
   :target-path "target/%s"
   :profiles
@@ -83,7 +87,7 @@
           :main agiladmin.handlers}
 
    :uberjar {:aot  :all
-             :main agiladmin.app}}
+             :main agiladmin.handlers}}
 
 
   )

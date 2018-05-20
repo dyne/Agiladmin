@@ -36,9 +36,6 @@
    [me.raynes.fs :as fs :refer [base-name]]
    [failjure.core :as f]
 
-   [agiladmin.config :as conf]
-   [agiladmin.graphics :refer [to-table]]
-
    [clj-jgit.porcelain :as git]
 
    [incanter.core :refer :all]
@@ -50,6 +47,9 @@
                                     write-key-pair]]
 
    [agiladmin.core :refer :all]
+   [agiladmin.config :as conf]
+   [agiladmin.ring :as ring]
+   [agiladmin.graphics :refer [to-table]]
    [agiladmin.utils :as util]
    [agiladmin.view-project :as view-project]
    [agiladmin.view-timesheet :as view-timesheet]
@@ -281,30 +281,8 @@
   ;; end of routes
   )
 
-
-(log/merge-config! {:level :debug
-                    ;; #{:trace :debug :info :warn :error :fatal :report}
-
-                    ;; Control log filtering by
-                    ;; namespaces/patterns. Useful for turning off
-                    ;; logging in noisy libraries, etc.:
-                    :ns-whitelist  ["agiladmin.*"]
-                    :ns-blacklist  ["org.eclipse.jetty.*"]})
-
-(def app-defaults
-  (let [config (conf/load-config
-                (or (System/getenv "AGILADMIN_CONF") "agiladmin")
-                conf/default-settings)]
-    (-> site-defaults
-        (assoc-in [:cookies] true)
-        (assoc-in [:security :anti-forgery]
-                  (get-in config [:webserver :anti-forgery]))
-        (assoc-in [:security :ssl-redirect]
-                  (get-in config [:webserver :ssl-redirect]))
-        (assoc-in [:security :hsts] true))))
-
 (def app
-  (-> (wrap-defaults app-routes app-defaults)
+  (-> (wrap-defaults app-routes ring/app-defaults)
       (wrap-session)
       (wrap-accept {:mime ["text/html"]
                     ;; preference in language, fallback to english
@@ -312,13 +290,8 @@
                                "it" :qs 1
                                "nl" :qs 1
                                "hr" :qs 1]})))
-(defn start-backend []
-  (let [config (conf/load-config "agiladmin" {})]
-    (log/info "Starting backend")
-    (run-jetty app {})))
 
-(defn stop-backend [server] (.stop server))
-
+;; for uberjar (TODO: align with configuration)
 (defn -main []
   (println "Starting standalone jetty server on http://localhost:6060")
   (run-jetty app {:port 6060

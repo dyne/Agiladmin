@@ -230,6 +230,7 @@
              t   (-> task keyword)]
          (get-in conf [p :idx t :text]))))))
 
+
 (defn load-timesheet [path]
   (if-let [ts (try (load-workbook path)
                    (catch Exception ex
@@ -255,7 +256,6 @@
           :days (get-cell sheet 'B 5)}
          )})
     (f/fail (str "Error in core/load-timesheet: " path))))
-
 
 
   ;; (defn write-workbook-sheet

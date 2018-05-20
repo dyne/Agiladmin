@@ -34,13 +34,16 @@
               :ssh-key s/Str
               :path s/Str}
     :projects [s/Str]
-    (s/optional-key
-     :webserver) {(s/optional-key :port) s/Num
-                  (s/optional-key :host) s/Str
-                  (s/optional-key :anti-forgery) s/Bool
-                  (s/optional-key :ssl-redirect) s/Bool}
+    (s/optional-key :webserver) {:port s/Num
+                                 :host s/Str
+                                 :anti-forgery s/Bool
+                                 :ssl-redirect s/Bool}
     (s/optional-key :source) {:git s/Str
                               :update s/Bool}
+    (s/optional-key :just-auth) {:email-server s/Str
+                                 :email-user s/Str
+                                 :email-pass s/Str
+                                 :email-address s/Str}
     }
    :appname s/Str
    :paths [s/Str]

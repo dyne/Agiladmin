@@ -20,3 +20,8 @@ webserver:
   anti-forgery: false
   ssl-redirect: false
 
+just-auth:
+  email-server: server
+  email-user: user
+  email-pass: pass
+  email-address: email
