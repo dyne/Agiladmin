@@ -116,10 +116,10 @@
 
 (defn q [conf path] ;; query a variable inside the config
   {:pre [(coll? path)]} 
-  (try ;; adds an extra check every time configuration is read
-    (s/validate Config conf)
-    (catch Exception ex
-      (f/fail (log/spy :error ["Invalid configuration: " conf ex]))))
+  ;; (try ;; adds an extra check every time configuration is read
+  ;;   (s/validate Config conf)
+  ;;   (catch Exception ex
+  ;;     (f/fail (log/spy :error ["Invalid configuration: " conf ex]))))
   (get-in conf path))
 
 (defn load-config [name default]
