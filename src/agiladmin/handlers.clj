@@ -42,10 +42,8 @@
 
    [taoensso.timbre :as log]
 
-   ;; ssh crypto
-   [clj-openssh-keygen.core :refer [generate-key-pair
-                                    write-key-pair]]
 
+   [just-auth.core :as auth]
    [agiladmin.core :refer :all]
    [agiladmin.config :as conf]
    [agiladmin.ring :as ring]
@@ -55,241 +53,309 @@
    [agiladmin.view-timesheet :as view-timesheet]
    [agiladmin.view-reload :as view-reload]
    [agiladmin.view-person :as view-person]
-   [agiladmin.webpage :as web])
+   [agiladmin.webpage :as web]
+   [agiladmin.session :as s])
   (:import java.io.File)
   (:gen-class))
 
-(defn readme [request]
-  (conj {:session (web/check-session request)}
-        (web/render
-         [:div {:class "container-fluid"}
-         (slurp (let [accept (:accept request)
-                      readme "public/static/README-"
-                      lang (:language accept)
-                      locale (io/resource (str readme lang ".html"))]
-                  (if (nil? locale) (io/resource "public/static/README.html")
-                      locale)))])))
-
+(defonce config (conf/load-config "agiladmin" conf/default-settings))
 
 (defroutes app-routes
 
-  (GET "/" request
-       (let [config  (web/check-session request)
-             conf    (merge (conf/load-config config conf/default-settings) config)
-             keypath (conf/q conf [:agiladmin :budgets :ssh-key])]
-         (if-not (.exists (io/as-file keypath))
-           (let [kp (generate-key-pair)]
-             (log/info "Generating SSH keypair...")
-             (clojure.pprint/pprint kp)
-             (write-key-pair kp keypath)))
-         (cond
-           (false? (:config conf))
-           (->> ["No config file found. Generate one with your values2, example:"
-                 [:pre "
-{
-    \"git\" : \"ssh://git@gogs.dyne.org/dyne/budgets\",
-    \"ssh-key\" : \"id_rsa\"
-}"]]
-                (log/spy :error)
-                web/render-error-page)
-           :else (readme request))))
+  (GET "/" request (web/render web/readme))
+
+  ;; login / logout
+  (GET "/login" request
+       (web/render web/login-form))
+  (POST "/login" request
+        (f/attempt-all
+         [username (s/param request :username)
+          password (s/param request :password)
+          logged (auth/sign-in
+                  @ring/auth username password)]
+         (let [session {:session {:config config
+                                  :auth logged}}]
+           (conj session
+                 (web/render
+                  [:div
+                   [:h1 "Logged in: " username]
+                   (web/render-yaml session)])))
+         (f/when-failed [e]
+           (web/render-error-page
+            (str "Login failed: " (f/message e))))))
+  (GET "/session" request
+       (-> (:session request) web/render-yaml web/render))
+  (GET "/logout" request
+       (conj {:session {:config config}}
+             (web/render [:h1 "Logged out."])))
+
+  (GET "/signin" request
+       (web/render web/signin-form))
+  (POST "/signin" request
+        (f/attempt-all
+         [name (s/param request :name)
+          email (s/param request :email)
+          password (s/param request :password)
+          activation {:activation-uri
+                      (get-in request [:headers "host"])}]
+         (web/render
+          [:div
+           (if-not (auth/exists? @ring/auth email)
+             (f/if-let-failed?
+                 [signup (auth/sign-up @ring/auth name email
+                                       password activation nil)]
+               (web/render-error
+                (str "Failure creating account: "
+                     (f/message signup))))
+             [:p (str "Account created: "
+                      name " &lt;" email "&gt;")])
+           (f/if-let-failed?
+               [sent  (auth/send-activation-message
+                       @ring/auth email activation)]
+             (web/render-error
+              (str "Failure sending activation email - "
+                   (f/message sent)))
+             [:p "Pending activation..."])
+           [:h1 (str "Confirmation email sent - " email)]])
+         (f/when-failed [e]
+           (web/render-error-page
+            (str "Sign-in failure: " (f/message e))))))
+
+  (GET "/activate/:email/:activation-id"
+       [email activation-id :as request]
+       (let [activation-uri
+             (str "http://"
+                  (get-in request [:headers "host"])
+                  "/activate/" email "/" activation-id)]
+         (web/render
+          [:div
+           (f/if-let-failed?
+               [act (auth/activate-account
+                     @ring/auth email
+                     {:activation-link activation-uri})]
+             (web/render-error
+              [:div
+               [:h1 "Failure activating account"]
+               [:h2 (f/message act)]
+               [:p (str "Email: " email " activation-id: " activation-id)]])
+             [:h1 (str "Account activated - " email)])])))
 
   (POST "/" request
         ;; generic endpoint for canceled operations
-        (let [config (web/check-session request)]
-          (web/render
-           [:div {:class (str "alert alert-danger") :role "alert"}
-            (get-in request [:params :message])])))
+        (web/render
+         [:div {:class (str "alert alert-danger") :role "alert"}
+          (s/param request :message)]))
 
   (GET "/config" request
-       (let [config (web/check-session request)]
-         (web/render
-          (let [conf (merge conf/default-settings config)]
-            [:div {:class "container-fluid"}
-             [:div {:class "row-fluid"}
-              [:h1 "SSH authentication keys"]
-              [:div "Public: "
-               [:pre
-                (slurp
-                 (str
-                  (get-in
-                   conf
-                   [:agiladmin :budgets :ssh-key]) ".pub"))]]]
-             [:div {:class "row-fluid"}
-              [:h1 "Configuration"
-               [:a {:href "/config/edit"}
-                [:button {:class "btn btn-info"} "Edit"]]]
-              (web/render-yaml conf)]]))))
-
-  (GET "/config/edit" request
-       (let [config (web/check-session request)]
-         (web/render
-          (let [conf (merge conf/default-settings config)]
-            [:div {:class "container-fluid"}
-             [:form {:action "/config/edit"
-                     :method "post"}
-              [:h1 "Configuration editor"]
-              (web/edit-edn conf)]]))))
-
-  (POST "/config/edit" request
-        (if-let [config (web/check-session request)]
+       (->>
+        (fn [req conf acct]
           (web/render
            [:div {:class "container-fluid"}
-            [:h1 "Saving configuration"]
-            (web/highlight-yaml (get-in request [:params :editor]))])))
-  ;; TODO: validate and save
-  ;; also visualise diff: https://github.com/benjamine/jsondiffpatch
+            [:div {:class "row-fluid"}
+             [:h1 "SSH authentication keys"]
+             [:div "Public: "
+              [:pre
+               (slurp
+                (str
+                 (get-in
+                  conf
+                  [:agiladmin :budgets :ssh-key]) ".pub"))]]]
+            [:div {:class "row-fluid"}
+             [:h1 "Configuration"
+              [:a {:href "/config/edit"}
+               [:button {:class "btn btn-info"} "Edit"]]]
+             (web/render-yaml (:session req))]]))
+        (s/check request)))
+
+  (GET "/config/edit" request
+       (->>
+        (fn [req conf acct]
+          (web/render
+           [:div {:class "container-fluid"}
+            [:form {:action "/config/edit"
+                    :method "post"}
+             [:h1 "Configuration editor"]
+             (web/edit-edn conf)]]))
+        (s/check request)))
+
+  (POST "/config/edit" request
+        (->>
+         (fn [req conf acct]
+           (web/render
+            [:div {:class "container-fluid"}
+             [:h1 "Saving configuration"]
+             (web/highlight-yaml (get-in request [:params :editor]))]))
+         (s/check request)))
+         ;; TODO: validate and save
+        ;; also visualise diff: https://github.com/benjamine/jsondiffpatch
 
   (POST "/project" request
-        (if-let [config (web/check-session request)]
-          (view-project/start config request)))
+        (->>
+         (fn [req conf acct]
+           (view-project/start conf req))
+         (s/check request)))
 
   (POST "/person" request
-        (if-let [config (web/check-session request)]
-          (let [person (get-in request [:params :person])
-                year   (get-in request [:params :year])
-                ts-path (get-in config [:agiladmin :budgets :path])]
-            ;; check if current year's timesheet exists, else point to previous
-            (if (.exists (io/as-file (str ts-path year "_timesheet_" person ".xlsx")))
-              (view-person/start config (:params request))
-              ;; else
-              (web/render
-               [:div {:class "container-fluid"}
-                (web/render-error
-                 (log/spy
-                  :warn
-                  (str "No timesheet found for " person " on year " year)))
-                (if-let [ymn (- (Integer/parseInt (re-find #"\A-?\d+" year)) 1)]
-                  (web/button "/person" (str "Try previous year " ymn)
-                              (list (hf/hidden-field "person" person)
-                                    (hf/hidden-field "year" ymn))))])))))
+        (->>
+         (fn [request config acct]
+           (let [person (get-in request [:params :person])
+                 year   (get-in request [:params :year])
+                 ts-path (get-in config [:agiladmin :budgets :path])]
+             ;; check if current year's timesheet exists, else point to previous
+             (if (.exists (io/as-file (str ts-path year "_timesheet_" person ".xlsx")))
+               (view-person/start config (:params request))
+               ;; else
+               (web/render
+                [:div {:class "container-fluid"}
+                 (web/render-error
+                  (log/spy
+                   :warn
+                   (str "No timesheet found for " person " on year " year)))
+                 (if-let [ymn (- (Integer/parseInt (re-find #"\A-?\d+" year)) 1)]
+                   (web/button "/person" (str "Try previous year " ymn)
+                               (list (hf/hidden-field "person" person)
+                                     (hf/hidden-field "year" ymn))))]))))
+         (s/check request)))
 
-  ;;TODO: NEW API
+
   (GET "/persons/list" request
-       (let [config (web/check-session request)]
-         (web/render [:div {:class "container-fluid"}
-                      (view-person/list-all config)])))
+       (->>
+        (fn [req conf acct]
+          (web/render [:div {:class "container-fluid"}
+                       (view-person/list-all config)]))
+        (s/check request)))
 
   (POST "/persons/spreadsheet" request
-        (if-let [config (web/check-session request)]
-          (view-person/download (:params request))))
+        (->>
+         (fn [req conf acct]
+           (view-person/download (:params req)))
+         (s/check request)))
 
   (GET "/projects/list" request
-       (let [config (web/check-session request)]
-         (web/render [:div {:class "container-fluid"}
-                      (view-project/list-all config)])))
-
+       (->>
+        (fn [req conf acct]
+          (web/render [:div {:class "container-fluid"}
+                       (view-project/list-all conf)]))
+        (s/check request)))
   (POST "/projects/edit" request
-        (if-let [config (web/check-session request)]
-          (view-project/edit config request)))
-
+        (->>
+         (fn [req conf acct]
+           (view-project/edit config request))
+         (s/check request)))
   (GET "/timesheets" request
-       (let [config (web/check-session request)]
-         (view-timesheet/start)))
+       (->>
+        (fn [req conf acct]
+          (view-timesheet/start))
+        (s/check request)))
   (POST "/timesheets/cancel" request
-       (let [config (web/check-session request)
-             tempfile (get-in request [:params :tempfile])]
-         (if-not (str/blank? tempfile) (io/delete-file tempfile))
-         (web/render
-          [:div {:class (str "alert alert-danger") :role "alert"}
-           (str "Canceled upload of timesheet: " tempfile)])))
-
+        (->>
+         (fn [req conf acct]
+           (let [tempfile (s/param req :tempfile)]
+             (if-not (str/blank? tempfile) (io/delete-file tempfile))
+             (web/render
+              [:div {:class (str "alert alert-danger") :role "alert"}
+               (str "Canceled upload of timesheet: " tempfile)])))
+         (s/check request)))
   (POST "/timesheets/upload" request
-        (let [config (web/check-session request)
-              tempfile (get-in request [:params :file :tempfile])
-              filename (get-in request [:params :file :filename])
-              params   (:params request)]
-          (cond
-            (> (get-in params [:file :size]) 500000)
-            ;; max upload size in bytes
-            ;; TODO: put in config
-            (web/render-error-page params "File too big in upload.")
-            :else
-            (let [file (io/copy tempfile (io/file "/tmp" filename))
-                  path (str "/tmp/" filename)]
-              (io/delete-file tempfile)
-              (view-timesheet/upload config path)))))
+        (->>
+         (fn [request config acct]
+           (f/attempt-all
+            [tempfile (s/param request [:file :tempfile])
+             filename (s/param request [:file :filename])
+             params   (:params request)]
+            (cond
+              (> (get-in params [:file :size]) 500000)
+              ;; max upload size in bytes
+              ;; TODO: put in config
+              (web/render-error-page params "File too big in upload.")
+              :else
+              (let [file (io/copy tempfile (io/file "/tmp" filename))
+                    path (str "/tmp/" filename)]
+                (io/delete-file tempfile)
+                (view-timesheet/upload config path)))
+            (f/when-failed [e]
+              (web/render-error-page (f/message e)))))
+         (s/check request)))
 
   (GET "/timesheets/download/:path" [path :as request]
-        (let [config (web/check-session request)
-              budgets (get-in config [:agiladmin :budgets :path])]
-          (if (.exists (io/as-file (str budgets path )))
-            {:headers
-             {"Content-Type"
-              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}
-             :body (io/file (str budgets path))}
-            (web/render-error-page
-             (str "Where is this file gone?! " (str budgets path))))))
+       (->>
+        (fn [req conf acct]
+          (let [budgets (get-in conf [:agiladmin :budgets :path])]
+            (if (.exists (io/as-file (str budgets path )))
+              {:headers
+               {"Content-Type"
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}
+               :body (io/file (str budgets path))}
+              (web/render-error-page
+               (str "Where is this file gone?! "
+                    (str budgets path))))))
+        (s/check request)))
 
   (POST "/timesheets/submit" request
-        (let [config (web/check-session request)
-              path (get-in request [:params :path])]
-          (if (.exists (io/file path))
-            (let [repo (conf/q config [:agiladmin :budgets :path])
-                  dst (str repo (fs/base-name path))]
-              (web/render
-               [:div {:class "container-fluid"}
-                [:h1 dst ]
-                (io/copy (io/file path) (io/file dst))
-                (io/delete-file path)
-                (f/attempt-all
-                 [gitrepo  (git/load-repo repo)
-                  dircache (git/git-add gitrepo (fs/base-name dst))
-                  gitstatus (git/git-status gitrepo)
-                  gitcommit (git/git-commit
-                             gitrepo
+        (->>
+         (fn [req conf acct]
+           (let [path (s/param req :path)]
+             (if (.exists (io/file path))
+               (let [repo (conf/q conf [:agiladmin :budgets :path])
+                     dst (str repo (fs/base-name path))]
+                 (web/render
+                  [:div {:class "container-fluid"}
+                   [:h1 dst ]
+                   (io/copy (io/file path) (io/file dst))
+                   (io/delete-file path)
+                   (f/attempt-all
+                    [gitrepo  (git/load-repo repo)
+                     dircache (git/git-add gitrepo (fs/base-name dst))
+                     gitstatus (git/git-status gitrepo)
+                     gitcommit (git/git-commit
+                                gitrepo
                              (str "Updated timesheet "
                                   (fs/base-name path))
                              ;; {"Agiladmin" "agiladmin@dyne.org"}
                              )]
-                 [:div
-                  (web/render-yaml gitstatus)
-                  [:p "Timesheet was succesfully archived"]
-                  (web/render-git-log gitrepo)]
-                 ;; TODO: add link to the person page here
-                 (f/when-failed [e]
-                   (web/render-error
-                    (log/spy :error ["Failure committing to git: " e]))))]))
+                    [:div
+                     (web/render-yaml gitstatus)
+                     [:p "Timesheet was succesfully archived"]
+                     (web/render-git-log gitrepo)]
+                    ;; TODO: add link to the person page here
+                    (f/when-failed [e]
+                      (web/render-error
+                       (log/spy :error ["Failure committing to git: " e]))))]))
                ;; else
                (web/render-error-page
                 (str "Where is this file gone?! " path)))))
+         (s/check request)))
 
   (GET "/home" request
-       (let [config (web/check-session request)
-             path (io/file (get-in config [:agiladmin :budgets :path]))]
-         (conj {:session config}
-               (web/render [:div {:class "container-fluid"}
-                            [:div {:class "col-lg-4"}
-                             (view-person/list-all config)]
-                            [:div {:class "col-lg-8"}
-                             (view-project/list-all config)]]))))
-
-  (GET "/error" request
-       (let [config (web/check-session request)]
-         (web/render-error-page request "Testing the error message")))
+       (->>
+        (fn [req conf acct]
+            (web/render [:div {:class "container-fluid"}
+                         [:div {:class "col-lg-4"}
+                          (view-person/list-all conf)]
+                         [:div {:class "col-lg-8"}
+                          (view-project/list-all conf)]]))
+        (s/check request)))
 
   (GET "/reload" request
-       (if-let [config (web/check-session request)]
-         ;; overwrite existing config
-         (conj {:session
-                (conf/load-config "agiladmin" conf/default-settings)}
-               (view-reload/start config))))
+       (->>
+        (fn [req conf acct]
+          (view-reload/start conf))
+        (s/check request)))
 
   (route/resources "/")
   (route/not-found (web/render-error-page "Page Not Found"))
 
-  ;; end of routes
-  )
+  ) ;; end of routes
 
 (def app
   (-> (wrap-defaults app-routes ring/app-defaults)
-      (wrap-session)
       (wrap-accept {:mime ["text/html"]
                     ;; preference in language, fallback to english
                     :language ["en" :qs 0.5
                                "it" :qs 1
                                "nl" :qs 1
-                               "hr" :qs 1]})))
+                               "hr" :qs 1]})
+      (wrap-session)))
 
 ;; for uberjar (TODO: align with configuration)
 (defn -main []

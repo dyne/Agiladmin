@@ -23,13 +23,15 @@
             [yaml.core :as yaml]
             [agiladmin.config :as conf]
             [taoensso.timbre :as log]
+            [failjure.core :as f]
+            [just-auth.core :as auth]
+            [agiladmin.ring :as ring]
             [hiccup.page :as page]
             [hiccup.form :as hf]
             [clj-jgit.porcelain :as git]
             [clj-jgit.querying  :as gitq]))
 
 (declare render)
-(declare render-page)
 (declare render-head)
 (declare render-navbar)
 (declare render-footer)
@@ -77,20 +79,6 @@
 
   )
 
-
-(defn check-session [request]
-  ;; reload configuration from file all the time if in debug mode
-  (if (log/may-log? :debug)
-    (conf/load-config "agiladmin" conf/default-settings)
-    ;; else
-    (let [session (:session request)]
-      (cond
-        (not (contains? session :config))
-        (conj session (conf/load-config "agiladmin" conf/default-settings))
-        (string?  (:config session)) session
-        (false? (:config session)) conf/default-settings
-        ))))
-
 (defn render [body]
   {:headers {"Content-Type"
              "text/html; charset=utf-8"}
@@ -98,11 +86,8 @@
           (render-head)
           [:body ;; {:class "static"}
            (render-navbar)
-
            [:div {:class "container-fluid"} body]
-
-           (render-footer)
-           ])})
+           (render-footer)])})
 
 (defn render-error
   "render an error message without ending the page"
@@ -231,24 +216,6 @@
                ]))
 
 
-(defn render-page [{:keys [section body] :as content}]
-  (let [title "AgileAdmin"
-        desc "Agile Administration for Small and Medium Organisations"
-        url "https://agiladmin.dyne.org"]
-
-    (page/html5
-
-     (render-head)
-
-     (render-navbar)
-
-     [:div {:class "container-fluid"}
-      [:h1 "Agiladmin" ]
-      [:h3 section]
-      body]
-
-     (render-footer))))
-
 ;; highlight functions do no conversion, take the format they highlight
 ;; render functions take edn and convert to the highlight format
 ;; download functions all take an edn and convert it in target format
@@ -313,3 +280,44 @@
         (map #(gitq/commit-info repo %))
         (map #(select-keys % [:author :message :time :changed_files]))
         (take 20) render-yaml)])
+
+(defonce readme
+  (slurp (io/resource "public/static/README.html")))
+
+(defonce login-form
+  [:div
+   [:h1 "Login into Agiladmin"
+    [:form {:action "/login"
+            :method "post"}
+     [:input {:type "text" :name "username"
+              :placeholder "Username"
+              :class "form-control"
+              :style "margin-top: 1em"}]
+     [:input {:type "password" :name "password"
+              :placeholder "Password"
+              :class "form-control"
+              :style "margin-top: 1em"}]
+     [:input {:type "submit" :value "Login"
+              :class "btn btn-primary btn-lg btn-block"
+              :style "margin-top: 1em"}]]]])
+
+(defonce signin-form
+  [:div
+   [:h1 "Sign In Agiladmin"
+    [:form {:action "/signin"
+            :method "post"}
+     [:input {:type "text" :name "name"
+              :placeholder "Name"
+              :class "form-control"
+              :style "margin-top: 1em"}]
+     [:input {:type "text" :name "email"
+              :placeholder "Email"
+              :class "form-control"
+              :style "margin-top: 1em"}]
+     [:input {:type "password" :name "password"
+              :placeholder "Password"
+              :class "form-control"
+              :style "margin-top: 1em"}]
+     [:input {:type "submit" :value "Sign In"
+              :class "btn btn-primary btn-lg btn-block"
+              :style "margin-top: 1em"}]]]])

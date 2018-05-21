@@ -27,7 +27,7 @@
    ;; auxiliary lib functions
    [org.clojars.dyne/auxiliary "0.5.0-SNAPSHOT"]
    [org.clojars.dyne/clj-storage "0.5.1"]
-   [org.clojars.dyne/just-auth "0.2.0"]
+   [org.clojars.dyne/just-auth "0.3.0-SNAPSHOT"]
 
    ;; compojure, ring and middleware
    [compojure "1.6.1"]
