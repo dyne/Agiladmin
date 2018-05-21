@@ -27,7 +27,7 @@
    [clj-jgit.porcelain :as git
     :refer [with-identity load-repo git-clone git-pull]]))
 
-(defn start [config]
+(defn start [request config account]
   (let [budgets (conf/q config [:agiladmin :budgets])
         keypath (:ssh-key budgets)
         gitpath (:git budgets)
@@ -46,6 +46,7 @@
               (:path budgets)))
 
         (web/render
+         account
          [:div {:class "container-fluid"}
           (git/with-identity {:name (:ssh-key budgets)
                               :passphrase ""
@@ -79,6 +80,7 @@
       :else
       ;; doesn't exists at all
       (web/render
+       account
        [:div {:class "container-fluid"}
         (git/with-identity {:name keypath
                             ;; :private (slurp keypath)

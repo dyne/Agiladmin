@@ -18,12 +18,14 @@
 
 (ns agiladmin.view-timesheet
   (:require
+   [clojure.string :as str]
    [clojure.java.io :as io]
    [agiladmin.core :refer :all]
    [agiladmin.utils :as util]
    [agiladmin.graphics :refer :all]
    [agiladmin.webpage :as web]
    [agiladmin.config :as conf]
+   [agiladmin.session :as s]
    [taoensso.timbre :as log]
    [cheshire.core :as json]
    [failjure.core :as f]
@@ -82,69 +84,92 @@ window.onload = dodiff;\n")]]])
          " document.getElementById('visual').innerHTML = jsondiffpatch.formatters.html.format(delta, left);\n}\n"
          "window.onload = jsondiff;\n")]])
 
-(defn start []
-  (web/render
-   [:div {:class "container-fluid"}
-    [:h1 "Upload a new timesheet"]
-    [:p " Choose the file in your computer and click 'Submit' to
+(def upload-form
+  [:div {:class "container-fluid"}
+   [:h1 "Upload a new timesheet"]
+   [:p " Choose the file in your computer and click 'Submit' to
 proceed to validation."]
-    [:div {:class "form-group"}
-     [:form {:action "/timesheets/upload" :method "post"
-             :class "form-shell"
-             :enctype "multipart/form-data"}
-      [:fieldset {:class "fieldset btn btn-default btn-file btn-lg"}
-       [:input {:name "file" :type "file"}]]
-      ;; [:fieldset {:class "fieldset-submit"}
-      [:input {:class "btn btn-primary btn-lg"
-               :id "field-submit" :type "submit"
-               :name "submit" :value "submit"}]]]]))
+   [:div {:class "form-group"}
+    [:form {:action "/timesheets/upload" :method "post"
+            :class "form-shell"
+            :enctype "multipart/form-data"}
+     [:fieldset {:class "fieldset btn btn-default btn-file btn-lg"}
+      [:input {:name "file" :type "file"}]]
+     ;; [:fieldset {:class "fieldset-submit"}
+     [:input {:class "btn btn-primary btn-lg"
+              :id "field-submit" :type "submit"
+              :name "submit" :value "submit"}]]]])
 
+(defn cancel [request config account]
+  (f/if-let-ok? [tempfile (s/param request :tempfile)]
+    (web/render
+     account
+     [:div {:class (str "alert alert-danger") :role "alert"}
+      (str "Canceled upload of timesheet: " tempfile " ")
+      (str "("
+           (if-not (str/blank? tempfile) (io/delete-file tempfile))
+           ")")])
+    (web/render-error-page (f/message tempfile))))
 
-
-(defn upload [config filename]
-  (if (not (.exists (io/file filename)))
-    (web/render-error-page
-     (log/spy :error [:h1 (str "Uploaded file not found: " filename)]))
-    ;; else load into dataset
-    (f/attempt-all
-     [ts (load-timesheet filename)
-      all-pjs (load-all-projects config)
-      hours (map-timesheets [ts])]
-
-     (web/render
-      [:div {:class "container-fluid"}
-       [:div {:class "timesheet-dataset-contents"}
-        [:div {:class "alert alert-info"}
-         (str "Uploaded: " (fs/base-name filename))]
-        ;; TODO: do not visualise submit button if diff is equal
-        (web/button-cancel-submit
-         {:btn-group-class "pull-right"
-          :cancel-url "/timesheets/cancel"
-          :cancel-params
-          (list (hf/hidden-field "tempfile" filename))
-          :cancel-message (str "Upload operation canceled: " filename)
-          :submit-url "/timesheets/submit"
-          :submit-params
-          (list (hf/hidden-field "path" filename))})
-        [:div {:class "container"}
-         [:ul {:class "nav nav-pills"}
-          [:li {:class "active"}
-           [:a {:href "#diff" :data-toggle "pill" } "Differences"]]
-          [:li [:a {:href "#content" :data-toggle "pill" } "Contents"]]]
-         [:div {:class "tab-content clearfix"}
-
+(defn upload [request config account]
+  (let
+      [tempfile (get-in request [:params :file :tempfile])
+       filename (get-in request [:params :file :filename])
+       params   (:params request)]
+    (cond
+      (> (get-in params [:file :size]) 500000)
+      ;; max upload size in bytes
+      ;; TODO: put in config
+      (web/render-error-page params "File too big in upload.")
+      :else
+      (let [file (io/copy tempfile (io/file "/tmp" filename))
+            path (str "/tmp/" filename)]
+        (io/delete-file tempfile)
+        (if (not (.exists (io/file path)))
+          (web/render-error-page
+           (log/spy :error
+                    [:h1 (str "Uploaded file not found: " filename)]))
+          ;; else load into dataset
+          (f/attempt-all
+           [ts (load-timesheet path)
+            all-pjs (load-all-projects config)
+            hours (map-timesheets [ts])]
+           (web/render
+            account
+            [:div {:class "container-fluid"}
+             [:div {:class "timesheet-dataset-contents"}
+              [:div {:class "alert alert-info"}
+               (str "Uploaded: " (fs/base-name path))]
+              ;; TODO: do not visualise submit button if diff is equal
+              (web/button-cancel-submit
+               {:btn-group-class "pull-right"
+                :cancel-url "/timesheets/cancel"
+                :cancel-params
+                (list (hf/hidden-field "tempfile" path))
+                :cancel-message (str "Upload operation canceled: " filename)
+                :submit-url "/timesheets/submit"
+                :submit-params
+                (list (hf/hidden-field "path" path))})
+              [:div {:class "container"}
+               [:ul {:class "nav nav-pills"}
+                [:li {:class "active"}
+                 [:a {:href "#diff" :data-toggle "pill" } "Differences"]]
+                [:li [:a {:href "#content" :data-toggle "pill" } "Contents"]]]
+               [:div {:class "tab-content clearfix"}
           ;; -------------------------------------------------------
           ;; DIFF (default tab
           [:div {:class "tab-pane fade in active" :id "diff"}
            [:h2 "Differences: old (to the left) and new (to the right)"]
-           (if (.exists (io/file (str (conf/q config
-                                              [:agiladmin :budgets :path])
-                                      (fs/base-name filename))))
+           (if (.exists
+                (io/file (str (conf/q config
+                                      [:agiladmin :budgets :path])
+                              (fs/base-name filename))))
              ;; compare with old timesheet of same name
              (f/attempt-all
-              [old-ts (load-timesheet
-                       (str (conf/q config [:agiladmin :budgets :path])
-                            (fs/base-name filename)))
+              [old-ts
+               (load-timesheet
+                (str (conf/q config [:agiladmin :budgets :path])
+                     (fs/base-name filename)))
                old-hours (map-timesheets [old-ts])]
               ;; ---------------
               (textual-diff old-hours hours)
@@ -154,16 +179,14 @@ proceed to validation."]
              ;; else - this timesheet did not exist before (new year)
              [:div {:class "alert alert-info" :role "alert"}
               "This is a new timesheet, no historical information available to compare"])]
-
           ;; -------------------------------------------------------
           ;; CONTENT tab
           [:div {:class "tab-pane fade" :id "content"}
            [:h2 "Contents of the new timesheet"]
            (to-table (sel hours :except-cols :name))]]]]])
-
      ;; handle failjure of timesheet loading from the uploaded file
      (f/when-failed [e]
        (web/render-error-page
         (log/spy :error [:div
                          [:h1 "Error parsing timesheet"]
-                         (web/render-yaml e)]))))))
+                         (web/render-yaml e)])))))))))

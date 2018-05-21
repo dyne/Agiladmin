@@ -64,6 +64,87 @@
 
   (GET "/" request (web/render web/readme))
 
+  (GET "/projects/list" request
+       (->> view-project/list-all
+            (s/check request)))
+  (POST "/project" request
+        (->> view-project/start
+             (s/check request)))
+  (POST "/projects/edit" request
+        (->> view-project/edit
+             (s/check request)))
+
+  (POST "/person" request
+        (->> view-person/start
+             (s/check request)))
+  (GET "/persons/list" request
+       (->> view-person/list-all
+            (s/check request)))
+  (POST "/persons/spreadsheet" request
+        (->> view-person/download
+             (s/check request)))
+  (GET "/reload" request
+       (->> view-reload/start
+            (s/check request)))
+
+  (GET "/timesheets" request
+       (->> (fn [req conf acct]
+              (web/render acct view-timesheet/upload-form))
+            (s/check request)))
+  (POST "/timesheets/cancel" request
+        (->> view-timesheet/cancel
+             (s/check request)))
+  (GET "/timesheets/download/:path" [path :as request]
+       (->> (fn [req conf acct]
+              (let [budgets (get-in conf [:agiladmin :budgets :path])]
+                (if (.exists (io/as-file (str budgets path )))
+                  {:headers
+                   {"Content-Type"
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}
+                   :body (io/file (str budgets path))}
+                  (web/render-error-page
+                   (str "Where is this file gone?! "
+                        (str budgets path))))))
+            (s/check request)))
+  (POST "/timesheets/upload" request
+        (->> view-timesheet/upload
+             (s/check request)))
+
+  (POST "/timesheets/submit" request
+        (->>
+         (fn [req conf acct]
+           (let [path (s/param req :path)]
+             (if (.exists (io/file path))
+               (let [repo (conf/q conf [:agiladmin :budgets :path])
+                     dst (str repo (fs/base-name path))]
+                 (web/render
+                  acct
+                  [:div {:class "container-fluid"}
+                   [:h1 dst ]
+                   (io/copy (io/file path) (io/file dst))
+                   (io/delete-file path)
+                   (f/attempt-all
+                    [gitrepo  (git/load-repo repo)
+                     dircache (git/git-add gitrepo (fs/base-name dst))
+                     gitstatus (git/git-status gitrepo)
+                     gitcommit (git/git-commit
+                                gitrepo
+                                (str "Updated timesheet "
+                                     (fs/base-name path))
+                                {(:name acct) (:email acct)})]
+                    [:div
+                     (web/render-yaml gitstatus)
+                     [:p "Timesheet was succesfully archived"]
+                     (web/render-git-log gitrepo)]
+                    ;; TODO: add link to the person page here
+                    (f/when-failed [e]
+                      (web/render-error
+                       (log/spy :error ["Failure committing to git: " e]))))]))
+               ;; else
+               (web/render-error-page
+                (str "Where is this file gone?! " path)))))
+         (s/check request)))
+
   ;; login / logout
   (GET "/login" request
        (f/attempt-all
@@ -72,7 +153,7 @@
                     [:div
                      [:h1 (str "Already logged in with account: "
                                (:email acct))]
-                     (web/button "/logout" "Logout")])
+                     [:h2 [:a {:href "/logout"} "Logout"]]])
         (f/when-failed [e]
           (web/render web/login-form))))
 
@@ -109,24 +190,18 @@
           activation {:activation-uri
                       (get-in request [:headers "host"])}]
          (web/render
-          [:div
-           (if-not (auth/exists? @ring/auth email)
-             (f/if-let-failed?
-                 [signup (auth/sign-up @ring/auth name email
-                                       password activation nil)]
-               (web/render-error
-                (str "Failure creating account: "
-                     (f/message signup))))
-             [:p (str "Account created: "
-                      name " &lt;" email "&gt;")])
-           (f/if-let-failed?
-               [sent  (auth/send-activation-message
-                       @ring/auth email activation)]
-             (web/render-error
-              (str "Failure sending activation email - "
-                   (f/message sent)))
-             [:p "Pending activation..."])
-           [:h1 (str "Confirmation email sent - " email)]])
+          (f/if-let-ok?
+              [signup (auth/sign-up @ring/auth name email
+                                    password activation nil)]
+            [:div
+             [:h2 (str "Account created: "
+                       name " &lt;" email "&gt;")]
+             [:h3 "Account pending activation."]
+             (and nil (auth/send-activation-message
+                       @ring/auth email activation))]
+            (web/render-error
+             (str "Failure creating account: "
+                  (f/message signup)))))
          (f/when-failed [e]
            (web/render-error-page
             (str "Sign-in failure: " (f/message e))))))
@@ -153,8 +228,8 @@
   (POST "/" request
         ;; generic endpoint for canceled operations
         (web/render (s/check-account request)
-         [:div {:class (str "alert alert-danger") :role "alert"}
-          (s/param request :message)]))
+                    [:div {:class (str "alert alert-danger") :role "alert"}
+                     (s/param request :message)]))
 
   (GET "/config" request
        (->>
@@ -199,121 +274,8 @@
              [:h1 "Saving configuration"]
              (web/highlight-yaml (get-in request [:params :editor]))]))
          (s/check request)))
-         ;; TODO: validate and save
-        ;; also visualise diff: https://github.com/benjamine/jsondiffpatch
-
-
-  (GET "/projects/list" request
-       (->> view-project/list-all
-            (s/check request)))
-  (POST "/project" request
-        (->> view-project/start
-             (s/check request)))
-  (POST "/projects/edit" request
-        (->> view-project/edit
-             (s/check request)))
-  
-  (POST "/person" request
-        (->> view-person/start
-             (s/check request)))
-  (GET "/persons/list" request
-       (->> view-person/list-all
-            (s/check request)))
-  (POST "/persons/spreadsheet" request
-        (->> view-person/download
-         (s/check request)))
-
-  (GET "/timesheets" request
-       (->>
-        (fn [req conf acct]
-          (view-timesheet/start))
-        (s/check request)))
-  (POST "/timesheets/cancel" request
-        (->>
-         (fn [req conf acct]
-           (let [tempfile (s/param req :tempfile)]
-             (if-not (str/blank? tempfile) (io/delete-file tempfile))
-             (web/render
-              acct
-              [:div {:class (str "alert alert-danger") :role "alert"}
-               (str "Canceled upload of timesheet: " tempfile)])))
-         (s/check request)))
-  (POST "/timesheets/upload" request
-        (->>
-         (fn [request config acct]
-           (f/attempt-all
-            [tempfile (s/param request [:file :tempfile])
-             filename (s/param request [:file :filename])
-             params   (:params request)]
-            (cond
-              (> (get-in params [:file :size]) 500000)
-              ;; max upload size in bytes
-              ;; TODO: put in config
-              (web/render-error-page params "File too big in upload.")
-              :else
-              (let [file (io/copy tempfile (io/file "/tmp" filename))
-                    path (str "/tmp/" filename)]
-                (io/delete-file tempfile)
-                (view-timesheet/upload config path)))
-            (f/when-failed [e]
-              (web/render-error-page (f/message e)))))
-         (s/check request)))
-
-  (GET "/timesheets/download/:path" [path :as request]
-       (->>
-        (fn [req conf acct]
-          (let [budgets (get-in conf [:agiladmin :budgets :path])]
-            (if (.exists (io/as-file (str budgets path )))
-              {:headers
-               {"Content-Type"
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}
-               :body (io/file (str budgets path))}
-              (web/render-error-page
-               (str "Where is this file gone?! "
-                    (str budgets path))))))
-        (s/check request)))
-
-  (POST "/timesheets/submit" request
-        (->>
-         (fn [req conf acct]
-           (let [path (s/param req :path)]
-             (if (.exists (io/file path))
-               (let [repo (conf/q conf [:agiladmin :budgets :path])
-                     dst (str repo (fs/base-name path))]
-                 (web/render
-                  acct
-                  [:div {:class "container-fluid"}
-                   [:h1 dst ]
-                   (io/copy (io/file path) (io/file dst))
-                   (io/delete-file path)
-                   (f/attempt-all
-                    [gitrepo  (git/load-repo repo)
-                     dircache (git/git-add gitrepo (fs/base-name dst))
-                     gitstatus (git/git-status gitrepo)
-                     gitcommit (git/git-commit
-                                gitrepo
-                             (str "Updated timesheet "
-                                  (fs/base-name path))
-                             ;; {"Agiladmin" "agiladmin@dyne.org"}
-                             )]
-                    [:div
-                     (web/render-yaml gitstatus)
-                     [:p "Timesheet was succesfully archived"]
-                     (web/render-git-log gitrepo)]
-                    ;; TODO: add link to the person page here
-                    (f/when-failed [e]
-                      (web/render-error
-                       (log/spy :error ["Failure committing to git: " e]))))]))
-               ;; else
-               (web/render-error-page
-                (str "Where is this file gone?! " path)))))
-         (s/check request)))
-
-  (GET "/reload" request
-       (->>
-        (fn [req conf acct]
-          (view-reload/start conf))
-        (s/check request)))
+  ;; TODO: validate and save
+  ;; also visualise diff: https://github.com/benjamine/jsondiffpatch
 
   (route/resources "/")
   (route/not-found (web/render-error-page "Page Not Found"))

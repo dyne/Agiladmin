@@ -38,8 +38,8 @@
    user
    (f/when-failed [e]
      (->> e f/message
-         (str "Account not found. ")
-         f/fail))))
+          (str "Unauthorized access. ")
+          f/fail))))
 
 (defn check-database []
   (if-let [db @ring/db]

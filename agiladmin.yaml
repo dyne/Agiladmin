@@ -20,8 +20,11 @@ webserver:
   anti-forgery: false
   ssl-redirect: false
 
+admin:
+  email: jaromil@dyne.org
+
 just-auth:
-  email-server: server
-  email-user: user
-  email-pass: pass
-  email-address: email
+  email-server: false
+  email-user: false
+  email-pass: false
+  email-address: agiladmin@dyne.org

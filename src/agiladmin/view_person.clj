@@ -24,6 +24,8 @@
    [agiladmin.graphics :refer :all]
    [agiladmin.webpage :as web]
    [agiladmin.session :as s]
+   [agiladmin.ring :as ring]
+   [clj-storage.core :as store]
    [failjure.core :as f]
    [auxiliary.string :refer [strcasecmp]]
    [clojure.data.json :as json :refer [read-str]]
@@ -63,21 +65,29 @@
   [request config account]
   (web/render
    account
-   [:div {:class "persons"}
-    [:h2 "Persons"]
-    ;; list all persons
-    (let [year (:year (util/now))]
-      (for [f (->> (util/list-files-matching
-                    (conf/q config [:agiladmin :budgets :path])
-                    #".*_timesheet_.*xlsx$")
-                   (map #(second
-                          (re-find util/regex-timesheet-to-name
-                                   (.getName %)))) sort distinct)]
-        ;; (map #(.getName %)) distinct)]
-        [:div {:class "row log-person"}
-         (web/button "/person" f
-                     (list (hf/hidden-field "person" f)
-                           (hf/hidden-field "year" year)))]))]))
+   [:div {:class "row-fluid"}
+    [:div {:class "persons col-lg-4"}
+     [:h2 "Persons"]
+     ;; list all persons
+     (let [year (:year (util/now))]
+       (for [f (->> (util/list-files-matching
+                     (conf/q config [:agiladmin :budgets :path])
+                     #".*_timesheet_.*xlsx$")
+                    (map #(second
+                           (re-find util/regex-timesheet-to-name
+                                    (.getName %)))) sort distinct)]
+         ;; (map #(.getName %)) distinct)]
+         [:div {:class "row log-person"}
+          (web/button "/person" f
+                      (list (hf/hidden-field "person" f)
+                            (hf/hidden-field "year" year)))]))]
+    [:div {:class "newcomers col-lg-4"}
+     [:h2 "Newcomers"]
+     [:ul
+      (map #(conj [:a {:href (:activation-link %)}]
+                  (conj [:li] (:activation-link %)))
+           (store/query (:account-store @ring/accts)
+                        {:activated false}))]]]))
 
 (defn download
   [request config account]
