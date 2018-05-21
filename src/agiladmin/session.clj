@@ -53,4 +53,7 @@
     account (check-account request)]
     (fun request config account)
     (f/when-failed [e]
-      (web/render-error-page (f/message e)))))
+      (web/render
+       [:div
+        (web/render-error (f/message e))
+        web/login-form]))))

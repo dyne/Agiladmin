@@ -33,7 +33,8 @@
 
 (declare render)
 (declare render-head)
-(declare render-navbar)
+(declare navbar-guest)
+(declare navbar-account)
 (declare render-footer)
 (declare render-yaml)
 (declare render-edn)
@@ -57,6 +58,15 @@
                ;; person, etc using hf/hidden-field)
                (hf/submit-button {:class (str "btn " type)} text))))
 
+(defn button-prev-year [year person]
+  [:div {:class "col-lg-2"}
+   (button
+    "/person"
+    (str "Go to previous year ("(-> year Integer. dec)")")
+    (list
+     (hf/hidden-field "year" (-> year Integer. dec))
+     (hf/hidden-field "person" person)))])
+
 (defn button-cancel-submit [argmap]
   [:div
    {:class
@@ -79,15 +89,27 @@
 
   )
 
-(defn render [body]
+(defn render
+  ([body]
   {:headers {"Content-Type"
              "text/html; charset=utf-8"}
    :body (page/html5
           (render-head)
           [:body ;; {:class "static"}
-           (render-navbar)
+           navbar-guest
            [:div {:class "container-fluid"} body]
            (render-footer)])})
+  ([account body]
+   {:headers {"Content-Type"
+              "text/html; charset=utf-8"}
+    :body (page/html5
+           (render-head)
+           [:body (if (empty? account)
+                    navbar-guest
+                    navbar-account)
+            [:div {:class "container-fluid"} body]
+            (render-footer)])}))
+
 
 (defn render-error
   "render an error message without ending the page"
@@ -150,7 +172,31 @@
     (page/include-css "/static/css/fontawesome.min.css")
     (page/include-css "/static/css/agiladmin.css")]))
 
-(defn render-navbar []
+(def navbar-guest
+  [:nav
+   {:class "navbar navbar-default navbar-fixed-top navbar-expand-md navbar-expand-lg"}
+    [:div {:class "navbar-header"}
+     [:button {:class "navbar-toggle" :type "button"
+               :data-toggle "collapse"
+               :data-target "#navbarResponsive"
+               :aria-controls "navbarResponsive"
+               :aria-expanded "false"
+               :aria-label "Toggle navigation"}
+      [:span {:class "sr-only"} "Toggle navigation"]
+      [:span {:class "icon-bar"}]
+      [:span {:class "icon-bar"}]
+      [:span {:class "icon-bar"}]]
+     [:a {:class "navbar-brand far fa-handshake" :href "/"} "Agiladmin"]]
+    [:div {:class "collapse navbar-collapse" :id "navbarResponsive"}
+     [:ul {:class "nav navbar-nav hidden-sm hidden-md ml-auto"}
+      ;; --
+      [:li {:class "divider" :role "separator"}]
+      [:li {:class "nav-item"}
+       [:a {:class "nav-link far fa-address-card"
+            :href "/login"} " Login"]]
+      ]]])
+
+(def navbar-account
   [:nav {:class "navbar navbar-default navbar-fixed-top navbar-expand-lg"}
 
     [:div {:class "navbar-header"}
@@ -208,7 +254,7 @@
   (page/html5 (render-head)
               [:body {:class "fxc static"}
 
-               (render-navbar)
+               navbar-guest
 
                [:div {:class "container"} body]
 

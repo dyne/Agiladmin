@@ -66,7 +66,16 @@
 
   ;; login / logout
   (GET "/login" request
-       (web/render web/login-form))
+       (f/attempt-all
+        [acct (s/check-account request)]
+        (web/render acct
+                    [:div
+                     [:h1 (str "Already logged in with account: "
+                               (:email acct))]
+                     (web/button "/logout" "Logout")])
+        (f/when-failed [e]
+          (web/render web/login-form))))
+
   (POST "/login" request
         (f/attempt-all
          [username (s/param request :username)
@@ -77,6 +86,7 @@
                                   :auth logged}}]
            (conj session
                  (web/render
+                  logged
                   [:div
                    [:h1 "Logged in: " username]
                    (web/render-yaml session)])))
@@ -142,7 +152,7 @@
 
   (POST "/" request
         ;; generic endpoint for canceled operations
-        (web/render
+        (web/render (s/check-account request)
          [:div {:class (str "alert alert-danger") :role "alert"}
           (s/param request :message)]))
 
@@ -150,6 +160,7 @@
        (->>
         (fn [req conf acct]
           (web/render
+           acct
            [:div {:class "container-fluid"}
             [:div {:class "row-fluid"}
              [:h1 "SSH authentication keys"]
@@ -171,6 +182,7 @@
        (->>
         (fn [req conf acct]
           (web/render
+           acct
            [:div {:class "container-fluid"}
             [:form {:action "/config/edit"
                     :method "post"}
@@ -182,6 +194,7 @@
         (->>
          (fn [req conf acct]
            (web/render
+            acct
             [:div {:class "container-fluid"}
              [:h1 "Saving configuration"]
              (web/highlight-yaml (get-in request [:params :editor]))]))
@@ -189,59 +202,27 @@
          ;; TODO: validate and save
         ;; also visualise diff: https://github.com/benjamine/jsondiffpatch
 
-  (POST "/project" request
-        (->>
-         (fn [req conf acct]
-           (view-project/start conf req))
-         (s/check request)))
-
-  (POST "/person" request
-        (->>
-         (fn [request config acct]
-           (let [person (get-in request [:params :person])
-                 year   (get-in request [:params :year])
-                 ts-path (get-in config [:agiladmin :budgets :path])]
-             ;; check if current year's timesheet exists, else point to previous
-             (if (.exists (io/as-file (str ts-path year "_timesheet_" person ".xlsx")))
-               (view-person/start config (:params request))
-               ;; else
-               (web/render
-                [:div {:class "container-fluid"}
-                 (web/render-error
-                  (log/spy
-                   :warn
-                   (str "No timesheet found for " person " on year " year)))
-                 (if-let [ymn (- (Integer/parseInt (re-find #"\A-?\d+" year)) 1)]
-                   (web/button "/person" (str "Try previous year " ymn)
-                               (list (hf/hidden-field "person" person)
-                                     (hf/hidden-field "year" ymn))))]))))
-         (s/check request)))
-
-
-  (GET "/persons/list" request
-       (->>
-        (fn [req conf acct]
-          (web/render [:div {:class "container-fluid"}
-                       (view-person/list-all config)]))
-        (s/check request)))
-
-  (POST "/persons/spreadsheet" request
-        (->>
-         (fn [req conf acct]
-           (view-person/download (:params req)))
-         (s/check request)))
 
   (GET "/projects/list" request
-       (->>
-        (fn [req conf acct]
-          (web/render [:div {:class "container-fluid"}
-                       (view-project/list-all conf)]))
-        (s/check request)))
+       (->> view-project/list-all
+            (s/check request)))
+  (POST "/project" request
+        (->> view-project/start
+             (s/check request)))
   (POST "/projects/edit" request
-        (->>
-         (fn [req conf acct]
-           (view-project/edit config request))
+        (->> view-project/edit
+             (s/check request)))
+  
+  (POST "/person" request
+        (->> view-person/start
+             (s/check request)))
+  (GET "/persons/list" request
+       (->> view-person/list-all
+            (s/check request)))
+  (POST "/persons/spreadsheet" request
+        (->> view-person/download
          (s/check request)))
+
   (GET "/timesheets" request
        (->>
         (fn [req conf acct]
@@ -253,6 +234,7 @@
            (let [tempfile (s/param req :tempfile)]
              (if-not (str/blank? tempfile) (io/delete-file tempfile))
              (web/render
+              acct
               [:div {:class (str "alert alert-danger") :role "alert"}
                (str "Canceled upload of timesheet: " tempfile)])))
          (s/check request)))
@@ -299,6 +281,7 @@
                (let [repo (conf/q conf [:agiladmin :budgets :path])
                      dst (str repo (fs/base-name path))]
                  (web/render
+                  acct
                   [:div {:class "container-fluid"}
                    [:h1 dst ]
                    (io/copy (io/file path) (io/file dst))
@@ -325,16 +308,6 @@
                (web/render-error-page
                 (str "Where is this file gone?! " path)))))
          (s/check request)))
-
-  (GET "/home" request
-       (->>
-        (fn [req conf acct]
-            (web/render [:div {:class "container-fluid"}
-                         [:div {:class "col-lg-4"}
-                          (view-person/list-all conf)]
-                         [:div {:class "col-lg-8"}
-                          (view-project/list-all conf)]]))
-        (s/check request)))
 
   (GET "/reload" request
        (->>
