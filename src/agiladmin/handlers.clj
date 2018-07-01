@@ -162,7 +162,8 @@
          [username (s/param request :username)
           password (s/param request :password)
           logged (auth/sign-in
-                  @ring/auth username password)]
+                  @ring/auth username password {})]
+         ;; TODO: pass :ip-address in last argument map
          (let [session {:session {:config config
                                   :auth logged}}]
            (conj session
