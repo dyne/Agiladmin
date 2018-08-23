@@ -9,13 +9,13 @@
    [org.clojure/data.csv "0.1.4"]
    [org.clojure/data.codec "0.1.1"]
    [org.clojure/tools.nrepl "0.2.13"]
-   [clj-http "3.9.0"]
+   [clj-http "3.9.1"]
    [cheshire "5.8.0"]
    [clojure-humanize "0.2.2"]
 
    ;; logging done right with slf4j
    [com.taoensso/timbre "4.10.0"]
-   [com.fzakaria/slf4j-timbre "0.3.8"]
+   [com.fzakaria/slf4j-timbre "0.3.12"]
    [org.slf4j/slf4j-api "1.7.25"]
    [org.slf4j/log4j-over-slf4j "1.7.25"]
    [org.slf4j/jul-to-slf4j "1.7.25"]
@@ -26,12 +26,11 @@
 
    ;; auxiliary lib functions
    [org.clojars.dyne/auxiliary "0.5.0-SNAPSHOT"]
-   [org.clojars.dyne/clj-storage "0.5.1"]
-   [org.clojars.dyne/just-auth "0.3.0-SNAPSHOT"]
+   [org.clojars.jaromil/just-auth "0.3.0-SNAPSHOT"]
 
    ;; compojure, ring and middleware
    [compojure "1.6.1"]
-   [ring/ring-defaults "0.3.1"]
+   [ring/ring-defaults "0.3.2"]
    [ring-middleware-accept "2.0.3"]
    [ring/ring-core "1.6.3"]
    [ring/ring-jetty-adapter "1.6.3"]
@@ -39,7 +38,7 @@
    ;; aux web stuff
    [formidable "0.1.10"]
    [markdown-clj "1.0.2"]
-   [io.forward/yaml "1.0.8"]
+   [io.forward/yaml "1.0.9"]
 
    ;; spreadsheet
    [dk.ative/docjure "1.12.0"]
@@ -81,7 +80,7 @@
   :profiles
   { :dev {:dependencies [[javax.servlet/servlet-api "2.5"]
                          [ring/ring-mock "0.3.2"]
-                         [midje "1.9.1"]]
+                         [midje "1.9.2"]]
           :plugins [[lein-midje "3.1.3"]]
           :aot :all
           :main agiladmin.handlers}
