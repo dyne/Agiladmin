@@ -1,4 +1,5 @@
 (ns agiladmin.session
+  (:refer-clojure :exclude [get])
   (:require
    [agiladmin.config :as conf]
    [taoensso.timbre :as log]

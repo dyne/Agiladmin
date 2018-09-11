@@ -21,7 +21,7 @@
             [clojure.string :refer [upper-case]]
             [clojure.java.io :as io]
             [clojure.walk :refer [keywordize-keys]]
-            [auxiliary.core :refer :all]
+            [auxiliary.core :as aux]
             [taoensso.timbre :as log]
             [failjure.core :as f]
             [schema.core :as s]

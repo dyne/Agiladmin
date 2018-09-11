@@ -24,10 +24,11 @@ admin:
   email: jaromil@dyne.org
 
 just-auth:
-  email-server: false
-  email-user: false
-  email-pass: false
-  email-address: agiladmin@dyne.org
+  email-server: "mail.dyne.org"
+  email-user: "xxxxxxxxxxxxxxxx"
+  email-pass: "xxxxxxxxxxxxxxxx"
+  email-address: "xxxxxxxxxxxxxxxx"
+  email-admin: "xxxxxxxxxxxxxxxx"
   mongo-url: mongodb://localhost:27017/agiladmin
   mongo-user: demo
   mongo-pass: demo

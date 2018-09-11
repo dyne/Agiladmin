@@ -1,7 +1,7 @@
 (ns agiladmin.core-test
-  (:require [clojure.test :refer :all]
-            [agiladmin.core :refer :all]))
+  (:require [midje.sweet :refer :all]
+            [agiladmin.ring :as ring]
+            [failjure.core :as f]))
 
-(deftest a-test
-  (testing "Nop"
-    (is (= 1 1))))
+(fact "Make sure the ring server starts"
+      (f/ok? (ring/init)) => truthy)

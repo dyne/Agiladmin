@@ -1,8 +1,8 @@
 language: clojure
 lein: lein
 script: lein midje
-branches:
-  only:
-    - master
 jdk:
   - oraclejdk8
+  - oraclejdk9
+services:
+  - mongod

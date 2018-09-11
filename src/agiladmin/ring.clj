@@ -55,8 +55,11 @@
 
      [(trans/init "lang/auth-en.yml" "lang/agiladmin-en.yml")
       (reset! accts auth-stores)
-      (reset! auth (auth/new-stub-email-based-authentication
-                    auth-stores (atom []) 
+      (reset! auth (auth/email-based-authentication  
+                    auth-stores
+                    ;; TODO: replace with email taken from config
+                    (dissoc (:just-auth (:agiladmin (conf/load-config "agiladmin" conf/default-settings)))
+                            :mongo-url :mongo-user :mongo-pass)
                     {:criteria #{:email :ip-address} 
                      :type :block
                      :time-window-secs 10

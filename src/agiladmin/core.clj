@@ -19,6 +19,7 @@
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 (ns agiladmin.core
+  (:refer-clojure :exclude [any?])
   (:require [clojure.string :refer [blank? split lower-case upper-case]]
             [agiladmin.utils :as util]
             [agiladmin.graphics :refer :all]
@@ -70,7 +71,7 @@
   [sheet col row]
   (let [cell (read-cell (select-cell (str col row) sheet))];
     ;; check for errors when reading a cell
-    (if (auxiliary.core/anything?
+    (if (aux/any?
          #{:VALUE :DIV0 :CIRCULAR_REF :REF :NUM :NULL :FUNCTION_NOT_IMPLEMENTED :NAME :NA}
          [cell])
       (->> (str "Error \"" cell "\" reading cell " row ":" col " in sheet " sheet)

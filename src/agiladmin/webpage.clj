@@ -24,7 +24,6 @@
             [agiladmin.config :as conf]
             [taoensso.timbre :as log]
             [failjure.core :as f]
-            [just-auth.core :as auth]
             [agiladmin.ring :as ring]
             [hiccup.page :as page]
             [hiccup.form :as hf]
@@ -347,10 +346,10 @@
               :class "btn btn-primary btn-lg btn-block"
               :style "margin-top: 1em"}]]]])
 
-(defonce signin-form
+(defonce signup-form
   [:div
-   [:h1 "Sign In Agiladmin"
-    [:form {:action "/signin"
+   [:h1 "Sign Up Agiladmin"
+    [:form {:action "/signup"
             :method "post"}
      [:input {:type "text" :name "name"
               :placeholder "Name"
@@ -362,6 +361,10 @@
               :style "margin-top: 1em"}]
      [:input {:type "password" :name "password"
               :placeholder "Password"
+              :class "form-control"
+              :style "margin-top: 1em"}]
+     [:input {:type "password" :name "repeat-password"
+              :placeholder "Repeat password"
               :class "form-control"
               :style "margin-top: 1em"}]
      [:input {:type "submit" :value "Sign In"

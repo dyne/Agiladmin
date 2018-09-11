@@ -181,31 +181,38 @@
        (conj {:session {:config config}}
              (web/render [:h1 "Logged out."])))
 
-  (GET "/signin" request
-       (web/render web/signin-form))
-  (POST "/signin" request
+  (GET "/signup" request
+       (web/render web/signup-form))
+  (POST "/signup" request
         (f/attempt-all
          [name (s/param request :name)
           email (s/param request :email)
           password (s/param request :password)
+          repeat-password (s/param request :repeat-password)
           activation {:activation-uri
                       (get-in request [:headers "host"])}]
          (web/render
-          (f/if-let-ok?
-              [signup (auth/sign-up @ring/auth name email
-                                    password activation nil)]
-            [:div
-             [:h2 (str "Account created: "
-                       name " &lt;" email "&gt;")]
-             [:h3 "Account pending activation."]
-             (and nil (auth/send-activation-message
-                       @ring/auth email activation))]
+          (if (= password repeat-password)
+            (f/try*
+             (f/if-let-ok?
+                 [signup (auth/sign-up @ring/auth
+                                       name
+                                       email
+                                       password
+                                       activation
+                                       [])]
+               [:div
+                [:h2 (str "Account created: "
+                          name " &lt;" email "&gt;")]
+                [:h3 "Account pending activation."]]
+               (web/render-error
+                (str "Failure creating account: "
+                     (f/message signup)))))
             (web/render-error
-             (str "Failure creating account: "
-                  (f/message signup)))))
+               "Repeat password didnt match")))
          (f/when-failed [e]
            (web/render-error-page
-            (str "Sign-in failure: " (f/message e))))))
+            (str "Sign-up failure: " (f/message e))))))
 
   (GET "/activate/:email/:activation-id"
        [email activation-id :as request]
