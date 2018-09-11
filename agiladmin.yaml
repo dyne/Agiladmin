@@ -28,3 +28,6 @@ just-auth:
   email-user: false
   email-pass: false
   email-address: agiladmin@dyne.org
+  mongo-url: mongodb://localhost:27017/agiladmin
+  mongo-user: demo
+  mongo-pass: demo
