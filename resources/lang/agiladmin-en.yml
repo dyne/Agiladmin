@@ -1,0 +1,6 @@
+---
+
+init:
+  success: "Initialisation completed"
+  failure: "Initialization failed"
+
