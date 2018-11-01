@@ -187,7 +187,7 @@
       [:span {:class "icon-bar"}]]
      [:a {:class "navbar-brand far fa-handshake" :href "/"} "Agiladmin"]]
     [:div {:class "collapse navbar-collapse" :id "navbarResponsive"}
-     [:ul {:class "nav navbar-nav hidden-sm hidden-md ml-auto"}
+     [:ul {:class "nav navbar-nav hidden-sm ml-auto"}
       ;; --
       [:li {:class "divider" :role "separator"}]
       [:li {:class "nav-item"}
@@ -210,7 +210,7 @@
      [:a {:class "navbar-brand far fa-handshake" :href "/"} "Agiladmin"]]
 
     [:div {:class "collapse navbar-collapse" :id "navbarResponsive"}
-     [:ul {:class "nav navbar-nav hidden-sm hidden-md ml-auto"}
+     [:ul {:class "nav navbar-nav hidden-sm ml-auto"}
       ;; --
       [:li {:class "divider" :role "separator"}]
       [:li {:class "nav-item"}
