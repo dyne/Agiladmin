@@ -33,14 +33,9 @@
 
 (defn check-account [request]
   ;; check if login is present in session
-  (f/attempt-all
-   [login (get-in request [:session :auth :email])
-    user (auth/get-account @ring/auth login)]
-   user
-   (f/when-failed [e]
-     (->> e f/message
-          (str "Unauthorized access. ")
-          f/fail))))
+  (if-let [login (get-in request [:session :auth :email])]
+    login ;; success
+    (f/fail (str "Unauthorized access."))))
 
 (defn check-database []
   (if-let [db @ring/db]
