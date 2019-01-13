@@ -256,7 +256,9 @@
           :hours h
           :days (get-cell sheet 'B 5)}
          )})
-    (f/fail (str "Error in core/load-timesheet: " path))))
+    (f/fail (str "Error loading timesheet: " path
+                 "<br/>Exception in dk.ative.docjure.spreadsheet/load-workbook"
+                 "<br/>Catched in core/load-timesheet"))))
 
 
   ;; (defn write-workbook-sheet

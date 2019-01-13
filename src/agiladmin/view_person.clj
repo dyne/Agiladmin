@@ -168,8 +168,8 @@
                   (to-monthly-bill-table projects))]])])
         (web/button-prev-year year person)]
        (f/when-failed [e]
-         (web/render account
-                     [:div (web/render-error (f/message e))
-                      (web/button-prev-year year person)])))])
+         [:div (web/render-error (f/message e))
+          (web/button-prev-year year person)
+          ]))])
    (f/when-failed [e]
      (web/render account (web/render-error (f/message e))))))
