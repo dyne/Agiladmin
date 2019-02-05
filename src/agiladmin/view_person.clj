@@ -124,7 +124,7 @@
         ;; insert the Git Id of the file (Git object in master)
         [:p (str "<!-- ID: " (util/git-id config ts-file) "-->")
          (person-download-timesheet ts-file)]
-        (if (zero? (->> ($ :cost costs) sum))
+        (if (zero? (->> ($ :cost costs) util/wrap sum))
           (web/render-error
            (log/spy :error [:p "No costs found (blank timesheet)"]))
           ;; else
