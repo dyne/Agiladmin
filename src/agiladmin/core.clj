@@ -216,7 +216,23 @@
        (let [p   (-> proj keyword)
              t   (-> task keyword)]
          (if-let [tot (get-in conf [p :idx t :pm])]
-           (* tot 150)))))))
+           (* tot 150)))))
+))
+
+(defn derive-task-pm
+  "gets a dataset of project hours and costs and add a column deriving
+  the total hours configured in the project for each task according to
+  its configured pm and the pm used"
+  [p-hours conf]
+  (with-data p-hours
+    (add-derived-column
+     :pm [:project :task]
+     (fn [proj task]
+       (let [p   (-> proj keyword)
+             t   (-> task keyword)]
+         (get-in conf [p :idx t :pm]))))
+
+    ))
 
 
 (defn derive-task-descriptions

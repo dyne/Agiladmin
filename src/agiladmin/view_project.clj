@@ -174,14 +174,16 @@ gantt.parse(tasks);
         [:div {:class "tab-pane fade in active" :id "task-sum-hours"}
          [:h2 "Totals grouped per person and per task"]
          (-> (aggregate [:hours :cost] [:name :task] :dataset project-hours)
-             (sel :cols [:name :task :hours :cost]) to-table)]
+             (derive-task-pm project-conf)
+             (sel :cols [:name :task :pm :cost]) to-table)]
         [:div {:class "tab-pane fade" :id "task-totals"}
          [:h2 "Totals per task"]
          (-> (aggregate :hours [:project :task] :dataset project-hours)
              (derive-task-hours-completed project-conf)
              (derive-task-hours-totals    project-conf)
              (derive-task-descriptions    project-conf)
-             (sel :cols [:task :hours :tot-hours :completed :description]) to-table)]
+             (derive-task-pm project-conf)
+             (sel :cols [:task :hours :tot-hours :pm :completed :description]) to-table)]
         [:div {:class "tab-pane fade" :id "person-totals"}
          [:h2 "Totals per person"]
          (-> (aggregate [:hours :cost] :name :dataset project-hours)
