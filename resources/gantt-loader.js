@@ -95,16 +95,14 @@ gantt.attachEvent("onTaskCreated", function (task) {
 });
 
 
-gantt.templates.task_text=function(start,end,task){
-    return "<b>"+task.id+"</b>";
-};
-gantt.templates.leftside_text = function(start, end, task){
-    return task.pm+"PM";
-};
-
+gantt.templates.task_text=function(start,end,task) {
+    return "<span><b>"+task.id+"</b></span>"; };
+gantt.templates.leftside_text = function(start, end, task) {
+    return "<span>"+task.pm+" PM</span>"; };
+gantt.templates.rightside_text = function(start, end, task) {
+    return "<span>"+task.pm+" PM</span>"; };
 gantt.templates.progress_text = function(start, end, task){
-    return "<span>"+Math.round(task.progress*100)+ "% </span>";
-};
+    return "<span>"+Math.round(task.progress*100)+ "% </span>"; };
 
 //css template for each task type
 gantt.templates.task_class = gantt.templates.grid_row_class = function (start, end, task) {

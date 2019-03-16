@@ -98,6 +98,7 @@
              entry  (if (and (not (nil? hours))
                              (> hours 0.0)
                              (not (blank? proj))
+                             (not (strcasecmp proj "total"))
                              (cond-fn {:project proj
                                        :task    task
                                        :tag     tag
