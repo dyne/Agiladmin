@@ -167,11 +167,13 @@ SOFTWARE:
 
 ## License
 
-Copyright (C) 2016-2018 Dyne.org foundation
+Copyright (C) 2016-2019 Dyne.org foundation
 
 Sourcecode written and maintained by Denis Roio <jaromil@dyne.org>
 
 Designed in cooperation with Manuela Annibali <manuela@dyne.org>
+
+With reviews and contributions by Andrea D'Intino <andrea@dyne.org>
 
 ```
 This program is free software: you can redistribute it and/or modify

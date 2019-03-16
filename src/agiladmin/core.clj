@@ -1,9 +1,8 @@
 ;; Agiladmin - spreadsheet based time and budget administration
 
-;; Copyright (C) 2016-2017 Dyne.org foundation
+;; Copyright (C) 2016-2019 Dyne.org foundation
 
 ;; Sourcecode written and maintained by Denis Roio <jaromil@dyne.org>
-;; designed in cooperation with Manuela Annibali <manuela@dyne.org>
 
 ;; This program is free software: you can redistribute it and/or modify
 ;; it under the terms of the GNU Affero General Public License as published by
@@ -220,25 +219,25 @@
                                      start (get-in conf [p :idx t :start_date])]
                                  (if (or (= start nil) (= duration nil)
                                          (= start 0) (= duration 0))
-                                   "none"
-                                   ; else
+                                   "ERROR"
+                                        ; else
                                    (tf/unparse time-format
-                                              (t/plus (tf/parse time-format start)
-                                                      (t/months duration)))
-                                 )))))
+                                               (t/plus (tf/parse time-format start)
+                                                       (t/months duration)))
+                                   )))))
        (simple-task-derivation conf :duration :duration)
        (add-derived-column :tot-hours [:project :task]
-        (fn [proj task]
-          (let [p   (-> proj keyword)
-                t   (-> task keyword)]
-            (if-let [tot (get-in conf [p :idx t :pm])]
-              (* tot 150)))))
+                           (fn [proj task]
+                             (let [p   (-> proj keyword)
+                                   t   (-> task keyword)]
+                               (if-let [tot (get-in conf [p :idx t :pm])]
+                                 (* tot 150)))))
        (add-derived-column :progress [:project :task :hours]
-        (fn [proj task hours]
-          (let [p   (-> proj keyword)
-                t   (-> task keyword)]
-            (if-let [tot (get-in conf [p :idx t :pm])]
-              (-> hours (/ (* tot 150)) util/round)))))))
+                           (fn [proj task hours]
+                             (let [p   (-> proj keyword)
+                                   t   (-> task keyword)]
+                               (if-let [tot (get-in conf [p :idx t :pm])]
+                                 (-> hours (/ (* tot 150)) util/round)))))))
 
 (defn load-timesheet [path]
   (if-let [ts (try (load-workbook path)

@@ -1,3 +1,22 @@
+// Agiladmin - spreadsheet based time and budget administration
+
+// Copyright (C) 2016-2019 Dyne.org foundation
+
+// Sourcecode written and maintained by Denis Roio <jaromil@dyne.org>
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+
+// You should have received a copy of the GNU Affero General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 gantt.config.open_tree_initially = true;
 gantt.config.scale_unit = "month";
 gantt.config.duration_unit = "month";
@@ -8,10 +27,11 @@ gantt.config.task_height = 20;
 gantt.config.row_height = 30;
 gantt.config.types.root = "project-task";
 gantt.config.types.subproject = "subproject";
+gantt.config.readonly = true;
 gantt.config.lightbox.subproject_sections = gantt.config.lightbox.sections;
 gantt.config.lightbox.project_sections = [
-    {name: "description", height: 70, map_to: "text", type: "textarea", focus: true},
-    {name: "time", type: "duration", map_to: "auto", readonly: true}
+    {name: "task", height: 70, map_to: "id", type: "textarea", focus: true},
+    {name: "pm", type: "text", map_to: "pm", readonly: true}
 ];
 
 var date_to_str = gantt.date.date_to_str(gantt.config.task_date);
@@ -22,6 +42,9 @@ gantt.addMarker({
     text: "Today",
     title:"Today: "+ date_to_str(today)
 });
+
+// no lightbox at all
+gantt.attachEvent("onBeforeLightbox", function(id) { return false; });
 
 // set initial values based on task type
 function defaultValues(task) {
@@ -70,6 +93,14 @@ gantt.attachEvent("onTaskCreated", function (task) {
     defaultValues(task);
     return true;
 });
+
+
+gantt.templates.task_text=function(start,end,task){
+    return "<b>"+task.id+"</b>";
+};
+gantt.templates.leftside_text = function(start, end, task){
+    return task.pm+"PM";
+};
 
 gantt.templates.progress_text = function(start, end, task){
     return "<span>"+Math.round(task.progress*100)+ "% </span>";

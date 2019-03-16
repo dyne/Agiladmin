@@ -1,6 +1,6 @@
 ;; Agiladmin - spreadsheet based time and budget administration
 
-;; Copyright (C) 2016-2018 Dyne.org foundation
+;; Copyright (C) 2016-2019 Dyne.org foundation
 
 ;; Sourcecode written and maintained by Denis Roio <jaromil@dyne.org>
 ;; designed in cooperation with Manuela Annibali <manuela@dyne.org>
@@ -117,28 +117,6 @@ gantt.parse(tasks);
                   "btn-primary btn-lg edit-project")
      [:div {:class "row-fluid"}
 
-      [:h2 "Overview of tasks"]
-      (-> task-details
-          (sel :cols [:task :pm :start :duration :end :progress :description]) to-table)]
-     ;; [:div {:class "row-fluid"}
-      ;;  ;; --- CHARTS
-      ;;  ;; time series
-      ;;  (with-data
-      ;;    (->> ($rollup :sum :hours :month project-hours)
-      ;;         ($order :month :asc))
-      ;;    [:div {:class "col-lg-6"}
-      ;;     (chart-to-image
-      ;;      (bar-chart :month :hours :group-by :month :legend false))])
-      ;;  ;; (time-series-plot (date-to-ts $data :month)
-      ;;  ;;                   ($ :hours)))])
-     ;; pie chart
-      ;; (with-data ($rollup :sum :hours :name project-hours)
-      ;;   [:div {:class "col-lg-6"}
-      ;;    (chart-to-image
-      ;;     (pie-chart (-> ($ :name) wrap)
-      ;;                ($ :hours)
-      ;;                :legend true
-      ;;                :title (str projname " hours used")))])]
      [:div {:class "container-fluid"}
       [:h1 "Totals"]
       (let [billed (-> ($ :cost project-hours) util/wrap sum util/round)
@@ -164,8 +142,12 @@ gantt.parse(tasks);
                      :hours max_hours
                      :CPH (:cph conf)}])))
             to-dataset to-table))]
+      [:h2 "Overview of tasks"]
+      (-> task-details
+          (sel :cols [:task :pm :start :duration :end :progress :description]) to-table)]
+
      [:div {:class "row-fluid"}
-      [:h1 "Switch to different views on project"]
+      [:h1 "Details "[:small "(switch views using tabs below)"]]
       [:div {:class "container"}
        [:ul {:class "nav nav-pills"}
         [:li {:class "active"}
@@ -181,7 +163,7 @@ gantt.parse(tasks);
         [:div {:class "tab-pane fade in active" :id "task-sum-hours"}
          [:h2 "Totals grouped per person and per task"]
          (-> (aggregate [:hours :cost] [:name :task] :dataset project-hours)
-             (sel :cols [:name :task :pm :cost]) to-table)]
+             (sel :cols [:name :task :hours :cost]) to-table)]
         [:div {:class "tab-pane fade" :id "task-totals"}
          [:h2 "Totals per task"]
          (-> task-details
