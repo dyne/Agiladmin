@@ -29,6 +29,8 @@
             [auxiliary.string :refer [strcasecmp]]
             [failjure.core :as f]
             [taoensso.timbre :as log]
+            [clj-time.core :as t]
+            [clj-time.format :as tf]
             [dk.ative.docjure.spreadsheet
              :refer [load-workbook select-sheet sheet-seq select-cell read-cell]])
   (:import (org.apache.poi.ss.usermodel Workbook Row CellStyle IndexedColors Font CellValue)
@@ -200,6 +202,7 @@
                               t   (-> task keyword)]
                           (get-in conf [p :idx t conf-field]))) data))
 
+(def time-format (tf/formatter "DD-MM-YYYY"))
 (defn derive-task-details
   "gets a dataset of project hours and costs and add columns derived
   from calculations on each task row and its prject configuration:
@@ -209,7 +212,21 @@
        (simple-task-derivation conf :pm :pm)
        (simple-task-derivation conf :description :text)
        (simple-task-derivation conf :start :start_date)
-       (simple-task-derivation conf :duration :duration)
+       (add-derived-column :end [:project :task]
+                           (fn [proj task]
+                             (let [p   (-> proj keyword)
+                                   t   (-> task keyword)]
+                               (let [duration (get-in conf [p :idx t :duration])
+                                     start (get-in conf [p :idx t :start_date])]
+                                 (if (or (= start nil) (= duration nil)
+                                         (= start 0) (= duration 0))
+                                   "none"
+                                   ; else
+                                   (tf/unparse time-format
+                                              (t/plus (tf/parse time-format start)
+                                                      (t/months duration)))
+                                 )))))
+       ; (simple-task-derivation conf :duration :duration)
        (add-derived-column :tot-hours [:project :task]
         (fn [proj task]
           (let [p   (-> proj keyword)

@@ -87,6 +87,7 @@
         [:h1 projname
          [:button {:class "pull-right btn btn-info"
                    :onclick "toggleMode(this)"} "Scale to Fit"]]
+
         ;; GANTT chart
         [:div {:class "row-fluid"
                :style "width:100%; min-height:20em; position: relative;" :id "gantt"}]
@@ -107,10 +108,11 @@ gantt.parse(tasks);
                   (hf/hidden-field "project" projname)
                   "btn-primary btn-lg edit-project")
      [:div {:class "row-fluid"}
-      [:h2 "Totals per task"]
+
+      [:h2 "Overview of tasks"]
       (-> (aggregate :hours [:project :task] :dataset project-hours)
           (derive-task-details project-conf)
-          (sel :cols [:task :pm :start :duration :completed :description]) to-table)]
+          (sel :cols [:task :pm :start :end :completed :description]) to-table)]
      ;; [:div {:class "row-fluid"}
       ;;  ;; --- CHARTS
       ;;  ;; time series
