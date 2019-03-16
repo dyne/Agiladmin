@@ -202,7 +202,7 @@
                               t   (-> task keyword)]
                           (get-in conf [p :idx t conf-field]))) data))
 
-(def time-format (tf/formatter "DD-MM-YYYY"))
+(def time-format (tf/formatter "dd-MM-yyyy"))
 (defn derive-task-details
   "gets a dataset of project hours and costs and add columns derived
   from calculations on each task row and its prject configuration:
@@ -226,7 +226,7 @@
                                               (t/plus (tf/parse time-format start)
                                                       (t/months duration)))
                                  )))))
-       ; (simple-task-derivation conf :duration :duration)
+       (simple-task-derivation conf :duration :duration)
        (add-derived-column :tot-hours [:project :task]
         (fn [proj task]
           (let [p   (-> proj keyword)

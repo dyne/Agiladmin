@@ -112,7 +112,7 @@ gantt.parse(tasks);
       [:h2 "Overview of tasks"]
       (-> (aggregate :hours [:project :task] :dataset project-hours)
           (derive-task-details project-conf)
-          (sel :cols [:task :pm :start :end :completed :description]) to-table)]
+          (sel :cols [:task :pm :start :duration :end :completed :description]) to-table)]
      ;; [:div {:class "row-fluid"}
       ;;  ;; --- CHARTS
       ;;  ;; time series
