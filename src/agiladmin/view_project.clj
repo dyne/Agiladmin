@@ -78,7 +78,10 @@
     ts-path      (conf/q config [:agiladmin :budgets :path])
     timesheets   (load-all-timesheets ts-path #".*_timesheet_.*xlsx$")
     project-hours (-> (load-project-monthly-hours timesheets projname)
-                      (derive-costs config project-conf))]
+                      (derive-costs config project-conf))
+    task-details (derive-task-details
+                  (aggregate :hours [:project :task] :dataset project-hours)
+                  project-conf)]
    (web/render
     account
     [:div {:style "container-fluid"}
@@ -91,14 +94,19 @@
         ;; GANTT chart
         [:div {:class "row-fluid"
                :style "width:100%; min-height:20em; position: relative;" :id "gantt"}]
-        (let [today (util/now)]
+        (let [today (util/now)
+              tasks (map (fn [task]
+                           (conj task {:progress
+                                       (with-data task-details
+                                         ($ :completed ($where {:task (:id task)})))}))
+                         (:tasks conf))]
           [:script {:type "text/javascript"}
            (str "\nvar today = new Date("
                 (:year today)", "
                 (dec (:month today))", "
                 (:day today)");\n")
            (str (slurp (io/resource "gantt-loader.js")) "
-var tasks = { data:" (-> (:tasks conf) chesh/generate-string) "};
+var tasks = { data:" (chesh/generate-string tasks) "};
 gantt.init('gantt');
 gantt.parse(tasks);
 ")])]
@@ -110,8 +118,7 @@ gantt.parse(tasks);
      [:div {:class "row-fluid"}
 
       [:h2 "Overview of tasks"]
-      (-> (aggregate :hours [:project :task] :dataset project-hours)
-          (derive-task-details project-conf)
+      (-> task-details
           (sel :cols [:task :pm :start :duration :end :completed :description]) to-table)]
      ;; [:div {:class "row-fluid"}
       ;;  ;; --- CHARTS
@@ -177,8 +184,7 @@ gantt.parse(tasks);
              (sel :cols [:name :task :pm :cost]) to-table)]
         [:div {:class "tab-pane fade" :id "task-totals"}
          [:h2 "Totals per task"]
-         (-> (aggregate :hours [:project :task] :dataset project-hours)
-             (derive-task-details project-conf)
+         (-> task-details
              (sel :cols [:task :hours :tot-hours :pm :completed :description]) to-table)]
         [:div {:class "tab-pane fade" :id "person-totals"}
          [:h2 "Totals per person"]
