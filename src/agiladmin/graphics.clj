@@ -22,7 +22,9 @@
             [hiccup.element :refer :all]
             [hiccup.form :as hf]
             [agiladmin.webpage :as web]
+            [agiladmin.utils :refer :all]
             [incanter.charts :refer :all]
+            [taoensso.timbre :as log]
             [incanter.core :refer :all]))
 
 ;; TODO: inline images for charts, see
@@ -38,7 +40,14 @@
                [:th nil t])]]
    [:tbody nil
     (for [t (:rows data)]
-      [:tr nil (for [tt t] [:td nil tt])])]])
+      [:tr nil (for [tt t]
+                 [:td nil
+                  (if (= (first tt) :progress)
+                    (if-let [pro (second tt)]
+                      [:span (format "%.0f%%" (round (* pro 100)))
+                       [:br]
+                       [:progress {:max 1 :value pro} pro]])
+                    tt)])])]])
 
 
 (defn to-monthly-bill-table

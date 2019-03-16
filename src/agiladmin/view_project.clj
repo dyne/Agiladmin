@@ -95,18 +95,18 @@
         [:div {:class "row-fluid"
                :style "width:100%; min-height:20em; position: relative;" :id "gantt"}]
         (let [today (util/now)
-              tasks (map (fn [task]
-                           (conj task {:progress
-                                       (with-data task-details
-                                         ($ :completed ($where {:task (:id task)})))}))
-                         (:tasks conf))]
+              gantt-tasks (map (fn [task]
+                                 (conj task {:progress
+                                             (with-data task-details
+                                               ($ :progress ($where {:task (:id task)})))}))
+                               (:tasks conf))]
           [:script {:type "text/javascript"}
            (str "\nvar today = new Date("
                 (:year today)", "
                 (dec (:month today))", "
                 (:day today)");\n")
            (str (slurp (io/resource "gantt-loader.js")) "
-var tasks = { data:" (chesh/generate-string tasks) "};
+var tasks = { data:" (chesh/generate-string gantt-tasks) "};
 gantt.init('gantt');
 gantt.parse(tasks);
 ")])]
@@ -119,7 +119,7 @@ gantt.parse(tasks);
 
       [:h2 "Overview of tasks"]
       (-> task-details
-          (sel :cols [:task :pm :start :duration :end :completed :description]) to-table)]
+          (sel :cols [:task :pm :start :duration :end :progress :description]) to-table)]
      ;; [:div {:class "row-fluid"}
       ;;  ;; --- CHARTS
       ;;  ;; time series
@@ -185,7 +185,7 @@ gantt.parse(tasks);
         [:div {:class "tab-pane fade" :id "task-totals"}
          [:h2 "Totals per task"]
          (-> task-details
-             (sel :cols [:task :hours :tot-hours :pm :completed :description]) to-table)]
+             (sel :cols [:task :hours :tot-hours :pm :progress :description]) to-table)]
         [:div {:class "tab-pane fade" :id "person-totals"}
          [:h2 "Totals per person"]
          (-> (aggregate [:hours :cost] :name :dataset project-hours)

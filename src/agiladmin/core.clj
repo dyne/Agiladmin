@@ -206,7 +206,7 @@
 (defn derive-task-details
   "gets a dataset of project hours and costs and add columns derived
   from calculations on each task row and its prject configuration:
-  tot-hours, pm, description, completed etc."
+  tot-hours, pm, description, progress etc."
   [p-hours conf]
   (->> p-hours
        (simple-task-derivation conf :pm :pm)
@@ -233,7 +233,7 @@
                 t   (-> task keyword)]
             (if-let [tot (get-in conf [p :idx t :pm])]
               (* tot 150)))))
-       (add-derived-column :completed [:project :task :hours]
+       (add-derived-column :progress [:project :task :hours]
         (fn [proj task hours]
           (let [p   (-> proj keyword)
                 t   (-> task keyword)]
