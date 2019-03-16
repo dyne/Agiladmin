@@ -190,63 +190,38 @@
                              cph 0))))))
 
 
-(defn derive-task-hours-completed
-  "gets a dataset of project hours and costs and add a column deriving
-  the hours and costs progress on each task according to its
-  configured pm and the pm used"
+(defn simple-task-derivation
+  "internal macro: used inside derive-task-details for the columns that simply
+  copy a value from the project/task configuration"
+  [conf table-field conf-field data]
+  (add-derived-column table-field [:project :task]
+                      (fn [proj task]
+                        (let [p   (-> proj keyword)
+                              t   (-> task keyword)]
+                          (get-in conf [p :idx t conf-field]))) data))
+
+(defn derive-task-details
+  "gets a dataset of project hours and costs and add columns derived
+  from calculations on each task row and its prject configuration:
+  tot-hours, pm, description, completed etc."
   [p-hours conf]
-  (with-data p-hours
-    (add-derived-column
-     :completed [:project :task :hours]
-     (fn [proj task hours]
-       (let [p   (-> proj keyword)
-             t   (-> task keyword)]
-         (if-let [tot (get-in conf [p :idx t :pm])]
-           (-> hours (/ (* tot 150)) util/round)))))))
-
-(defn derive-task-hours-totals
-  "gets a dataset of project hours and costs and add a column deriving
-  the total hours configured in the project for each task according to
-  its configured pm and the pm used"
-  [p-hours conf]
-  (with-data p-hours
-    (add-derived-column
-     :tot-hours [:project :task]
-     (fn [proj task]
-       (let [p   (-> proj keyword)
-             t   (-> task keyword)]
-         (if-let [tot (get-in conf [p :idx t :pm])]
-           (* tot 150)))))
-))
-
-(defn derive-task-pm
-  "gets a dataset of project hours and costs and add a column deriving
-  the total hours configured in the project for each task according to
-  its configured pm and the pm used"
-  [p-hours conf]
-  (with-data p-hours
-    (add-derived-column
-     :pm [:project :task]
-     (fn [proj task]
-       (let [p   (-> proj keyword)
-             t   (-> task keyword)]
-         (get-in conf [p :idx t :pm]))))
-
-    ))
-
-
-(defn derive-task-descriptions
-  "gets a dataset of project hours and costs and add a column deriving
-  the descriptions of each task  configured in the project"
-  [p-hours conf]
-  (with-data p-hours
-    (add-derived-column
-     :description [:project :task]
-     (fn [proj task]
-       (let [p   (-> proj keyword)
-             t   (-> task keyword)]
-         (get-in conf [p :idx t :text]))))))
-
+  (->> p-hours
+       (simple-task-derivation conf :pm :pm)
+       (simple-task-derivation conf :description :text)
+       (simple-task-derivation conf :start :start_date)
+       (simple-task-derivation conf :duration :duration)
+       (add-derived-column :tot-hours [:project :task]
+        (fn [proj task]
+          (let [p   (-> proj keyword)
+                t   (-> task keyword)]
+            (if-let [tot (get-in conf [p :idx t :pm])]
+              (* tot 150)))))
+       (add-derived-column :completed [:project :task :hours]
+        (fn [proj task hours]
+          (let [p   (-> proj keyword)
+                t   (-> task keyword)]
+            (if-let [tot (get-in conf [p :idx t :pm])]
+              (-> hours (/ (* tot 150)) util/round)))))))
 
 (defn load-timesheet [path]
   (if-let [ts (try (load-workbook path)
