@@ -10,16 +10,16 @@
    [org.clojure/data.codec "0.1.1"]
    [org.clojure/tools.nrepl "0.2.13"]
    [clj-http "3.9.1"]
-   [cheshire "5.8.0"]
+   [cheshire "5.8.1"]
    [clojure-humanize "0.2.2"]
 
    ;; logging done right with slf4j
    [com.taoensso/timbre "4.10.0"]
    [com.fzakaria/slf4j-timbre "0.3.12"]
-   [org.slf4j/slf4j-api "1.7.25"]
-   [org.slf4j/log4j-over-slf4j "1.7.25"]
-   [org.slf4j/jul-to-slf4j "1.7.25"]
-   [org.slf4j/jcl-over-slf4j "1.7.25"]
+   [org.slf4j/slf4j-api "1.7.26"]
+   [org.slf4j/log4j-over-slf4j "1.7.26"]
+   [org.slf4j/jul-to-slf4j "1.7.26"]
+   [org.slf4j/jcl-over-slf4j "1.7.26"]
 
    ;; error handling
    [failjure "1.3.0"]
@@ -32,21 +32,22 @@
    [compojure "1.6.1"]
    [ring/ring-defaults "0.3.2"]
    [ring-middleware-accept "2.0.3"]
-   [ring/ring-core "1.6.3"]
-   [ring/ring-jetty-adapter "1.6.3"]
+   [ring/ring-core "1.7.1"]
+   [ring/ring-jetty-adapter "1.7.1"]
 
    ;; aux web stuff
    [formidable "0.1.10"]
-   [markdown-clj "1.0.2"]
+   [markdown-clj "1.0.7"]
    [io.forward/yaml "1.0.9"]
 
    ;; spreadsheet
-   [dk.ative/docjure "1.12.0"]
-   [org.apache.poi/poi "3.17"]
-   [org.apache.poi/poi-ooxml "3.17"]
+   ;; upgrade? see https://github.com/mjul/docjure/issues/82
+   [dk.ative/docjure "1.12.0" :upgrade false]
+   [org.apache.poi/poi "3.17" :upgrade false]
+   [org.apache.poi/poi-ooxml "3.17" :upgrade false]
 
    ;; Data validation
-   [prismatic/schema "1.1.9"]
+   [prismatic/schema "1.1.10"]
 
    ;; git
    [clj-jgit "0.9.1-SNAPSHOT"]
@@ -61,7 +62,7 @@
    [org.clojars.dyne/clj-openssh-keygen "0.1.0"]
 
    ;; time from joda-time
-   [clj-time "0.14.4"]
+   [clj-time "0.15.1"]
 
    ]
 
@@ -80,7 +81,7 @@
   :profiles
   { :dev {:dependencies [[javax.servlet/servlet-api "2.5"]
                          [ring/ring-mock "0.3.2"]
-                         [midje "1.9.2"]]
+                         [midje "1.9.6"]]
           :plugins [[lein-midje "3.1.3"]]
           :aot :all
           :main agiladmin.handlers}

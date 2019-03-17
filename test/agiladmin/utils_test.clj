@@ -40,8 +40,8 @@
             ))
 
 (fact "Timesheet to name conversion"
-      (fact "filename only"
-            (timesheet-to-name "2017_timesheet_Luca-Pacioli.xlsx") => "L.Pacioli")
-      (fact "full path"
-            (timesheet-to-name "2017_timesheet_Luca-Pacioli.xlsx") => "L.Pacioli")
+      (fact "full name"
+            (timesheet-to-name "2017_timesheet_Luca-Pacioli.xlsx") => "Luca-Pacioli")
+      (fact "dotted name"
+            (dotname (timesheet-to-name "2017_timesheet_Luca-Pacioli.xlsx")) => "L.Pacioli")
       )
