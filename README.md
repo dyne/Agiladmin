@@ -77,6 +77,17 @@ source:
   # its code from this git repository
   git: https://github.com/dyne/agiladmin
   update: no
+
+# authentication configuration (smtp and mongodb)
+just-auth:
+  email-server: "mail.dyne.org"
+  email-user: "xxxxxxxxxxxxxxxx"
+  email-pass: "xxxxxxxxxxxxxxxx"
+  email-address: "xxxxxxxxxxxxxxxx"
+  email-admin: "xxxxxxxxxxxxxxxx"
+  mongo-url: mongodb://localhost:27017/agiladmin
+  mongo-user: demo
+  mongo-pass: demo
 ```
 
 Each project should also have its own configuration file, a commented
