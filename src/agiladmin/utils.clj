@@ -94,8 +94,7 @@
 (defn timesheet-to-name
   "get a timesheet filename and extract a dotname"
   [path]
-  (-> (re-find regex-timesheet-to-name path)
-      second dotname))
+  (-> (re-find regex-timesheet-to-name path) second))
 
 (def month-names
   "A vector of abbreviations for the twelve months, in order."

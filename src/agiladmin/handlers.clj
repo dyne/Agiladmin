@@ -36,8 +36,6 @@
    [me.raynes.fs :as fs :refer [base-name]]
    [failjure.core :as f]
 
-   [clj-jgit.porcelain :as git]
-
    [incanter.core :refer :all]
 
    [taoensso.timbre :as log]
@@ -111,39 +109,8 @@
              (s/check request)))
 
   (POST "/timesheets/submit" request
-        (->>
-         (fn [req conf acct]
-           (let [path (s/param req :path)]
-             (if (.exists (io/file path))
-               (let [repo (conf/q conf [:agiladmin :budgets :path])
-                     dst (str repo (fs/base-name path))]
-                 (web/render
-                  acct
-                  [:div {:class "container-fluid"}
-                   [:h1 dst ]
-                   (io/copy (io/file path) (io/file dst))
-                   (io/delete-file path)
-                   (f/attempt-all
-                    [gitrepo  (git/load-repo repo)
-                     dircache (git/git-add gitrepo (fs/base-name dst))
-                     gitstatus (git/git-status gitrepo)
-                     gitcommit (git/git-commit
-                                gitrepo
-                                (str "Updated timesheet "
-                                     (fs/base-name path))
-                                {(:name acct) (:email acct)})]
-                    [:div
-                     (web/render-yaml gitstatus)
-                     [:p "Timesheet was succesfully archived"]
-                     (web/render-git-log gitrepo)]
-                    ;; TODO: add link to the person page here
-                    (f/when-failed [e]
-                      (web/render-error
-                       (log/spy :error ["Failure committing to git: " e]))))]))
-               ;; else
-               (web/render-error-page
-                (str "Where is this file gone?! " path)))))
-         (s/check request)))
+        (->> view-timesheet/commit
+             (s/check request)))
 
   ;; login / logout
   (GET "/login" request

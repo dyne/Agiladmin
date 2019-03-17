@@ -31,8 +31,8 @@
    [failjure.core :as f]
    [hiccup.form :as hf]
    [me.raynes.fs :as fs]
-   [incanter.core :refer :all]
-   [incanter.charts :refer :all]))
+   [clj-jgit.porcelain :as git]
+   [incanter.core :refer [sel]]))
 
 (def json-dataset-pp
   (json/create-pretty-printer
@@ -190,3 +190,40 @@ proceed to validation."]
         (log/spy :error [:div
                          [:h1 "Error parsing timesheet"]
                          (web/render-yaml e)])))))))))
+
+(defn commit [req conf acct]
+  (let [path (s/param req :path)]
+    (if (.exists (io/file path))
+      (let [repo (conf/q conf [:agiladmin :budgets :path])
+            dst (str repo (fs/base-name path))]
+        (web/render
+         [:div {:class "container-fluid"}
+          [:h1 dst ]
+          (io/copy (io/file path) (io/file dst))
+          (io/delete-file path)
+          (let
+              [base_path (fs/base-name dst)
+               gitrepo  (git/load-repo repo)
+               dircache (git/git-add gitrepo base_path)
+               gitstatus (git/git-status gitrepo)
+               gitcommit (git/git-commit
+                          gitrepo
+                          (str "Updated timesheet " base_path)
+                          {:name (get-in req [:session :auth  :name])
+                           :email (get-in req [:session :auth :email])})
+               keypath (conf/q conf [:agiladmin :budgets :ssh-key])]
+            (git/with-identity {:name keypath :exclusive true}
+              (git/git-push gitrepo))
+            [:div
+             [:p (str "Timesheet archived: " base_path)]
+             ;; button to quickly move back to person
+             (let [pname (util/timesheet-to-name base_path)
+                   year  (:year (util/now))]
+               (web/button "/person" (str "Go back to " pname)
+                           (list (hf/hidden-field "person" pname)
+                                 (hf/hidden-field "year" year))))
+             [:h3 "Log of recent changes:"]
+             (web/render-git-log gitrepo)])]))
+      ;; else
+      (web/render-error-page
+       (str "Where is this file gone?! " path)))))
