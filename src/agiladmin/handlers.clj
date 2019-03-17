@@ -58,6 +58,11 @@
 
 (defonce config (conf/load-config "agiladmin" conf/default-settings))
 
+(defn get-client-ip [req]
+  (if-let [ips (get-in req [:headers "x-forwarded-for"])]
+    (-> ips (clojure.string/split #",") first)
+    (:remote-addr req)))
+
 (defroutes app-routes
 
   (GET "/" request (web/render web/readme))
@@ -129,8 +134,7 @@
          [username (s/param request :username)
           password (s/param request :password)
           logged (auth/sign-in
-                  @ring/auth username password {})]
-         ;; TODO: pass :ip-address in last argument map
+                  @ring/auth username password {:ip-address (get-client-ip request)})]
          (let [session {:session {:config config
                                   :auth logged}}]
            (conj session
