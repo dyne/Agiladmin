@@ -120,7 +120,7 @@
   ;; login / logout
   (GET "/login" request
        (f/attempt-all
-        [acct (s/check-account request)]
+        [acct (s/check-account @ring/config request)]
         (web/render acct
                     [:div
                      [:h1 (str "Already logged in with account: "
@@ -206,7 +206,7 @@
 
   (POST "/" request
         ;; generic endpoint for canceled operations
-        (web/render (s/check-account request)
+        (web/render (s/check-account @ring/config request)
                     [:div {:class (str "alert alert-danger") :role "alert"}
                      (s/param request :message)]))
 

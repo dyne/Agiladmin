@@ -31,11 +31,15 @@
       (conf/load-config "agiladmin" conf/default-settings))
     (f/fail "Session not found. ")))
 
-(defn check-account [request]
+(defn check-account [config request]
   ;; check if login is present in session
-  (if-let [login (get-in request [:session :auth :email])]
-    login ;; success
-    (f/fail (str "Unauthorized access."))))
+  (let [login (get-in request [:session :auth])]
+    (cond
+      (nil? login) (f/fail (str "Unauthorized access."))
+      (->> config :agiladmin :admins
+           (some #(= (:email login) %)))
+      (conj login {:admin true})
+      :else login)))
 
 (defn check-database []
   (if-let [db @ring/db]
@@ -46,8 +50,8 @@
   (f/attempt-all
    [db (check-database)
     config (check-config request)
-    account (check-account request)]
-    (fun request config account)
+    account (check-account config request)]
+   (fun request config account)
     (f/when-failed [e]
       (web/render
        [:div
