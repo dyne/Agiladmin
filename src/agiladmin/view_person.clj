@@ -65,7 +65,7 @@
   [request config account]  
   (if-not (->> config :agiladmin :admins
                (some #(= (:email account) %)))
-    (web/render-error-page request "Unauthorized access")
+    (web/render-error-page account "Unauthorized access")
     (web/render
      account
      [:div {:class "row-fluid"}
@@ -186,6 +186,6 @@
         (nil? person) (list-person [config account (:name account) year])
 
         :else
-        (web/render-error-page config "Unauthorized access"))
+        (web/render-error-page account "Unauthorized access"))
    (f/when-failed [e]
      (web/render account (web/render-error (f/message e))))))
