@@ -177,6 +177,15 @@
                              ;; else
                              0))))))
 
+(defn derive-years
+  "gets a dataset of hours per month and adds a 'year' column from its
+  YYYY-MM field in :month."
+  [hours conf projects]
+  (with-data hours
+    (add-derived-column :year [:month]
+                        (fn [month] (first (split month #"-" 2))))))
+
+
 (defn derive-cost-per-hour
   "gets a dataset of hours and adds a 'cph' column deriving the cost
   per hour from the project configuration"

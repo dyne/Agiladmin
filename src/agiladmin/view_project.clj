@@ -70,7 +70,7 @@
    (f/when-failed [e]
      (web/render-error-page (f/message e)))))
 
-(defn start [request config account]
+(defn h2020 [request config account]
   (f/attempt-all
    [projname     (s/param request :project)
     project-conf (conf/load-project config projname)
@@ -179,3 +179,36 @@ gantt.parse(tasks);
        ]]])
    (f/when-failed [e]
      (web/render account (web/render-error (f/message e))))))
+
+(defn infra [config account projname]
+  (f/attempt-all
+   [project-conf (conf/load-project config projname)
+   conf         (get project-conf (keyword projname))
+   ts-path      (conf/q config [:agiladmin :budgets :path])
+   timesheets   (load-all-timesheets ts-path #".*_timesheet_.*xlsx$")
+   project-hours (-> (load-project-monthly-hours timesheets projname)
+                     (derive-costs config project-conf)
+                     (derive-years config project-conf))]
+  (web/render account [:div
+                       [:h1 (str projname " fixed costs overview")]
+                       [:h2 "Yearly totals"]
+                       (to-table
+                        ($order :year :desc
+                                (-> (aggregate [:hours :cost] :year :dataset project-hours)
+                                    (sel :cols [:year :hours :cost]))))
+                       [:h2 "Personnel totals"]
+                       (to-table
+                        ($order :year :desc
+                                (-> (aggregate [:hours :cost] :name :dataset project-hours)
+                                    (sel :cols [:name :hours :cost]))))
+                       ])))
+
+(defn start [request config account]
+  (f/attempt-all
+   [projname     (s/param request :project)
+    project-conf (conf/load-project config projname)
+    project      (get project-conf (keyword projname))]
+   (cond
+     (= (:type project) "infra") (infra config account projname)
+     :else
+     (h2020 request config account))))
