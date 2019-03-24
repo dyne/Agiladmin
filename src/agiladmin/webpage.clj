@@ -215,7 +215,7 @@
       [:li {:class "divider" :role "separator"}]
       [:li {:class "nav-item"}
        [:a {:class "nav-link far fa-address-card"
-            :href "/persons/list"} " Persons"]]
+            :href "/persons/list"} " Personnel"]]
       [:li {:class "nav-item"}
        [:a {:class "nav-link far fa-paper-plane"
             :href "/projects/list"} " Projects"]]

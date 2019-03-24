@@ -62,7 +62,7 @@
 
 (defn list-all
   "list all persons"
-  [request config account]  
+  [request config account]
   (if-not (->> config :agiladmin :admins
                (some #(= (:email account) %)))
     (web/render-error-page account "Unauthorized access")
@@ -114,7 +114,7 @@
     [:h1 (str year " - " (util/dotname person))]
     (f/attempt-all
      [ts-path (conf/q config [:agiladmin :budgets :path])
-      ts-file (str year "_timesheet_" person ".xlsx")
+      ts-file (util/name-year-to-timesheet person year)
       timesheet (load-timesheet (str ts-path ts-file))
       projects (load-all-projects config)
       costs (-> (map-timesheets
@@ -172,20 +172,19 @@
         (web/button-prev-year year person)
         ]))]))
 
-(defn start [request config account]
+(defn start
+  [request config account]
   (f/attempt-all
    [person (s/param request :person)
     year   (s/param request :year)]
-      (cond ;; admin check
-        (->> config :agiladmin :admins
-             (some #(= (:email account) %))) 
-        (list-person config account person year)
+   (cond ;; admin check
+     (:admin account) (list-person config account person year)
+     ;; check that person views its own account
+     (= (:name account) person) (list-person config account person year)
 
-        (= (:name account) person) (list-person [config account person year])
+     ;; (nil? person) (list-person [config account (:name account) year])
 
-        (nil? person) (list-person [config account (:name account) year])
-
-        :else
-        (web/render-error-page account "Unauthorized access"))
+     :else
+     (web/render-error-page account "Unauthorized access"))
    (f/when-failed [e]
      (web/render account (web/render-error (f/message e))))))

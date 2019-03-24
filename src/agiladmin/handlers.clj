@@ -43,7 +43,6 @@
 
    [just-auth.core :as auth]
    [agiladmin.core :refer :all]
-   [agiladmin.config :as conf]
    [agiladmin.ring :as ring]
    [agiladmin.graphics :refer [to-table]]
    [agiladmin.utils :as util]
@@ -51,17 +50,11 @@
    [agiladmin.view-timesheet :as view-timesheet]
    [agiladmin.view-reload :as view-reload]
    [agiladmin.view-person :as view-person]
+   [agiladmin.view-auth :as view-auth]
    [agiladmin.webpage :as web]
    [agiladmin.session :as s])
   (:import java.io.File)
   (:gen-class))
-
-(defonce config (conf/load-config "agiladmin" conf/default-settings))
-
-(defn get-client-ip [req]
-  (if-let [ips (get-in req [:headers "x-forwarded-for"])]
-    (-> ips (clojure.string/split #",") first)
-    (:remote-addr req)))
 
 (defroutes app-routes
 
@@ -81,8 +74,27 @@
         (->> view-person/start
              (s/check request)))
   (GET "/persons/list" request
-       (->> view-person/list-all
-            (s/check request)))
+       (f/attempt-all [config (s/check-config request)
+                       ;; this checks if user is logged in
+                       account (s/check-account config request)]
+         (cond
+           ;; user is an admin, can list all personnel and activation requests
+           (:admin account) (view-person/list-all request config account)
+           ;; user is not an admin, redirect to own personnel page
+           (-> account :admin not)
+           (view-person/list-person config account (:name account) (:year (util/now)))
+           :else
+           (web/render [:div (web/render-error "Unauthorized access.")]))
+         (f/when-failed [e]
+           (web/render
+            [:div
+             (web/render-error "Unauthorized access.") ;; TODO: (f/message e)) reports all config?!
+             web/login-form]))))
+         ;; (web/render account [:div
+         ;;                      (web/render-yaml account)
+         ;;                      (web/render-yaml config)])))
+       ;; (->> view-person/list-all
+       ;;      (s/check request)))
   (POST "/persons/spreadsheet" request
         (->> view-person/download
              (s/check request)))
@@ -118,91 +130,21 @@
              (s/check request)))
 
   ;; login / logout
-  (GET "/login" request
-       (f/attempt-all
-        [acct (s/check-account @ring/config request)]
-        (web/render acct
-                    [:div
-                     [:h1 (str "Already logged in with account: "
-                               (:email acct))]
-                     [:h2 [:a {:href "/logout"} "Logout"]]])
-        (f/when-failed [e]
-          (web/render web/login-form))))
+  (GET "/login" request (view-auth/login-get request))
 
-  (POST "/login" request
-        (f/attempt-all
-         [username (s/param request :username)
-          password (s/param request :password)
-          logged (auth/sign-in
-                  @ring/auth username password {:ip-address (get-client-ip request)})]
-         (let [session {:session {:config config
-                                  :auth logged}}]
-           (conj session
-                 (web/render
-                  logged
-                  [:div
-                   [:h1 "Logged in: " username]
-                   (web/render-yaml session)])))
-         (f/when-failed [e]
-           (web/render-error-page
-            (str "Login failed: " (f/message e))))))
+  (POST "/login" request (view-auth/login-post request))
+
   (GET "/session" request
        (-> (:session request) web/render-yaml web/render))
-  (GET "/logout" request
-       (conj {:session {:config config}}
-             (web/render [:h1 "Logged out."])))
 
-  (GET "/signup" request
-       (web/render web/signup-form))
-  (POST "/signup" request
-        (f/attempt-all
-         [name (s/param request :name)
-          email (s/param request :email)
-          password (s/param request :password)
-          repeat-password (s/param request :repeat-password)
-          activation {:activation-uri
-                      (get-in request [:headers "host"])}]
-         (web/render
-          (if (= password repeat-password)
-            (f/try*
-             (f/if-let-ok?
-                 [signup (auth/sign-up @ring/auth
-                                       name
-                                       email
-                                       password
-                                       activation
-                                       [])]
-               [:div
-                [:h2 (str "Account created: "
-                          name " &lt;" email "&gt;")]
-                [:h3 "Account pending activation."]]
-               (web/render-error
-                (str "Failure creating account: "
-                     (f/message signup)))))
-            (web/render-error
-               "Repeat password didnt match")))
-         (f/when-failed [e]
-           (web/render-error-page
-            (str "Sign-up failure: " (f/message e))))))
+  (GET "/logout" request (view-auth/logout-get request))
 
-  (GET "/activate/:email/:activation-id"
-       [email activation-id :as request]
-       (let [activation-uri
-             (str "http://"
-                  (get-in request [:headers "host"])
-                  "/activate/" email "/" activation-id)]
-         (web/render
-          [:div
-           (f/if-let-failed?
-               [act (auth/activate-account
-                     @ring/auth email
-                     {:activation-link activation-uri})]
-             (web/render-error
-              [:div
-               [:h1 "Failure activating account"]
-               [:h2 (f/message act)]
-               [:p (str "Email: " email " activation-id: " activation-id)]])
-             [:h1 (str "Account activated - " email)])])))
+  (GET "/signup" request (view-auth/signup-get request))
+
+  (POST "/signup" request (view-auth/signup-post request))
+
+  (GET "/activate/:email/:activation-id"   [email activation-id :as request]
+       (view-auth/activate request email activation-id))
 
   (POST "/" request
         ;; generic endpoint for canceled operations

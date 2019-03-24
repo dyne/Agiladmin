@@ -39,7 +39,8 @@
       (->> config :agiladmin :admins
            (some #(= (:email login) %)))
       (conj login {:admin true})
-      :else login)))
+      :else
+      (conj login {:admin false}))))
 
 (defn check-database []
   (if-let [db @ring/db]

@@ -96,6 +96,12 @@
   [path]
   (-> (re-find regex-timesheet-to-name path) second))
 
+(defn name-year-to-timesheet
+  "get a name and a year and return the filename of the timesheet if found"
+  [name year]
+  (let [dashname (str/replace name #" " "-")]
+    (str year "_timesheet_" dashname ".xlsx")))
+
 (def month-names
   "A vector of abbreviations for the twelve months, in order."
   ["January"
