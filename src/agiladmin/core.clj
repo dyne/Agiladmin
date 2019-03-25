@@ -60,6 +60,26 @@
            '[clojure.pprint :reder :all]
            :reload))
 
+(defn map-col [data col-name f] 
+  (let [new-col-names (sort-by #(= % col-name) (col-names data))
+        new-dataset (conj-cols
+                     (sel data :except-cols col-name)
+                     ($map f col-name data))]
+    ($ (col-names data) (col-names new-dataset new-col-names) )))
+
+;; redefining this to work with chaining (dataset is first argument)
+(defn aggr
+  "aggregate fields (coll) grouping by some (coll) using a :rollup-fun or sum"
+  [data fields group-by & {:keys [rollup-fun] :or {rollup-fun :sum}}]
+  ;; using aggregate from incanter 1.4x
+  (aggregate fields group-by :dataset data :rollup-fun rollup-fun))
+
+(defn sort
+  "sort a dataset according to a specific :column in :asc or :desc order"
+  [data column order]
+  ;; using $order from incanteer 1.4x
+  ($order column order data))
+
 (defn average
   "makes an average of the values of a certain column in a dataset"
   [col data]
@@ -103,13 +123,11 @@
                                        :task    task
                                        :tag     tag
                                        :hours   hours}))
-                      ;; (not (strcasecmp tag "vol"))
-                      ;; (strcasecmp project proj))
                       {:month month
                        :name (:name timesheet)
                        :project (upper-case proj)
-                       :task (if-not (blank? task) (upper-case task) "")
-                       :tag  (if-not (blank? tag)  (upper-case tag)  "")
+                       :task (if-not (blank? task) (upper-case task) "") ;; uppercase all tasks
+                       :tag  (if-not (blank? tag)  (upper-case tag)  "") ;; uppercase all tags
                        :hours hours} nil)]
          ;; check for errors
          (map #(when (f/failed? %) (log/error (f/message %)))
@@ -146,7 +164,7 @@
   (log/info (str "Loading project hours: " pname))
   (map-timesheets timesheets load-monthly-hours
                   (fn [info]
-                    (and (not (strcasecmp (:tag info) "VOL"))
+                    (and ;; (not (strcasecmp (:tag info) "VOL"))
                          (strcasecmp (:project info) pname)))))
 
 (defn get-project-rate

@@ -31,8 +31,7 @@
    [taoensso.timbre :as log :refer [debug]]
    [cheshire.core :as chesh :refer [generate-string]]
    [hiccup.form :as hf]
-   [incanter.core :refer :all]))
-;;   [incanter.charts :refer :all]))
+   [incanter.core :refer [with-data $ $where sel sum to-dataset]]))
 
 (defn list-all
   "list all projects"
@@ -79,9 +78,9 @@
     timesheets   (load-all-timesheets ts-path #".*_timesheet_.*xlsx$")
     project-hours (-> (load-project-monthly-hours timesheets projname)
                       (derive-costs config project-conf))
-    task-details (derive-task-details
-                  (aggregate :hours [:project :task] :dataset project-hours)
-                  project-conf)]
+    task-details (-> project-hours
+                     (aggr :hours [:project :task])
+                     (derive-task-details project-conf))]
    (web/render
     account
     [:div {:style "container-fluid"}
@@ -162,20 +161,21 @@ gantt.parse(tasks);
        [:div {:class "tab-content clearfix"}
         [:div {:class "tab-pane fade in active" :id "task-sum-hours"}
          [:h2 "Totals grouped per person and per task"]
-         (-> (aggregate [:hours :cost] [:name :task] :dataset project-hours)
-             (sel :cols [:name :task :hours :cost]) to-table)]
+         (-> (map-col project-hours :tag #(if (= "VOL" %) "VOL" ""))
+             (aggr [:hours :cost] [:name :tag :task])
+             (sel :cols [:name :tag :task :hours :cost]) to-table)]
         [:div {:class "tab-pane fade" :id "task-totals"}
          [:h2 "Totals per task"]
          (-> task-details
              (sel :cols [:task :hours :tot-hours :pm :progress :description]) to-table)]
         [:div {:class "tab-pane fade" :id "person-totals"}
          [:h2 "Totals per person"]
-         (-> (aggregate [:hours :cost] :name :dataset project-hours)
-             (sel :cols [:name :hours :cost]) to-table)]
+         (-> (map-col project-hours :tag #(if (= "VOL" %) "VOL" "")) ;; list only voluntary tags
+             (aggr [:hours :cost] [:name :tag])
+             (sel :cols [:name :tag :hours :cost]) to-table)]
         [:div {:class "tab-pane fade" :id "monthly-details"}
          [:h2 "Detail of monthly hours used per person on each task"]
-         (-> ($order :month :desc project-hours)
-             to-table)]]
+         (-> project-hours (sort :month :desc) to-table)]]
        ]]])
    (f/when-failed [e]
      (web/render account (web/render-error (f/message e))))))
@@ -192,15 +192,13 @@ gantt.parse(tasks);
   (web/render account [:div
                        [:h1 (str projname " fixed costs overview")]
                        [:h2 "Yearly totals"]
-                       (to-table
-                        ($order :year :desc
-                                (-> (aggregate [:hours :cost] :year :dataset project-hours)
-                                    (sel :cols [:year :hours :cost]))))
+                       (-> (aggr project-hours [:hours :cost] [:year :tag])
+                           (sel :cols [:year :tag :hours :cost])
+                           (sort :year :desc) to-table)
                        [:h2 "Personnel totals"]
-                       (to-table
-                        ($order :year :desc
-                                (-> (aggregate [:hours :cost] :name :dataset project-hours)
-                                    (sel :cols [:name :hours :cost]))))
+                       (-> (aggr project-hours [:hours :cost] [:name :tag])
+                           (sel :cols [:name :tag :hours :cost])
+                           (sort :year :desc) to-table)
                        ])))
 
 (defn start [request config account]
