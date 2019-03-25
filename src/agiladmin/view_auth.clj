@@ -56,8 +56,7 @@
            (web/render
             logged
             [:div
-             [:h1 "Logged in: " username]
-             (web/render-yaml session)])))
+             [:h1 "Logged in: " username]])))
    (f/when-failed [e]
      (web/render-error-page
       (str "Login failed: " (f/message e))))))

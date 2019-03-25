@@ -125,11 +125,7 @@
   ([session error]
    (render
     [:div {:class "container-fluid"}
-     (render-error error)
-     (if-not (empty? session)
-       [:div {:class "config"}
-        [:h2 "Environment dump:"]
-        (render-yaml session)])])))
+     (render-error error)])))
 
 
 (defn render-head

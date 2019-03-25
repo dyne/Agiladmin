@@ -63,9 +63,9 @@
 
            [:div [:h1 "Git status"]
             (web/render-yaml (git/git-status repo))]
-           [:div {:class "col-md-6"} [:h1 "Log (last 20 changes)"]
+           [:div [:h1 "Log (last 20 changes)"]
             (web/render-git-log repo)]
-           [:div {:class "col-md-6"} [:h1 "Config"] (web/render-yaml config)]
+           ;; [:div {:class "col-md-6"} [:h1 "Config"] (web/render-yaml config)]
            ]))
 
 
@@ -99,8 +99,6 @@
           [:div
            [:div [:h1 "Git status"]
             (web/render-yaml (git/git-status repo))]
-           [:div {:class "col-md-6"} [:h1 "Log (last 20 changes)"]
-            (web/render-git-log repo)]
-           [:div {:class "col-md-6"} [:h1 "Config"] (web/render-yaml config)]]))
+           [:div [:h1 "Log (last 20 changes)"] (web/render-git-log repo)]]))
       ;; end of POST /reload
       )))

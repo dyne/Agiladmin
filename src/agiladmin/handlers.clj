@@ -28,6 +28,7 @@
    [ring.adapter.jetty :refer :all]
 
    [ring.middleware.session :refer :all]
+   [ring.middleware.session.cookie :refer [cookie-store]]
    [ring.middleware.accept :refer [wrap-accept]]
    [ring.middleware.defaults :refer [wrap-defaults site-defaults]]
 
@@ -134,8 +135,8 @@
 
   (POST "/login" request (view-auth/login-post request))
 
-  (GET "/session" request
-       (-> (:session request) web/render-yaml web/render))
+  ;; (GET "/session" request
+  ;;      (-> (:session request) web/render-yaml web/render))
 
   (GET "/logout" request (view-auth/logout-get request))
 
@@ -167,11 +168,12 @@
                  (get-in
                   conf
                   [:agiladmin :budgets :ssh-key]) ".pub"))]]]
-            [:div {:class "row-fluid"}
-             [:h1 "Configuration"
-              [:a {:href "/config/edit"}
-               [:button {:class "btn btn-info"} "Edit"]]]
-             (web/render-yaml (:session req))]]))
+            ;; [:div {:class "row-fluid"}
+            ;;  [:h1 "Configuration"
+            ;;   [:a {:href "/config/edit"}
+            ;;    [:button {:class "btn btn-info"} "Edit"]]]
+            ;;  (web/render-yaml (:session req))]
+            ]))
         (s/check request)))
 
   (GET "/config/edit" request
@@ -211,7 +213,10 @@
                                "it" :qs 1
                                "nl" :qs 1
                                "hr" :qs 1]})
-      (wrap-session)))
+      (wrap-session
+       {:store
+        (cookie-store
+         {:key (get-in @ring/config [:agiladmin :webserver :salt])})})))
 
 ;; for uberjar (TODO: align with configuration)
 (defn -main []
