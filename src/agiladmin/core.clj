@@ -247,7 +247,7 @@
                                      start (get-in conf [p :idx t :start_date])]
                                  (if (or (= start nil) (= duration nil)
                                          (= start 0) (= duration 0))
-                                   "ERROR"
+                                   ""
                                         ; else
                                    (tf/unparse time-format
                                                (t/plus (tf/parse time-format start)

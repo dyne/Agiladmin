@@ -123,22 +123,21 @@ gantt.parse(tasks);
             tasks (:tasks conf)]
         (-> [{:total "Current"
               :cost billed
-              :hours hours
+              :pm (-> hours (/ 150) util/round)
               :cph (if (or (zero? billed) (zero? hours)) 0
                        ;; else
                        (util/round (/ billed hours)))}]
             (concat
              (if (empty? tasks) []
-                 (let [max_hours (-> (map #(* (get % :pm) 150) tasks)
-                                     util/wrap sum)
+                 (let [max_hours (-> (map #(* (get % :pm) 150) tasks) util/wrap sum)
                        max_cost (* (:cph conf) max_hours)]
                    [{:total "Progress"
                      :cost (util/percentage billed max_cost)
-                     :hours (util/percentage hours max_hours)
-                     :CPH ""}
+                     :pm (util/percentage hours max_hours)
+                     :CPH "⇧ ⇩"}
                     {:total "Total"
                      :cost max_cost
-                     :hours max_hours
+                     :pm (/ max_hours 150)
                      :CPH (:cph conf)}])))
             to-dataset to-table))]
       [:h2 "Overview of tasks"]
@@ -171,8 +170,8 @@ gantt.parse(tasks);
         [:div {:class "tab-pane fade" :id "person-totals"}
          [:h2 "Totals per person"]
          (-> (map-col project-hours :tag #(if (= "VOL" %) "VOL" "")) ;; list only voluntary tags
-             (aggr [:hours :cost] [:name :tag])
-             (sel :cols [:name :tag :hours :cost]) to-table)]
+             (aggr [:hours] [:name :tag])
+             (sel :cols [:name :tag :hours]) to-table)]
         [:div {:class "tab-pane fade" :id "monthly-details"}
          [:h2 "Detail of monthly hours used per person on each task"]
          (-> project-hours (sort :month :desc) to-table)]]
