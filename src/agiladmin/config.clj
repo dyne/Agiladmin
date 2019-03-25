@@ -52,16 +52,17 @@
 
 (s/defschema Project
   {s/Keyword
-   {:start_date s/Str
-    :duration   s/Num
+   {(s/optional-key :start_date) s/Str
+    (s/optional-key :duration)   s/Num
 ;;  (s/optional-key :cph) s/Num
-    :cph s/Num
+    (s/optional-key :type) s/Str
+    (s/optional-key :cph) s/Num
     :rates {s/Keyword s/Num}
-    :tasks [{:id s/Str
-             :text s/Str
-             :start_date s/Str
-             :duration s/Num
-             :pm s/Num}]}})
+    (s/optional-key :tasks) [{:id s/Str
+                              :text s/Str
+                              :start_date s/Str
+                              :duration s/Num
+                              :pm s/Num}]}})
 
 (def run-mode (atom :web))
 
