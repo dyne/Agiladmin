@@ -57,7 +57,7 @@
 
    ;; graphical visualization
    [incanter/incanter-core   "1.5.7" :upgrade false]
-   [incanter/incanter-charts "1.5.7" :upgrade false]
+;;   [incanter/incanter-charts "1.5.7" :upgrade false]
 
    [org.clojars.dyne/clj-openssh-keygen "0.1.0"]
 
@@ -70,7 +70,7 @@
   :source-paths ["src"]
   :resource-paths ["resources"]
 
-  :plugins [[lein-ring "0.9.7"]]
+  :plugins [[lein-ring "0.12.5"]]
   :ring    {:init agiladmin.ring/init
             :handler agiladmin.handlers/app}
   :uberwar {:init agiladmin.ring/init

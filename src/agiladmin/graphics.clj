@@ -17,13 +17,13 @@
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 (ns agiladmin.graphics
-  (:import  [org.jfree.chart ChartUtilities]) ; experiment on inline images
+;;  (:import  [org.jfree.chart ChartUtilities]) ; experiment on inline images
   (:require [clojure.data.codec.base64 :as b64]
             [hiccup.element :refer :all]
             [hiccup.form :as hf]
             [agiladmin.webpage :as web]
             [agiladmin.utils :refer :all]
-            [incanter.charts :refer :all]
+;;            [incanter.charts :refer :all]
             [taoensso.timbre :as log]
             [incanter.core :refer :all]))
 
@@ -92,7 +92,7 @@
     #(.getTime (.parse (java.text.SimpleDateFormat. fmt) %))
     column data)))
 
-(defn chart-to-image
+(comment (defn chart-to-image
   "Takes an incanter.chart and returns a base64 image for easy
   inclusion in a web page"
   [chart & {:keys [plot-size aspect-ratio]
@@ -107,4 +107,4 @@
          (map char)
          clojure.string/join
          (str "data:image/png;base64,")
-         image)))
+         image))))
