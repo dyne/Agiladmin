@@ -21,6 +21,8 @@
 (ns agiladmin.view-project
   (:require
    [clojure.java.io :as io]
+   [clj-time.format :as tf]
+   [clj-time.core :as t]
    [agiladmin.core :refer :all]
    [agiladmin.utils :as util]
    [agiladmin.graphics :refer :all]
@@ -117,7 +119,10 @@ gantt.parse(tasks);
      [:div {:class "row-fluid"}
 
      [:div {:class "container-fluid"}
-      [:h1 "Totals"]
+      [:h1 (str "Totals - M "
+                (let [lastm (:duration conf)
+                      currm (current-proj-month conf)]
+                  (str currm " / " lastm)))]
       (let [billed (-> ($ :cost project-hours) util/wrap sum util/round)
             hours (-> ($ :hours project-hours) util/wrap sum util/round)
             tasks (:tasks conf)]

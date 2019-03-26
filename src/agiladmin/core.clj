@@ -230,6 +230,13 @@
                           (get-in conf [p :idx t conf-field]))) data))
 
 (def time-format (tf/formatter "dd-MM-yyyy"))
+(defn current-proj-month [conf]
+  "gets a project-conf and returns the current month in the project
+  schedule. end month is attainable from (:duration project-conf)."
+  (-> "dd-MM-yyy" tf/formatter (tf/parse (:start_date conf))
+      (t/interval (t/now))
+      t/in-months))
+
 (defn derive-task-details
   "gets a dataset of project hours and costs and add columns derived
   from calculations on each task row and its prject configuration:
