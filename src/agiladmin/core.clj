@@ -167,13 +167,45 @@
                     (and ;; (not (strcasecmp (:tag info) "VOL"))
                          (strcasecmp (:project info) pname)))))
 
+(def time-format (tf/formatter "dd-MM-yyyy"))
+(defn current-proj-month [conf]
+  "gets a project-conf and returns the current month in the project
+  schedule. end month is attainable from (:duration project-conf)."
+  (-> "dd-MM-yyyy" tf/formatter (tf/parse (-> conf :start_date))
+      (t/interval (t/now))
+      t/in-months))
+
 (defn get-project-rate
-  "gets the rate per hour for a person in a project"
-  [projects person projname]
-  ;; TODO: make sure that project_file has no case sensitive
-  ;; complication
-  (get-in projects [(keyword projname) :rates
-                    (-> person util/dotname keyword)]))
+  "gets the rate per hour for a person in a project. this is being used
+  to create derivated columns."
+  [projects name project month]
+  (let [proj (get-in projects [(keyword project)])
+        cph  (get-in proj [:rates (keyword name)])
+        cm (-> "yyyy-MM" tf/formatter (tf/parse month))
+        sdate (-> "dd-MM-yyyy" tf/formatter
+                  (tf/parse (or (:start_date proj) "01-01-2000")))]
+    (cond
+      (coll?   cph) ;; (log/info "TODO: coll in project conf rates")
+      (loop [[e & rates] cph
+             res {}]
+        (let [until (-> "yyyy-MM"
+                        tf/formatter
+                        (tf/parse (or (:before e)
+                                      (t/plus sdate (t/months (+ (:duration proj) 2)))))
+                        (t/plus (t/months 1))) ;; before excludes mentioned month
+              k (if (and (t/before? cm until)
+                         (empty? res))
+                  {:cph (:cph e)} { })]
+          ;; cannot use failjure inside a loop/recur?
+          ;; tried (when (f/failed?)) here but no
+          ;; attempt all also cannot allow recur to be last
+          (if (empty? rates) (-> (conj k res) :cph)
+              (recur  rates  (conj k res)))))
+      (number? cph) cph ;; (log/info "TODO: numbrer in project conf rates")
+      (string? cph) (log/debug "TODO: string in project conf rates")
+      (nil? cph)    (log/debug "TODO: nil in project conf rates")
+      :else
+      (log/debug "TODO: anything else in project rates"))))
 
 (defn derive-costs
   "gets a dataset of hours and adds a 'cost' column deriving the
@@ -183,10 +215,10 @@
      (derive-costs hours conf projects)))
   ([hours conf projects]
    (with-data hours
-     (add-derived-column :cost [:name :project :tag :hours]
-                         (fn [name proj tag hours]
-                           (if-let [cost (get-in projects [(keyword proj) :rates
-                                                           (keyword name)])]
+     (add-derived-column :cost
+                         [:month :name :project :tag :hours]
+                         (fn [month name proj tag hours]
+                           (if-let [cost (get-project-rate projects name proj month)]
                              (if (and (> cost 0) (not (strcasecmp tag "VOL")))
                                ;; then
                                (util/round (* cost hours))
@@ -204,6 +236,7 @@
                         (fn [month] (first (split month #"-" 2))))))
 
 
+
 (defn derive-cost-per-hour
   "gets a dataset of hours and adds a 'cph' column deriving the cost
   per hour from the project configuration"
@@ -212,11 +245,9 @@
      (derive-cost-per-hour hours conf projects)))
   ([hours conf projects]
    (with-data hours
-     (add-derived-column :cph [:name :project]
-                         (fn [name proj]
-                           (if-let [cph (get-in projects [(keyword proj) :rates
-                                                          (keyword name)])]
-                             cph 0))))))
+     (add-derived-column :cph [:month :name :project]
+                         (fn [month name project]
+                           (get-project-rate projects name project month))))))
 
 
 (defn simple-task-derivation
@@ -228,14 +259,6 @@
                         (let [p   (-> proj keyword)
                               t   (-> task keyword)]
                           (get-in conf [p :idx t conf-field]))) data))
-
-(def time-format (tf/formatter "dd-MM-yyyy"))
-(defn current-proj-month [conf]
-  "gets a project-conf and returns the current month in the project
-  schedule. end month is attainable from (:duration project-conf)."
-  (-> "dd-MM-yyy" tf/formatter (tf/parse (:start_date conf))
-      (t/interval (t/now))
-      t/in-months))
 
 (defn derive-task-details
   "gets a dataset of project hours and costs and add columns derived

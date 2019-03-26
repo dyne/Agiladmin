@@ -78,7 +78,9 @@
                        #".*_timesheet_.*xlsx$")
                       (map #(second
                              (re-find util/regex-timesheet-to-name
-                                      (.getName %)))) sort distinct)]
+                                      (.getName %))))
+                      clojure.core/sort
+                      distinct)]
            ;; (map #(.getName %)) distinct)]
            [:div {:class "row log-person"}
             (web/button "/person" f
@@ -122,8 +124,10 @@
                 (derive-costs config projects))]
      [:div {:class "container-fluid"}
       ;; insert the Git Id of the file (Git object in master)
-      [:p (str "<!-- ID: " (util/git-id config ts-file) "-->")
-       (person-download-timesheet ts-file)]
+      (person-download-timesheet ts-file) [:br]
+      (if-let [githead (util/git-id config ts-file)]
+        [:small ;;[:a {:href (str "https://gogs.dyne.org/dyne/admin-budgets/commit/" githead)}
+         (str "git rev object hash: " githead)])
       (if (zero? (->> ($ :cost costs) util/wrap sum))
         (web/render-error
          (log/spy :error [:p "No costs found (blank timesheet)"]))
