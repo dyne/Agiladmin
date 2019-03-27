@@ -57,7 +57,12 @@
 ;;  (s/optional-key :cph) s/Num
     (s/optional-key :type) s/Str
     (s/optional-key :cph) s/Num
-    :rates {s/Keyword s/Num}
+    (s/optional-key :rates) s/Any
+    ;; TODO: better parsing of rates
+    ;; :rates {s/Keyword (s/conditional
+    ;;                    map? {(s/required-key :before)  s/Str
+    ;;                          (s/required-key :cph) s/Num}
+    ;;                    :else s/Num)}
     (s/optional-key :tasks) [{:id s/Str
                               :text s/Str
                               :start_date s/Str
