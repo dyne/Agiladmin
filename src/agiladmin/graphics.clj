@@ -42,11 +42,14 @@
     (for [t (:rows data)]
       [:tr nil (for [tt t]
                  [:td nil
-                  (if (= (first tt) :progress)
+                  (cond
+                    (= (first tt) :progress)
                     (if-let [pro (second tt)]
                       [:span (format "%.0f%%" (round (* pro 100)))
                        [:br]
                        [:progress {:max 1 :value pro} pro]])
+                    (= (second tt) 0) "-"
+                    :else
                     tt)])])]])
 
 
@@ -73,7 +76,7 @@
                                              (-> t :task    keyword) :text])]])]
          [:td nil (:tag t)]
          [:td nil (:hours t)]
-         [:td nil (:cost t)]
+         [:td nil (if (= (:cost t) 0) "-" (:cost t))]
          [:td nil (:cph t)]])]])
 
 (defn to-excel
