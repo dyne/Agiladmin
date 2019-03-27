@@ -154,6 +154,7 @@
     (page/include-js  "/static/js/jsondiffpatch.min.js")
     (page/include-js  "/static/js/jsondiffpatch-formatters.min.js")
     (page/include-js  "/static/js/diff_match_patch_uncompressed.js")
+    (page/include-js  "/static/js/awesomplete.min.js")
 
     ;; cascade style sheets
     (page/include-css "/static/css/bootstrap.min.css")
@@ -165,6 +166,7 @@
     (page/include-css "/static/css/formatters-styles/annotated.css")
     (page/include-css "/static/css/fa-regular.min.css")
     (page/include-css "/static/css/fontawesome.min.css")
+    (page/include-css "/static/css/awesomplete.css")
     (page/include-css "/static/css/agiladmin.css")]))
 
 (def navbar-guest

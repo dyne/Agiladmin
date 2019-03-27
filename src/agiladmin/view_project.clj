@@ -42,10 +42,13 @@
    account
    [:div {:class "projects"}
     [:h2 "Projects"]
+    [:input {:class "awesomplete" :title "search project" :list "projects" :autofocus true}]
+    [:datalist {:id "projects"}
+     (for [pj (conf/q config [:agiladmin :projects])] [:option pj])]
     (for [pj (conf/q config [:agiladmin :projects])]
-     [:div {:class "row log-project"}
-      (web/button "/project" pj
-                  (hf/hidden-field "project" pj))])]))
+      [:div {:class "row-fluid log-project"}
+       (web/button "/project" pj
+                   (hf/hidden-field "project" pj))])]))
 
 (defn edit [request config account]
   (f/attempt-all
