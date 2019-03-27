@@ -181,6 +181,7 @@
       [:span {:class "icon-bar"}]
       [:span {:class "icon-bar"}]
       [:span {:class "icon-bar"}]]
+     [:img {:src "/static/img/dyne-logo-small.png" :class "navbar-brand"}]
      [:a {:class "navbar-brand far fa-handshake" :href "/"} "Agiladmin"]]
     [:div {:class "collapse navbar-collapse" :id "navbarResponsive"}
      [:ul {:class "nav navbar-nav hidden-sm ml-auto"}
@@ -203,6 +204,7 @@
       [:span {:class "icon-bar"}]
       [:span {:class "icon-bar"}]
       [:span {:class "icon-bar"}]]
+     [:img {:src "/static/img/dyne-logo-small.png" :class "navbar-brand"}]
      [:a {:class "navbar-brand far fa-handshake" :href "/"} "Agiladmin"]]
 
     [:div {:class "collapse navbar-collapse" :id "navbarResponsive"}
@@ -242,8 +244,10 @@
      [:img {:src "/static/img/swbydyne.png"
             :alt   "Software by Dyne.org"
             :title "Software by Dyne.org"}]]]
-   ])
 
+   [:div {:class "footer col-lg-3"}
+    "For enquiries please contact Manuela Annibali
+    &lt;manuela@dyne.org&gt;"]])
 
 (defn render-static [body]
   (page/html5 (render-head)
