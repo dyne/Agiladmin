@@ -175,8 +175,8 @@ gantt.parse(tasks);
         [:div {:class "tab-pane fade" :id "person-totals"}
          [:h2 "Totals per person"]
          (-> (map-col project-hours :tag #(if (= "VOL" %) "VOL" "")) ;; list only voluntary tags
-             (aggr [:hours] [:name :tag])
-             (sel :cols [:name :tag :hours]) to-table)]
+             (aggr [:hours :cost] [:name :tag])
+             (sel :cols [:name :tag :hours :cost]) to-table)]
         [:div {:class "tab-pane fade" :id "monthly-details"}
          [:h2 "Detail of monthly hours used per person on each task"]
          (-> project-hours (sort :month :desc) to-table)]]
