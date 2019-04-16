@@ -171,9 +171,14 @@
 (defn current-proj-month [conf]
   "gets a project-conf and returns the current month in the project
   schedule. end month is attainable from (:duration project-conf)."
-  (-> "dd-MM-yyyy" tf/formatter (tf/parse (-> conf :start_date))
-      (t/interval (t/now))
-      t/in-months))
+  (let [start (-> "dd-MM-yyyy"
+                  tf/formatter
+                  (tf/parse (-> conf :start_date)))
+        now (t/now)]
+    (cond
+      (t/before? now start) 0
+      :else
+      (-> start (t/interval (t/now)) t/in-months))))
 
 (defn get-project-rate
   "gets the rate per hour for a person in a project. this is being used
