@@ -125,9 +125,10 @@
      [:div {:class "container-fluid"}
       ;; insert the Git Id of the file (Git object in master)
       (person-download-timesheet ts-file) [:br]
-      (if-let [githead (util/git-id config ts-file)]
-        [:small ;;[:a {:href (str "https://gogs.dyne.org/dyne/admin-budgets/commit/" githead)}
-         (str "git rev object hash: " githead)])
+      ;; (if-let [githead (util/git-id config ts-file)]
+      ;;   [:small
+      ;;    ;;[:a {:href (str "https://gogs.dyne.org/dyne/admin-budgets/commit/" githead)}
+      ;;    (str "git rev object hash: " githead)])
       (if (zero? (->> ($ :cost costs) util/wrap sum))
         (web/render-error
          (log/spy :error [:p "No costs found (blank timesheet)"]))
@@ -153,19 +154,20 @@
          ;; cycle all months to 13 (off-by-one)
          (for [m (-> (range 1 13) vec rseq)
                :let [worked ($where {:month (str year '- m)} costs)
-                     mtot (-> ($ :hours worked) util/wrap sum)]
+                     mtot (-> ($ :hours worked) util/wrap sum)
+                     mvol (->> ($where {:tag "VOL"} worked)
+                               ($ :hours) util/wrap sum)]
                :when (> mtot 0)]
            [:span
             [:strong (util/month-name m)] " total bill for "
             (util/dotname person) " is "
             [:strong (-> ($ :cost worked) util/wrap sum)]
-            " for " mtot
+            " for " (- mtot mvol)
             " hours worked across "
             (keep #(when (= (:month %) (str year '- m))
                      (:days %)) (:sheets timesheet))
-            " days, including "
-            (->> ($where {:tag "VOL"} worked)
-                 ($ :hours) util/wrap sum) " voluntary hours."
+            " days, plus " mvol
+             " voluntary hours."
             [:div {:class "month-detail"}
              (->> (derive-cost-per-hour worked config projects)
                   ($ [:project :task :tag :hours :cost :cph])
