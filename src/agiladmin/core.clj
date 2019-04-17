@@ -164,7 +164,7 @@
   (log/info (str "Loading project hours: " pname))
   (map-timesheets timesheets load-monthly-hours
                   (fn [info]
-                    (and ;; (not (strcasecmp (:tag info) "VOL"))
+                    (and (not (strcasecmp (:tag info) "VOL"))
                          (strcasecmp (:project info) pname)))))
 
 (def time-format (tf/formatter "dd-MM-yyyy"))
