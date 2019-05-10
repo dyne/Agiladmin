@@ -21,6 +21,7 @@
 (ns agiladmin.view-project
   (:require
    [clojure.java.io :as io]
+   [clojure.string :refer [trim]]
    [clj-time.format :as tf]
    [clj-time.core :as t]
    [agiladmin.core :refer :all]
@@ -207,7 +208,7 @@ gantt.parse(tasks);
 
 (defn start [request config account]
   (f/attempt-all
-   [projname     (s/param request :project)
+   [projname     (-> request (s/param :project) trim)
     project-conf (conf/load-project config projname)
     project      (get project-conf (keyword projname))]
    (cond
