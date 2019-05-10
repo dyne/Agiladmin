@@ -19,7 +19,7 @@
 
 (ns agiladmin.core
   (:refer-clojure :exclude [any?])
-  (:require [clojure.string :refer [blank? split lower-case upper-case]]
+  (:require [clojure.string :refer [blank? split lower-case upper-case trim]]
             [agiladmin.utils :as util]
             [agiladmin.graphics :refer :all]
             [agiladmin.config :as conf]
@@ -184,7 +184,7 @@
   "gets the rate per hour for a person in a project. this is being used
   to create derivated columns."
   [projects name project month]
-  (let [proj (get-in projects [(keyword project)])
+  (let [proj (get-in projects [(-> project trim keyword)])
         cph  (get-in proj [:rates (keyword name)])
         cm (-> "yyyy-MM" tf/formatter (tf/parse month))
         sdate (-> "dd-MM-yyyy" tf/formatter
