@@ -96,7 +96,7 @@ gantt.attachEvent("onTaskCreated", function (task) {
 
 
 gantt.templates.task_text=function(start,end,task) {
-    return "<span><b>"+task.id+"</b></span>"; };
+    return "<span><b>"+task.text+"</b></span>"; };
 gantt.templates.leftside_text = function(start, end, task) {
     return "<span>"+task.pm+" PM</span>"; };
 gantt.templates.rightside_text = function(start, end, task) {
