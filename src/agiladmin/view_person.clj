@@ -156,18 +156,20 @@
                :let [worked ($where {:month (str year '- m)} costs)
                      mtot (-> ($ :hours worked) util/wrap sum)
                      mvol (->> ($where {:tag "VOL"} worked)
-                               ($ :hours) util/wrap sum)]
+                               ($ :hours) util/wrap sum)
+                     pay (-> ($ :cost worked) util/wrap sum)]
                :when (> mtot 0)]
            [:span
             [:strong (util/month-name m)] " total bill for "
             (util/dotname person) " is "
-            [:strong (-> ($ :cost worked) util/wrap sum)]
+            [:strong pay]
             " for " (- mtot mvol)
             " hours worked across "
             (keep #(when (= (:month %) (str year '- m))
                      (:days %)) (:sheets timesheet))
             " days, plus " mvol
-             " voluntary hours."
+            " voluntary hours."
+            " (with 21% VAT added is " (+ pay (* pay 0.21)) ")"
             [:div {:class "month-detail"}
              (->> (derive-cost-per-hour worked config projects)
                   ($ [:project :task :tag :hours :cost :cph])
