@@ -206,6 +206,27 @@ gantt.parse(tasks);
                            (sort :year :desc) to-table)
                        ])))
 
+(defn rolling [config account projname]
+  (f/attempt-all
+   [project-conf (conf/load-project config projname)
+   conf         (get project-conf (keyword projname))
+   ts-path      (conf/q config [:agiladmin :budgets :path])
+   timesheets   (load-all-timesheets ts-path #".*_timesheet_.*xlsx$")
+   project-hours (-> (load-project-monthly-hours timesheets projname)
+                     (derive-costs config project-conf)
+                     (derive-years config project-conf))]
+  (web/render account [:div
+                       [:h1 (str projname " fixed costs overview")]
+                       [:h2 "Yearly totals"]
+                       (-> (aggr project-hours [:hours :cost] [:year :tag])
+                           (sel :cols [:year :tag :hours :cost])
+                           (sort :year :desc) to-table)
+                       [:h2 "Personnel totals"]
+                       (-> (aggr project-hours [:hours :cost] [:name :tag])
+                           (sel :cols [:name :tag :hours :cost])
+                           (sort :year :desc) to-table)
+                       ])))
+
 (defn start [request config account]
   (f/attempt-all
    [projname     (-> request (s/param :project) trim)
@@ -213,5 +234,6 @@ gantt.parse(tasks);
     project      (get project-conf (keyword projname))]
    (cond
      (= (:type project) "infra") (infra config account projname)
+     (= (:type project) "rolling") (rolling config account projname)
      :else
      (h2020 request config account))))
