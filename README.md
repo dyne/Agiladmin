@@ -28,9 +28,51 @@ Agiladmin should be considered software in ALPHA stage and for now is
 only used internally at Dyne.org to manage research projects according
 to the EU Horizon 2020 financial guidelines.
 
-Users should consider this a technological preview and Dyne.org staff may or may not be able to help adopting this software at this stage. We are working on more documentation and once in BETA stage we will offer training and support.
+Users should consider this a technological preview and Dyne.org staff
+may or may not be able to help adopting this software at this
+stage. We are working on more documentation and once in BETA stage we
+will offer training and support.
 
 ## Getting started
+
+There are two ways to start Agiladmin, one is using docker and is
+recommended for development, another is locally using leiningen and is
+recommended for production.
+
+### Development setup with docker
+
+Since agiladmin requires dependencies including a mongodb server for
+the authentication layer and the JVM it is handy to use docker to set
+it up for preview and for development. The procedure follows:
+
+```
+git clone https://github.com/dyne/agiladmin
+git clone https://github.com/dyne/docker-dyne-software
+cd docker-dyne-software/agiladmin
+./build
+```
+
+At this point the agiladmin docker is built on your system, tagged as
+`dyne/agiladmin:latest`. To run it using as sourcecode the local
+directory of agiladmin, so that modifications can go live while
+coding, use:
+```
+./devel /home/user/path/to/agiladmin
+```
+This command will start the local copy of agiladmin source inside the
+docker and make the port `3000` reachable to connect from the host.
+
+The source of agiladmin will still need some configurations in order
+to activate projects and a `budgets` repository with excel sheets and
+project configurations. Refer to the next section for details.
+
+If an instance of Agiladmin is already setup then it can be cloned
+locally for testing and development simply going on the
+`Configuration` tab and communicating the ssh public key to the admin
+of the budgets git repository. Then Agiladmin should be configured
+with that git repository.
+
+### Production setup with leiningen
 
 To start agiladmin is enough to have leiningen installed, then run:
 

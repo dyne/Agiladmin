@@ -1,9 +1,15 @@
-# Queue
+# Fast Queue
+
+- CPH column task/person totals with a star in case there was a change in-project
+- change "before" in "until" on CPH change
+- remove VOL hours from the project view! they appear in the task sums...
+
+
 ^ upload can be free, but if modifying things in the past should be suspended
   and pend approval from financial admin / or can be done just by financial admin
 ^ prima pagina se loggato deve dare la dashboard e non "login"
-^ nel footer mettere i nostri contatti
-^ nella person_view al posto dello zero 0 mettere un trattino -
+X nel footer mettere i nostri contatti
+X nella person_view al posto dello zero 0 mettere un trattino -
   per quelle voci che sono VOL
 ^ per-project yearly totals
 - new format to upload direct-cost expenses to projects
