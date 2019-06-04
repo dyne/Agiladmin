@@ -43,7 +43,7 @@
       [:tr nil (for [tt t]
                  [:td nil
                   (cond
-                    (= (first tt) :progress)
+                    (and (= (first tt) :progress) (not= (second tt) 0.0))
                     (if-let [pro (second tt)]
                       [:span (format "%.0f%%" (round (* pro 100)))
                        [:br]
