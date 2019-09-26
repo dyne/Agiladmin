@@ -1,3 +1,4 @@
+dist: trusty
 language: clojure
 lein: lein
 script: lein midje
