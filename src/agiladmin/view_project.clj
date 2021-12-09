@@ -34,7 +34,7 @@
    [taoensso.timbre :as log :refer [debug]]
    [cheshire.core :as chesh :refer [generate-string]]
    [hiccup.form :as hf]
-   [incanter.core :refer [with-data $ $where sel sum to-dataset]]))
+   [incanter.core :refer [with-data $ $where $order sel sum to-dataset conj-rows]]))
 
 (defn list-all
   "list all projects"
@@ -83,7 +83,9 @@
                       (derive-costs config project-conf))
     task-details (-> project-hours
                      (aggr :hours [:project :task])
-                     (derive-task-details project-conf))]
+                     (derive-task-details project-conf))
+    empty-tasks (-> project-conf (derive-empty-tasks task-details))
+    ]
    (web/render
     account
     [:div {:style "container-fluid"}
@@ -147,9 +149,13 @@ gantt.parse(tasks);
                      :CPH (:cph conf)}])))
             to-dataset to-table))]
       [:h2 "Overview of tasks"]
-      (-> task-details
-          (sel :cols [:task :pm :start :duration :end :progress :description]) to-table)]
-
+      (->> (conj-rows
+          (-> task-details
+            (sel :cols [:task :pm :h-left :start :end :progress :description]))
+          (-> empty-tasks
+            (sel :cols [:id :pm :null   :start_date :end_date :null :text]))
+        ) ($order :task :asc) to-table
+      )]
      [:div {:class "row-fluid"}
       [:h1 "Details "[:small "(switch views using tabs below)"]]
       [:div {:class "container"}

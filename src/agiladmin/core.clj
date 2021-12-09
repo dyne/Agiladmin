@@ -265,6 +265,18 @@
                               t   (-> task keyword)]
                           (get-in conf [p :idx t conf-field]))) data))
 
+(defn derive-empty-tasks
+  "gets a dataset of project tasks that are empty and add column
+  names used in task details"
+  [conf used]
+  (let [tasks (-> conf (get-in [(-> conf first first) :tasks]))
+        ut ($ :task used)]
+        (log/info (seq ut))
+        (-> (to-dataset tasks)
+          (query-dataset (fn [row] (not (some #{(:id row)} (seq ut))))))
+  )
+)
+
 (defn derive-task-details
   "gets a dataset of project hours and costs and add columns derived
   from calculations on each task row and its prject configuration:
@@ -272,6 +284,12 @@
   [p-hours conf]
   (->> p-hours
        (simple-task-derivation conf :pm :pm)
+        (add-derived-column :h-left [:project :task :hours]
+                        (fn [proj task hours]
+                          (let [p   (-> proj keyword)
+                                t   (-> task keyword)]
+                            (if-let [tot (get-in conf [p :idx t :pm])]
+                               (-> (- (* tot 150) hours))))))
        (simple-task-derivation conf :description :text)
        (simple-task-derivation conf :start :start_date)
        (add-derived-column :end [:project :task]
@@ -288,13 +306,6 @@
                                                (t/plus (tf/parse time-format start)
                                                        (t/months duration)))
                                    )))))
-       (simple-task-derivation conf :duration :duration)
-       (add-derived-column :tot-hours [:project :task]
-                           (fn [proj task]
-                             (let [p   (-> proj keyword)
-                                   t   (-> task keyword)]
-                               (if-let [tot (get-in conf [p :idx t :pm])]
-                                 (* tot 150)))))
        (add-derived-column :progress [:project :task :hours]
                            (fn [proj task hours]
                              (let [p   (-> proj keyword)
@@ -306,7 +317,7 @@
   (if-let [ts (try (load-workbook path)
                    (catch Exception ex
                      (log/error
-                      ["Error in load-workbook: " ex])))]
+                      ["Error in load-workbook:" (->> ex Throwable->map :cause)])))]
     (let [shs (first (sheet-seq ts))
           year (first (split (get-cell shs 'B 2) #"-"))]
       {:name (util/dotname (get-cell shs 'B 3))
