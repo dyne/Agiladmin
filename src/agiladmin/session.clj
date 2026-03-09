@@ -1,11 +1,10 @@
 (ns agiladmin.session
   (:refer-clojure :exclude [get])
   (:require
+   [agiladmin.auth.core :as auth]
    [agiladmin.config :as conf]
    [taoensso.timbre :as log]
    [failjure.core :as f]
-   [just-auth.core :as auth]
-   [agiladmin.ring :as ring]
    [agiladmin.webpage :as web]))
 
 (defn param [request param]
@@ -42,14 +41,14 @@
       :else
       (conj login {:admin false}))))
 
-(defn check-database []
-  (if-let [db @ring/db]
-    db
-    (f/fail "No connection to database. ")))
+(defn check-auth-backend []
+  (if (true? (f/ok? (auth/healthy?)))
+    true
+    (f/fail "Authentication backend unavailable.")))
 
 (defn check [request fun]
   (f/attempt-all
-   [db (check-database)
+   [_ (check-auth-backend)
     config (check-config request)
     account (check-account config request)]
    (fun request config account)

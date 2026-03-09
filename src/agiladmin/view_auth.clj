@@ -19,11 +19,11 @@
 
 (ns agiladmin.view-auth
   (:require
+   [agiladmin.auth.core :as auth]
    [agiladmin.webpage :as web]
    [agiladmin.session :as s]
    [agiladmin.ring :as ring]
    [agiladmin.config :as conf]
-   [just-auth.core :as auth]
    [failjure.core :as f]))
 
 (defonce config (conf/load-config "agiladmin" conf/default-settings))
@@ -48,8 +48,7 @@
   (f/attempt-all
    [username (s/param request :username)
     password (s/param request :password)
-    logged (auth/sign-in
-            @ring/auth username password {:ip-address (get-client-ip request)})]
+    logged (auth/sign-in username password {:ip-address (get-client-ip request)})]
    (let [session {:session {:config config
                             :auth logged}}]
      (conj session
@@ -80,8 +79,7 @@
     (if (= password repeat-password)
       (f/try*
        (f/if-let-ok?
-           [signup (auth/sign-up @ring/auth
-                                 name
+           [signup (auth/sign-up name
                                  email
                                  password
                                  activation
@@ -107,9 +105,7 @@
     (web/render
      [:div
       (f/if-let-failed?
-          [act (auth/activate-account
-                @ring/auth email
-                {:activation-link activation-uri})]
+          [act (auth/confirm-verification email activation-uri)]
         (web/render-error
          [:div
           [:h1 "Failure activating account"]
