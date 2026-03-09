@@ -41,9 +41,9 @@ and is recommended for production.
 
 ### Development setup with docker
 
-Since agiladmin requires dependencies including a mongodb server for
-the authentication layer and the JVM it is handy to use docker to set
-it up for preview and for development. The procedure follows:
+Since agiladmin requires the JVM and a PocketBase instance for user
+authentication it is handy to use docker to set it up for preview and
+for development. The procedure follows:
 
 ```
 git clone https://github.com/dyne/agiladmin

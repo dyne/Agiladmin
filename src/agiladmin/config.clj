@@ -40,10 +40,6 @@
                                  :ssl-redirect s/Bool}
     (s/optional-key :source) {:git s/Str
                               :update s/Bool}
-    (s/optional-key :just-auth) {:email-server s/Str
-                                 :email-user s/Str
-                                 :email-pass s/Str
-                                 :email-address s/Str}
     (s/optional-key :pocketbase) {:base-url s/Str
                                   :users-collection s/Str
                                   :superuser-email s/Str
