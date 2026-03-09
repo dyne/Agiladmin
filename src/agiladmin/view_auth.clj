@@ -72,9 +72,7 @@
    [name (s/param request :name)
     email (s/param request :email)
     password (s/param request :password)
-    repeat-password (s/param request :repeat-password)
-    activation {:activation-uri
-                (get-in request [:headers "host"])}]
+    repeat-password (s/param request :repeat-password)]
    (web/render
     (if (= password repeat-password)
       (f/try*
@@ -82,12 +80,17 @@
            [signup (auth/sign-up name
                                  email
                                  password
-                                 activation
+                                 {}
                                  [])]
-         [:div
-          [:h2 (str "Account created: "
-                    name " &lt;" email "&gt;")]
-          [:h3 "Account pending activation."]]
+         (f/if-let-failed?
+             [verification (auth/request-verification email)]
+           (web/render-error
+            (str "Failure requesting verification: "
+                 (f/message verification)))
+           [:div
+            [:h2 (str "Account created: "
+                      name " &lt;" email "&gt;")]
+            [:h3 "Account pending activation. Check your email for the verification link."]])
          (web/render-error
           (str "Failure creating account: "
                (f/message signup)))))
@@ -97,18 +100,17 @@
      (web/render-error-page
       (str "Sign-up failure: " (f/message e))))))
 
-(defn activate [request email activation-id]
-  (let [activation-uri
-        (str "http://"
-             (get-in request [:headers "host"])
-             "/activate/" email "/" activation-id)]
-    (web/render
-     [:div
-      (f/if-let-failed?
-          [act (auth/confirm-verification email activation-uri)]
-        (web/render-error
-         [:div
-          [:h1 "Failure activating account"]
-          [:h2 (f/message act)]
-          [:p (str "Email: " email " activation-id: " activation-id)]])
-        [:h1 (str "Account activated - " email)])])))
+(defn activate
+  ([request token]
+   (activate request nil token))
+  ([request email token]
+   (web/render
+    [:div
+     (f/if-let-failed?
+         [act (auth/confirm-verification email token)]
+       (web/render-error
+        [:div
+         [:h1 "Failure activating account"]
+         [:h2 (f/message act)]
+         [:p (str "Token: " token)]])
+       [:h1 (str "Account activated" (when email (str " - " email)))])])))
