@@ -41,8 +41,6 @@
 
    [taoensso.timbre :as log]
 
-
-   [just-auth.core :as auth]
    [agiladmin.core :refer :all]
    [agiladmin.ring :as ring]
    [agiladmin.graphics :refer [to-table]]
@@ -143,6 +141,9 @@
   (GET "/signup" request (view-auth/signup-get request))
 
   (POST "/signup" request (view-auth/signup-post request))
+
+  (GET "/activate/:token" [token :as request]
+       (view-auth/activate request token))
 
   (GET "/activate/:email/:activation-id"   [email activation-id :as request]
        (view-auth/activate request email activation-id))
