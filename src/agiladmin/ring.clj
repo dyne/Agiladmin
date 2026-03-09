@@ -1,6 +1,8 @@
 (ns agiladmin.ring
   (:require
    [clojure.java.io :as io]
+   [agiladmin.auth.core :as auth-core]
+   [agiladmin.auth.just-auth :as just-auth]
    [agiladmin.config :as conf]
    [taoensso.timbre :as log]
    [failjure.core :as f]
@@ -66,7 +68,8 @@
                         {:criteria #{:email :ip-address}
                          :type :block
                          :time-window-secs 10
-                         :threshold 5}))]
+                         :threshold 5}))
+          (auth-core/init! (just-auth/backend @auth auth-stores))]
          ;; (select-keys auth-stores [:account-store
          ;;                           :password-recovery-store])
          (f/when-failed [e]
