@@ -1,7 +1,6 @@
 (ns agiladmin.session
   (:refer-clojure :exclude [get])
   (:require
-   [agiladmin.auth.core :as auth]
    [agiladmin.config :as conf]
    [taoensso.timbre :as log]
    [failjure.core :as f]
@@ -41,15 +40,9 @@
       :else
       (conj login {:admin false}))))
 
-(defn check-auth-backend []
-  (if (true? (f/ok? (auth/healthy?)))
-    true
-    (f/fail "Authentication backend unavailable.")))
-
 (defn check [request fun]
   (f/attempt-all
-   [_ (check-auth-backend)
-    config (check-config request)
+   [config (check-config request)
     account (check-account config request)]
    (fun request config account)
     (f/when-failed [e]
