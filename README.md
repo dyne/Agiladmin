@@ -36,8 +36,8 @@ will offer training and support.
 ## Getting started
 
 There are two ways to start Agiladmin, one is using docker and is
-recommended for development, another is locally using leiningen and is
-recommended for production.
+recommended for development, another is locally using the Clojure CLI
+and is recommended for production.
 
 ### Development setup with docker
 
@@ -72,12 +72,20 @@ locally for testing and development simply going on the
 of the budgets git repository. Then Agiladmin should be configured
 with that git repository.
 
-### Production setup with leiningen
+### Production setup with the Clojure CLI
 
-To start agiladmin is enough to have leiningen installed, then run:
+This repository now targets `org.clojure/clojure` `1.12.4` through
+`deps.edn`. To start agiladmin locally, install the Clojure CLI and
+run:
 
 ```
-lein ring server
+clj -M:run
+```
+
+To execute the Midje suite with the same CLI setup, run:
+
+```
+clj -M:test
 ```
 
 This application expects a configuration file to be present in the base of its source directory, called `agiladmin.yaml`, example below:

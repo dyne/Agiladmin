@@ -44,39 +44,45 @@
         (log/info "Generating SSH keypair...")
         (write-key-pair kp keypath))))
 
+  (trans/init "lang/auth-en.yml" "lang/agiladmin-en.yml")
+
   (let [justauth-conf (get-in @config [:agiladmin :just-auth])]
-    ;; connect database (TODO: take parameters from configuration)
-    (reset! db (get-mongo-db (:mongo-url justauth-conf)))
+    (if-let [mongo-url (:mongo-url justauth-conf)]
+      (do
+        ;; connect database (TODO: take parameters from configuration)
+        (reset! db (get-mongo-db mongo-url))
 
-    ;; create authentication stores in db
-    (f/attempt-all
-     [auth-conf   (get-in @config [:agiladmin :just-auth])
-      auth-stores (auth-db/create-auth-stores @db)]
+        ;; create authentication stores in db
+        (f/attempt-all
+         [auth-conf   justauth-conf
+          auth-stores (auth-db/create-auth-stores @db)]
 
-     [(trans/init "lang/auth-en.yml" "lang/agiladmin-en.yml")
-      (reset! accts auth-stores)
-      (reset! auth (auth/email-based-authentication  
-                    auth-stores
-                    ;; TODO: replace with email taken from config
-                    (dissoc (:just-auth (:agiladmin (conf/load-config "agiladmin" conf/default-settings)))
-                            :mongo-url :mongo-user :mongo-pass)
-                    {:criteria #{:email :ip-address} 
-                     :type :block
-                     :time-window-secs 10
-                     :threshold 5}))]
-                    ;; (select-keys auth-stores [:account-store
-                    ;;                           :password-recovery-store])
-     (f/when-failed [e]
-       (log/error (str (trans/locale [:init :failure])
-                       " - " (f/message e))))))
+         [(reset! accts auth-stores)
+          (reset! auth (auth/email-based-authentication
+                        auth-stores
+                        ;; TODO: replace with email taken from config
+                        (dissoc auth-conf
+                                :mongo-url :mongo-user :mongo-pass)
+                        {:criteria #{:email :ip-address}
+                         :type :block
+                         :time-window-secs 10
+                         :threshold 5}))]
+         ;; (select-keys auth-stores [:account-store
+         ;;                           :password-recovery-store])
+         (f/when-failed [e]
+           (log/error (str (trans/locale [:init :failure])
+                           " - " (f/message e))))))
+      (log/warn "Skipping auth initialization: missing :agiladmin :just-auth :mongo-url")))
   (log/info (str (trans/locale [:init :success])))
-  (log/debug @auth))
+  (log/debug @auth)
+  true)
 
-(def app-defaults
+(defn app-defaults []
+  (let [webserver (get-in @config [:agiladmin :webserver] {})]
     (-> site-defaults
         (assoc-in [:cookies] true)
         (assoc-in [:security :anti-forgery]
-                  (get-in @config [:webserver :anti-forgery]))
+                  (get webserver :anti-forgery false))
         (assoc-in [:security :ssl-redirect]
-                  (get-in @config [:webserver :ssl-redirect]))
-        (assoc-in [:security :hsts] true)))
+                  (get webserver :ssl-redirect false))
+        (assoc-in [:security :hsts] true))))
