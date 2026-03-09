@@ -136,6 +136,17 @@ pocketbase:
   superuser-password: changeme
 ```
 
+PocketBase setup requirements:
+
+- start a PocketBase server reachable from `pocketbase.base-url`
+- create an auth collection named `users` or set `users-collection` to the chosen auth collection name
+- enable email/password sign-in for that auth collection
+- configure PocketBase SMTP and verification email delivery
+- create a PocketBase superuser and copy its credentials into `superuser-email` and `superuser-password`
+
+Agiladmin keeps the browser session locally, but user records, passwords,
+verification state, and pending-user queries now come from PocketBase.
+
 Each project should also have its own configuration file, a commented
 example below:
 
