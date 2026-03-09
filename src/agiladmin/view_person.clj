@@ -20,12 +20,11 @@
 (ns agiladmin.view-person
   (:require
    [agiladmin.core :refer :all]
+   [agiladmin.auth.core :as auth]
    [agiladmin.utils :as util]
    [agiladmin.graphics :refer :all]
    [agiladmin.webpage :as web]
    [agiladmin.session :as s]
-   [agiladmin.ring :as ring]
-   [clj-storage.core :as store]
    [failjure.core :as f]
    [auxiliary.string :refer [strcasecmp]]
    [clojure.data.json :as json :refer [read-str]]
@@ -86,13 +85,18 @@
             (web/button "/person" f
                         (list (hf/hidden-field "person" f)
                               (hf/hidden-field "year" year)))]))]
-      [:div {:class "newcomers col-lg-4"}
+     [:div {:class "newcomers col-lg-4"}
        [:h2 "Newcomers"]
-       [:ul
-        (map #(conj [:a {:href (:activation-link %)}]
-                    (conj [:li] (:activation-link %)))
-             (store/query (:account-store @ring/accts)
-                          {:activated false}))]]])))
+       (f/if-let-failed?
+           [pending-users (auth/list-pending-users)]
+         (web/render-error (str "Unable to load pending users: "
+                                (f/message pending-users)))
+         [:ul
+          (for [{:keys [email name]} pending-users]
+            [:li
+             [:strong (or name email)]
+             (when (and name email)
+               [:span (str " <" email ">")])])])]])))
 
 (defn download
   [request config account]
