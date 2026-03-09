@@ -205,8 +205,8 @@
 
   ) ;; end of routes
 
-(def app
-  (-> (wrap-defaults app-routes ring/app-defaults)
+(defn- make-app []
+  (-> (wrap-defaults app-routes (ring/app-defaults))
       (wrap-accept {:mime ["text/html"]
                     ;; preference in language, fallback to english
                     :language ["en" :qs 0.5
@@ -218,9 +218,13 @@
         (cookie-store
          {:key (get-in @ring/config [:agiladmin :webserver :salt])})})))
 
-;; for uberjar (TODO: align with configuration)
-(defn -main []
-  (println "Starting standalone jetty server on http://localhost:6060")
-  (run-jetty app {:port 6060
-                  :host "localhost"
-                  :join? true}))
+(defonce app-state (atom nil))
+
+(defn init-app! []
+  (let [handler (make-app)]
+    (reset! app-state handler)
+    handler))
+
+(defn app [request]
+  (let [handler (or @app-state (init-app!))]
+    (handler request)))
