@@ -17,7 +17,6 @@
    [ring.middleware.defaults :refer [wrap-defaults site-defaults]]))
 
 (def config (atom {}))
-(def accts  (atom nil))
 
 (defn init []
   (log/merge-config! {:level :debug
@@ -27,8 +26,7 @@
                       ;; namespaces/patterns. Useful for turning off
                       ;; logging in noisy libraries, etc.:
 ;;                      :ns-whitelist  ["agiladmin.*"]
-                      :ns-blacklist  ["org.eclipse.jetty.*"
-                                      "org.mongodb.driver.cluster"]})
+                      :ns-blacklist  ["org.eclipse.jetty.*"]})
 
   ;; load configuration
   (reset! config (conf/load-config
@@ -40,9 +38,8 @@
         (log/info "Generating SSH keypair...")
         (write-key-pair kp keypath))))
 
-  (trans/init "lang/auth-en.yml" "lang/agiladmin-en.yml")
+  (trans/init "resources/lang/agiladmin-en.yml")
 
-  (reset! accts nil)
   (if-let [pocketbase-conf (get-in @config [:agiladmin :pocketbase])]
     (auth-core/init! (pocketbase/backend pocketbase-conf))
     (do
