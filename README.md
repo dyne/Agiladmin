@@ -128,16 +128,12 @@ source:
   git: https://github.com/dyne/agiladmin
   update: no
 
-# authentication configuration (smtp and mongodb)
-just-auth:
-  email-server: "mail.dyne.org"
-  email-user: "xxxxxxxxxxxxxxxx"
-  email-pass: "xxxxxxxxxxxxxxxx"
-  email-address: "xxxxxxxxxxxxxxxx"
-  email-admin: "xxxxxxxxxxxxxxxx"
-  mongo-url: mongodb://localhost:27017/agiladmin
-  mongo-user: demo
-  mongo-pass: demo
+# authentication configuration (PocketBase)
+pocketbase:
+  base-url: http://127.0.0.1:8090
+  users-collection: users
+  superuser-email: admin@example.org
+  superuser-password: changeme
 ```
 
 Each project should also have its own configuration file, a commented

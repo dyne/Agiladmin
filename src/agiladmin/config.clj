@@ -44,6 +44,10 @@
                                  :email-user s/Str
                                  :email-pass s/Str
                                  :email-address s/Str}
+    (s/optional-key :pocketbase) {:base-url s/Str
+                                  :users-collection s/Str
+                                  :superuser-email s/Str
+                                  :superuser-password s/Str}
     }
    :appname s/Str
    :paths [s/Str]

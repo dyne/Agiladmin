@@ -17,6 +17,10 @@
               {:agiladmin {:budgets {:git "ssh://dyne.org/dyne/budgets"
                                      :path "test/assets/"
                                      :ssh-key "id_rsa"}
+                           :pocketbase {:base-url "http://127.0.0.1:8090"
+                                        :users-collection "users"
+                                        :superuser-email "admin@example.org"
+                                        :superuser-password "changeme"}
                            :projects ["UNO" "DUE" "TRE"]
                            :source {:git "https://github.com/dyne/agiladmin" :update true}}
                ;; the fields below are added by agiladmin on loading
