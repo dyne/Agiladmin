@@ -15,7 +15,7 @@ test:
 	$(CLOJURE) -M:test
 
 run:
-	$(CLOJURE) -M:run
+	AGILADMIN_DEV_AUTH=1 $(CLOJURE) -M:run
 
 build:
 	$(CLOJURE) -T:build uber

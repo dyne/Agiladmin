@@ -88,6 +88,14 @@ To execute the Midje suite with the same CLI setup, run:
 clj -M:test
 ```
 
+For local manual testing, `make run` enables a development auth backend
+when no PocketBase configuration is available. Use:
+
+- username: `admin`
+- password: `admin`
+
+This fallback is only enabled by `make run` via `AGILADMIN_DEV_AUTH=1`.
+
 This application expects a configuration file to be present in the base of its source directory, called `agiladmin.yaml`, example below:
 
 ```yaml

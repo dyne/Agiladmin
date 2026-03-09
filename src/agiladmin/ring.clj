@@ -2,6 +2,7 @@
   (:require
    [clojure.java.io :as io]
    [agiladmin.auth.core :as auth-core]
+   [agiladmin.auth.dev :as dev-auth]
    [agiladmin.auth.pocketbase :as pocketbase]
    [agiladmin.config :as conf]
    [taoensso.timbre :as log]
@@ -17,6 +18,9 @@
    [ring.middleware.defaults :refer [wrap-defaults site-defaults]]))
 
 (def config (atom {}))
+
+(defn- dev-auth-enabled? []
+  (#{"1" "true" "TRUE" "yes" "YES"} (System/getenv "AGILADMIN_DEV_AUTH")))
 
 (defn init []
   (log/merge-config! {:level :debug
@@ -42,9 +46,13 @@
 
   (if-let [pocketbase-conf (get-in @config [:agiladmin :pocketbase])]
     (auth-core/init! (pocketbase/backend pocketbase-conf))
-    (do
-      (auth-core/init! nil)
-      (log/warn "Skipping auth initialization: missing :agiladmin :pocketbase")))
+    (if (dev-auth-enabled?)
+      (do
+        (auth-core/init! (dev-auth/backend))
+        (log/warn "Starting with development auth backend enabled."))
+      (do
+        (auth-core/init! nil)
+        (log/warn "Skipping auth initialization: missing :agiladmin :pocketbase"))))
   (log/info (str (trans/locale [:init :success])))
   (log/debug (auth-core/healthy?))
   true)
