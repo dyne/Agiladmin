@@ -96,6 +96,14 @@ when no PocketBase configuration is available. Use:
 
 This fallback is only enabled by `make run` via `AGILADMIN_DEV_AUTH=1`.
 
+To start against a real PocketBase instance instead, use:
+
+```sh
+make run-pocketbase CONF=doc/agiladmin.pocketbase.yaml
+```
+
+Adjust [`doc/agiladmin.pocketbase.yaml`](/home/jrml/devel/planb-agiladmin/doc/agiladmin.pocketbase.yaml) for your own budgets repo, project list, and PocketBase superuser credentials.
+
 This application expects a configuration file to be present in the base of its source directory, called `agiladmin.yaml`, example below:
 
 ```yaml

@@ -1,0 +1,27 @@
+appname: agiladmin
+
+agiladmin:
+  webserver:
+    anti-forgery: false
+    ssl-redirect: false
+    port: 8000
+    host: localhost
+
+  budgets:
+    git: ssh://git@example.org/admin-budgets
+    ssh-key: id_rsa
+    path: budgets/
+
+  source:
+    git: https://github.com/dyne/agiladmin
+    update: false
+
+  projects:
+    - CORE
+    - ADMIN
+
+  pocketbase:
+    base-url: http://127.0.0.1:8090
+    users-collection: users
+    superuser-email: admin@example.org
+    superuser-password: change-me
