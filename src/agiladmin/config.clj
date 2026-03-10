@@ -50,24 +50,29 @@
    :filename s/Str
    })
 
+(s/defschema ProjectTask
+  {:id s/Str
+   :text s/Str
+   :start_date s/Str
+   :duration s/Num
+   :pm s/Num})
+
+(s/defschema ProjectEntry
+  {(s/optional-key :start_date) s/Str
+   (s/optional-key :duration) s/Num
+   (s/optional-key :type) s/Str
+   (s/optional-key :cph) s/Num
+   (s/optional-key :rates) s/Any
+   (s/optional-key :tasks) [ProjectTask]})
+
 (s/defschema Project
-  {s/Keyword
-   {(s/optional-key :start_date) s/Str
-    (s/optional-key :duration)   s/Num
-;;  (s/optional-key :cph) s/Num
-    (s/optional-key :type) s/Str
-    (s/optional-key :cph) s/Num
-    (s/optional-key :rates) s/Any
-    ;; TODO: better parsing of rates
-    ;; :rates {s/Keyword (s/conditional
-    ;;                    map? {(s/required-key :before)  s/Str
-    ;;                          (s/required-key :cph) s/Num}
-    ;;                    :else s/Num)}
-    (s/optional-key :tasks) [{:id s/Str
-                              :text s/Str
-                              :start_date s/Str
-                              :duration s/Num
-                              :pm s/Num}]}})
+  {s/Keyword ProjectEntry})
+
+(def project-schemas
+  {1 ProjectEntry})
+
+(def reserved-project-keys
+  #{:schema-version})
 
 (def run-mode (atom :web))
 
@@ -81,6 +86,70 @@
                         :ssl-redirect false}})
 
 (def project-defaults {})
+
+(defn- project-entry-map?
+  [value]
+  (and (map? value)
+       (some #(contains? value %)
+             [:start_date :duration :type :cph :rates :tasks])))
+
+(defn- project-schema
+  [version]
+  (if-let [schema (get project-schemas version)]
+    schema
+    (f/fail (str "Unsupported project schema version: " version))))
+
+(defn- project-map
+  [pconf]
+  (apply dissoc pconf reserved-project-keys))
+
+(defn- project-entry
+  [pconf proj path]
+  (cond
+    (nil? pconf)
+    (f/fail (str "Project configuration file is missing, empty, or invalid YAML: " path))
+
+    (not (map? pconf))
+    (f/fail (str "Project configuration must be a map: " path))
+
+    :else
+    (let [proj-name (upper-case proj)
+          entries (project-map pconf)
+          matching-key (first
+                        (for [k (keys entries)
+                              :when (= proj-name (-> k name upper-case))]
+                          k))]
+      (cond
+        matching-key
+        {:project-key (keyword proj-name)
+         :entry (get entries matching-key)}
+
+        (project-entry-map? entries)
+        {:project-key (keyword proj-name)
+         :entry entries}
+
+        :else
+        (f/fail
+         (str "Project file " path
+              " does not define project " proj-name
+              ". Available keys: "
+              (->> (keys entries) (map name) sort vec)))))))
+
+(defn- normalize-project-entry
+  [entry]
+  (let [tasks (vec (for [t (:tasks entry)]
+                     (into {} (for [[k v] t]
+                                (if (= k :id)
+                                  [:id (upper-case v)]
+                                  [k v])))))]
+    (conj entry
+          {:tasks tasks
+           :idx (#(zipmap
+                   (map (fn [id]
+                          (-> (get id :id)
+                              upper-case keyword)) %)
+                   %)
+                 (:tasks entry))})))
 
 
 (defn yaml-read [path]
@@ -139,28 +208,18 @@
   (if (contains? (-> conf (get-in [:agiladmin :projects]) set) proj)
     (let [path  (str (get-in conf [:agiladmin :budgets :path]) proj ".yaml")
           pconf (yaml-read path)]
-
-      (try ;; validate project configuration schema
-        (s/validate Project pconf)
-        (catch Exception ex
-          (f/fail (log/spy :error ["Invalid project configuration: " proj ex]))))
-
-      ;; capitalise all project name keys
-      (into
-       {} (for [[k v] pconf]
-            [(-> k name upper-case keyword)
-             ;; convert all ids into [:tasks :id] to uppercase
-             (conj v {:tasks
-                      (vec (for [t (:tasks v)]
-                             (into {} (for [[k v] t]
-                                        (if (= k :id)
-                                          [:id (upper-case v)]
-                                          [k v])))))
-                      ;; creates a map with id strings indexed as keywords
-                      :idx (#(zipmap
-                              (map (fn [id]
-                                     (-> (get id :id)
-                                         upper-case keyword)) %)
-                              %) (:tasks v))}
-                   )])))
+      (f/attempt-all
+       [schema-version (or (:schema-version pconf) 1)
+        schema (project-schema schema-version)
+        entry-data (project-entry pconf proj path)
+        _validated (try
+                     (s/validate schema (:entry entry-data))
+                     (catch Exception ex
+                       (f/fail
+                        (log/spy :error
+                                 ["Invalid project configuration: " proj path ex]))))]
+       {(:project-key entry-data)
+        (normalize-project-entry (:entry entry-data))}
+       (f/when-failed [e]
+         e)))
     (log/error (str "Project not found: " proj))))

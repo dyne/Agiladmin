@@ -2,73 +2,93 @@
   (:use midje.sweet)
   (:require [agiladmin.config :as conf]
             [failjure.core :as f]
-            [schema.core :as s]
-            [clojure.pprint :refer [pprint]]))
+            [schema.core :as s]))
 
 (def config (conf/yaml-read "test/assets/agiladmin.yaml"))
 
-(fact "Configuration loading tests"
+(fact "Global configuration validates"
+      (s/validate conf/Config config) => truthy
+      config =>
+      {:agiladmin {:budgets {:git "ssh://dyne.org/dyne/budgets"
+                             :path "test/assets/"
+                             :ssh-key "id_rsa"}
+                   :pocketbase {:base-url "http://127.0.0.1:8090"
+                                :users-collection "users"
+                                :superuser-email "admin@example.org"
+                                :superuser-password "changeme"}
+                   :projects ["UNO" "DUE" "TRE"]
+                   :source {:git "https://github.com/dyne/agiladmin" :update true}}
+       :appname "agiladmin-test"
+       :filename "agiladmin.yaml"
+       :paths ["test/assets/"]})
 
-      (fact "Global configuration"
+(fact "Named project configuration validates and normalizes task ids"
+      (let [proj (f/ok->> "UNO" (conf/load-project config))]
+        (f/failed? proj) => false
+        proj => {:UNO
+                 {:start_date "01-01-2016",
+                  :duration 12,
+                  :cph 45,
+                  :rates {:L.Pacioli 40},
+                  :tasks
+                  [{:id "ALPHA",
+                    :start_date "01-01-2016",
+                    :text "Management and coordination",
+                    :duration 36,
+                    :pm 1}
+                   {:id "BETA",
+                    :start_date "01-01-2016",
+                    :text "Social Dynamics",
+                    :duration 14,
+                    :pm 6}
+                   {:id "GAMMA",
+                    :text "Public design and technological implementation",
+                    :start_date "01-07-2016",
+                    :duration 36,
+                    :pm 12}],
+                  :idx
+                  {:ALPHA
+                   {:id "alpha",
+                    :start_date "01-01-2016",
+                    :text "Management and coordination",
+                    :duration 36,
+                    :pm 1},
+                   :BETA
+                   {:id "beta",
+                    :start_date "01-01-2016",
+                    :text "Social Dynamics",
+                    :duration 14,
+                    :pm 6},
+                   :GAMMA
+                   {:id "gamma",
+                    :text "Public design and technological implementation",
+                    :start_date "01-07-2016",
+                    :duration 36,
+                    :pm 12}}}}))
 
-              (s/validate conf/Config config) => truthy
+(fact "Direct-entry project files are accepted and keyed by filename"
+      (let [direct-config {:agiladmin {:projects ["DIRECT"]
+                                       :budgets {:path "test/assets/"}}}
+            proj (conf/load-project direct-config "DIRECT")]
+        (f/failed? proj) => false
+        proj => {:DIRECT
+                 {:start_date "01-01-2016",
+                  :duration 12,
+                  :cph 25,
+                  :tasks [{:id "ALPHA"
+                           :start_date "01-01-2016"
+                           :text "Direct project format"
+                           :duration 1
+                           :pm 1}],
+                  :idx {:ALPHA {:id "alpha"
+                                :start_date "01-01-2016"
+                                :text "Direct project format"
+                                :duration 1
+                                :pm 1}}}}))
 
-              config =>
-              {:agiladmin {:budgets {:git "ssh://dyne.org/dyne/budgets"
-                                     :path "test/assets/"
-                                     :ssh-key "id_rsa"}
-                           :pocketbase {:base-url "http://127.0.0.1:8090"
-                                        :users-collection "users"
-                                        :superuser-email "admin@example.org"
-                                        :superuser-password "changeme"}
-                           :projects ["UNO" "DUE" "TRE"]
-                           :source {:git "https://github.com/dyne/agiladmin" :update true}}
-               ;; the fields below are added by agiladmin on loading
-               :appname "agiladmin-test"
-               :filename "agiladmin.yaml"
-               :paths ["test/assets/"]})
-
-      (fact "Project configuration"
-            (let [proj (f/ok->> "UNO" (conf/load-project config))]
-              (f/failed? proj) => false
-              ;; TODO: make a test for wrong project returning failure
-              proj => {:UNO
-                       {:start_date "01-01-2016",
-                        :duration 12,
-                        :cph 45,
-                        :rates {:L.Pacioli 40},
-                        :tasks
-                        [{:id "ALPHA",
-                          :start_date "01-01-2016",
-                          :text "Management and coordination",
-                          :duration 36,
-                          :pm 1}
-                         {:id "BETA",
-                          :start_date "01-01-2016",
-                          :text "Social Dynamics",
-                          :duration 14,
-                          :pm 6}
-                         {:id "GAMMA",
-                          :text "Public design and technological implementation",
-                          :start_date "01-07-2016",
-                          :duration 36,
-                          :pm 12}],
-                        :idx
-                        {:ALPHA
-                         {:id "alpha",
-                          :start_date "01-01-2016",
-                          :text "Management and coordination",
-                          :duration 36,
-                          :pm 1},
-                         :BETA
-                         {:id "beta",
-                          :start_date "01-01-2016",
-                          :text "Social Dynamics",
-                          :duration 14,
-                          :pm 6},
-                         :GAMMA
-                         {:id "gamma",
-                          :text "Public design and technological implementation",
-                          :start_date "01-07-2016",
-                          :duration 36,
-                          :pm 12}}}})))
+(fact "Project loader reports a missing project key explicitly"
+      (let [broken-config {:agiladmin {:projects ["BROKEN"]
+                                       :budgets {:path "test/assets/"}}}
+            proj (conf/load-project broken-config "BROKEN")]
+        (f/failed? proj) => true
+        (f/message proj) => (contains "does not define project BROKEN")))

@@ -1,0 +1,10 @@
+start_date: 01-01-2016
+duration: 12
+cph: 25
+
+tasks:
+  - id: alpha
+    start_date: 01-01-2016
+    text: Direct project format
+    duration: 1
+    pm: 1
