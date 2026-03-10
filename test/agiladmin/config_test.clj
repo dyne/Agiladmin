@@ -92,3 +92,18 @@
             proj (conf/load-project broken-config "BROKEN")]
         (f/failed? proj) => true
         (f/message proj) => (contains "does not define project BROKEN")))
+
+(fact "Project loader reports field-level schema errors with the file path"
+      (let [badfields-config {:agiladmin {:projects ["BADFIELDS"]
+                                          :budgets {:path "test/assets/"}}}
+            proj (conf/load-project badfields-config "BADFIELDS")]
+        (f/failed? proj) => true
+        (f/message proj) => (contains "Invalid project configuration at test/assets/BADFIELDS.yaml")
+        (f/message proj) => (contains ":duration")))
+
+(fact "Application config loader reports field-level schema errors with the file path"
+      (let [conf (conf/load-config "invalid-config" conf/default-settings)]
+        (f/failed? conf) => true
+        (f/message conf) => (contains "Invalid configuration at")
+        (f/message conf) => (contains "test-resources/invalid-config.yaml")
+        (f/message conf) => (contains ":path")))

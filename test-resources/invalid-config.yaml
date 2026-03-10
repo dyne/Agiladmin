@@ -1,0 +1,7 @@
+budgets:
+  git: ssh://dyne.org/dyne/budgets
+  ssh-key: id_rsa
+  path: 42
+
+projects:
+  - UNO

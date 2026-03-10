@@ -34,10 +34,10 @@
               :ssh-key s/Str
               :path s/Str}
     :projects [s/Str]
-    (s/optional-key :webserver) {:port s/Num
-                                 :host s/Str
-                                 :anti-forgery s/Bool
-                                 :ssl-redirect s/Bool}
+    (s/optional-key :webserver) {(s/optional-key :port) s/Num
+                                 (s/optional-key :host) s/Str
+                                 (s/optional-key :anti-forgery) s/Bool
+                                 (s/optional-key :ssl-redirect) s/Bool}
     (s/optional-key :source) {:git s/Str
                               :update s/Bool}
     (s/optional-key :pocketbase) {:base-url s/Str
@@ -68,12 +68,6 @@
 (s/defschema Project
   {s/Keyword ProjectEntry})
 
-(def project-schemas
-  {1 ProjectEntry})
-
-(def reserved-project-keys
-  #{:schema-version})
-
 (def run-mode (atom :web))
 
 (def default-settings {:budgets
@@ -93,15 +87,18 @@
        (some #(contains? value %)
              [:start_date :duration :type :cph :rates :tasks])))
 
-(defn- project-schema
-  [version]
-  (if-let [schema (get project-schemas version)]
-    schema
-    (f/fail (str "Unsupported project schema version: " version))))
+(defn- validation-message
+  [kind path ex]
+  (let [detail (or (some-> ex ex-data :error pr-str)
+                   (.getMessage ex))]
+    (str "Invalid " kind " at " path ": " detail)))
 
-(defn- project-map
-  [pconf]
-  (apply dissoc pconf reserved-project-keys))
+(defn- validate-data
+  [schema value kind path]
+  (try
+    (s/validate schema value)
+    (catch Exception ex
+      (f/fail (validation-message kind path ex)))))
 
 (defn- project-entry
   [pconf proj path]
@@ -114,7 +111,7 @@
 
     :else
     (let [proj-name (upper-case proj)
-          entries (project-map pconf)
+          entries pconf
           matching-key (first
                         (for [k (keys entries)
                               :when (= proj-name (-> k name upper-case))]
@@ -156,6 +153,13 @@
   (if (.exists (io/as-file path))
     (-> path yaml/from-file keywordize-keys)))
 
+(defn- yaml-read-safe
+  [path]
+  (try
+    (yaml-read path)
+    (catch Exception ex
+      (f/fail (str "Invalid YAML at " path ": " (.getMessage ex))))))
+
 
 (defn- config-read
   "Read configurations from standard locations, overriding defaults or
@@ -166,22 +170,25 @@
    (let [home (System/getenv "HOME")
          pwd  (System/getenv "PWD" )
          file (str appname ".yaml")
-         conf (-> {:appname appname
-                   :filename file
-                   :paths [(str      "/etc/" appname "/" file)
-                           (str home "/."    appname "/" file)
-                           (str pwd  "/"     file)
-                           ;; TODO: this should be resources
-                           (str pwd "/resources/"  file)
-                           (str pwd "/test-resources/" file)]}
-                  (conj defaults))]
-     (loop [[p & paths] (:paths conf)
+         paths [(str      "/etc/" appname "/" file)
+                (str home "/."    appname "/" file)
+                (str pwd  "/"     file)
+                ;; TODO: this should be resources
+                (str pwd "/resources/"  file)
+                (str pwd "/test-resources/" file)]]
+     (loop [[p & remaining] paths
             res defaults]
-       (let [res (merge res
-                        (if (.exists (io/as-file p))
-                          (conj res (yaml-read p))))]
-         (if (empty? paths) (conj conf {(keyword appname) res})
-             (recur paths res)))))))
+       (if p
+         (if (.exists (io/as-file p))
+           (let [yaml-data (yaml-read-safe p)]
+             (if (f/failed? yaml-data)
+               yaml-data
+               (recur remaining (merge res yaml-data))))
+           (recur remaining res))
+         {:appname appname
+          :filename file
+          :paths paths
+          (keyword appname) res})))))
 
 (defn- spy "Print out a config structure nicely formatted"
   [edn]
@@ -199,7 +206,20 @@
 
 (defn load-config [name default]
   (log/info (str "Loading configuration: " name))
-  (->> (config-read name default)))
+  (let [conf (config-read name default)
+        loaded-paths (->> (:paths conf)
+                          (filter #(.exists (io/as-file %)))
+                          vec)
+        path-label (if (seq loaded-paths)
+                     (clojure.string/join ", " loaded-paths)
+                     (str "search path for " name ".yaml"))]
+    (if (f/failed? conf)
+      conf
+      (f/attempt-all
+       [_ (validate-data Config conf "configuration" path-label)]
+       conf
+       (f/when-failed [e]
+         e)))))
 
 
 
@@ -207,19 +227,16 @@
   (log/debug (str "Loading project: " proj))
   (if (contains? (-> conf (get-in [:agiladmin :projects]) set) proj)
     (let [path  (str (get-in conf [:agiladmin :budgets :path]) proj ".yaml")
-          pconf (yaml-read path)]
+          pconf (yaml-read-safe path)]
       (f/attempt-all
-       [schema-version (or (:schema-version pconf) 1)
-        schema (project-schema schema-version)
+       [_ (if (f/failed? pconf) pconf true)
         entry-data (project-entry pconf proj path)
-        _validated (try
-                     (s/validate schema (:entry entry-data))
-                     (catch Exception ex
-                       (f/fail
-                        (log/spy :error
-                                 ["Invalid project configuration: " proj path ex]))))]
+        _validated (validate-data ProjectEntry
+                                  (:entry entry-data)
+                                  "project configuration"
+                                  path)]
        {(:project-key entry-data)
         (normalize-project-entry (:entry entry-data))}
        (f/when-failed [e]
          e)))
-    (log/error (str "Project not found: " proj))))
+    (f/fail (str "Project not found in configuration: " proj))))
