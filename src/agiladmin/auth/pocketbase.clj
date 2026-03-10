@@ -39,7 +39,9 @@
   [response]
   (if (<= 200 (:status response) 299)
     (:body response)
-    (throw (ex-info "PocketBase request failed." {:response response}))))
+    (throw (ex-info (or (get-in response [:body :message])
+                        "PocketBase request failed.")
+                    {:response response}))))
 
 (defn healthy?
   [config]

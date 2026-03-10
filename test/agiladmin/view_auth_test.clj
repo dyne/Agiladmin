@@ -2,7 +2,18 @@
   (:require [agiladmin.view-auth :as view-auth]
             [midje.sweet :refer :all]))
 
-(fact "Login stores the authenticated account in session"
+(fact "Login stores the authenticated account in session using the email field"
+      (with-redefs [agiladmin.auth.core/sign-in (fn [username password options]
+                                                  {:email username
+                                                   :name "User Name"
+                                                   :options options})]
+        (let [response (view-auth/login-post {:params {:email "user@example.org"
+                                                       :password "secret"}
+                                              :remote-addr "127.0.0.1"})]
+          (get-in response [:session :auth :email]) => "user@example.org"
+          (get-in response [:session :auth :options]) => {:ip-address "127.0.0.1"})))
+
+(fact "Login still accepts the legacy username field"
       (with-redefs [agiladmin.auth.core/sign-in (fn [username password options]
                                                   {:email username
                                                    :name "User Name"
@@ -10,8 +21,7 @@
         (let [response (view-auth/login-post {:params {:username "user@example.org"
                                                        :password "secret"}
                                               :remote-addr "127.0.0.1"})]
-          (get-in response [:session :auth :email]) => "user@example.org"
-          (get-in response [:session :auth :options]) => {:ip-address "127.0.0.1"})))
+          (get-in response [:session :auth :email]) => "user@example.org")))
 
 (fact "Activation delegates through the auth boundary"
       (let [calls (atom [])]

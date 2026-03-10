@@ -46,7 +46,9 @@
 
 (defn login-post [request]
   (f/attempt-all
-   [username (s/param request :username)
+   [username (or (get-in request [:params :email])
+                 (get-in request [:params :username])
+                 (f/fail "Parameter not found: :email"))
     password (s/param request :password)
     logged (auth/sign-in username password {:ip-address (get-client-ip request)})]
    (let [session {:session {:config config
