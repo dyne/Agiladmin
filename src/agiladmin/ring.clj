@@ -5,6 +5,7 @@
    [agiladmin.auth.dev :as dev-auth]
    [agiladmin.auth.pocketbase :as pocketbase]
    [agiladmin.config :as conf]
+   [failjure.core :as f]
    [taoensso.timbre :as log]
 
    [auxiliary.translation :as trans]
@@ -22,6 +23,14 @@
 (defn- dev-auth-enabled? []
   (#{"1" "true" "TRUE" "yes" "YES"} (System/getenv "AGILADMIN_DEV_AUTH")))
 
+(defn- auth-health-status
+  []
+  (try
+    (auth-core/healthy?)
+    (catch Exception ex
+      (f/fail (str "Authentication backend health check failed: "
+                   (.getMessage ex))))))
+
 (defn init []
   (log/merge-config! {:level :debug
                       ;; #{:trace :debug :info :warn :error :fatal :report}
@@ -36,6 +45,9 @@
   (reset! config (conf/load-config
                   (or (System/getenv "AGILADMIN_CONF") "agiladmin")
                   conf/default-settings))
+  (when (f/failed? @config)
+    (throw (ex-info (f/message @config)
+                    {:type ::config-load-failed})))
   (let [keypath (conf/q @config [:agiladmin :budgets :ssh-key])]
     (if-not (.exists (io/as-file keypath))
       (let [kp (generate-key-pair)]
@@ -44,18 +56,32 @@
 
   (trans/init "resources/lang/agiladmin-en.yml")
 
-  (if-let [pocketbase-conf (get-in @config [:agiladmin :pocketbase])]
-    (auth-core/init! (pocketbase/backend pocketbase-conf))
-    (if (dev-auth-enabled?)
-      (do
-        (auth-core/init! (dev-auth/backend))
-        (log/warn "Starting with development auth backend enabled."))
-      (do
-        (auth-core/init! nil)
-        (log/warn "Skipping auth initialization: missing :agiladmin :pocketbase"))))
-  (log/info (str (trans/locale [:init :success])))
-  (log/debug (auth-core/healthy?))
-  true)
+  (let [auth-enabled?
+        (if-let [pocketbase-conf (get-in @config [:agiladmin :pocketbase])]
+          (do
+            (auth-core/init! (pocketbase/backend pocketbase-conf))
+            true)
+          (if (dev-auth-enabled?)
+            (do
+              (auth-core/init! (dev-auth/backend))
+              (log/warn "Starting with development auth backend enabled.")
+              true)
+            (do
+              (auth-core/init! nil)
+              (log/warn "Skipping auth initialization: missing :agiladmin :pocketbase")
+              false)))
+        healthy? (when auth-enabled?
+                   (auth-health-status))]
+    (when (and auth-enabled?
+               (or (f/failed? healthy?)
+                   (false? healthy?)))
+      (throw (ex-info (if (f/failed? healthy?)
+                        (f/message healthy?)
+                        "Authentication backend health check failed.")
+                      {:type ::auth-health-failed})))
+    (log/info (str (trans/locale [:init :success])))
+    (log/debug (or healthy? (auth-core/healthy?)))
+    true))
 
 (defn app-defaults []
   (let [webserver (get-in @config [:agiladmin :webserver] {})]

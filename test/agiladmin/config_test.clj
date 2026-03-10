@@ -107,3 +107,10 @@
         (f/message conf) => (contains "Invalid configuration at")
         (f/message conf) => (contains "test-resources/invalid-config.yaml")
         (f/message conf) => (contains ":path")))
+
+(fact "Application config loader accepts an explicit yaml file path"
+      (let [conf (conf/load-config "doc/agiladmin.pocketbase.yaml" conf/default-settings)]
+        (f/failed? conf) => false
+        (:filename conf) => "agiladmin.pocketbase.yaml"
+        (:paths conf) => ["doc/agiladmin.pocketbase.yaml"]
+        (get-in conf [:agiladmin :pocketbase :base-url]) => "http://127.0.0.1:8090"))

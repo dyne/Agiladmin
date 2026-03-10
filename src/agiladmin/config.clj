@@ -18,7 +18,7 @@
 
 (ns agiladmin.config
   (:require [clojure.pprint :refer [pprint]]
-            [clojure.string :refer [upper-case]]
+            [clojure.string :as str :refer [upper-case]]
             [clojure.java.io :as io]
             [clojure.walk :refer [keywordize-keys]]
             [auxiliary.core :as aux]
@@ -160,6 +160,28 @@
     (catch Exception ex
       (f/fail (str "Invalid YAML at " path ": " (.getMessage ex))))))
 
+(defn- config-file-path?
+  [name]
+  (and (string? name)
+       (or (.endsWith name ".yaml")
+           (.endsWith name ".yml"))))
+
+(defn- explicit-config-read
+  [path defaults]
+  (if (.exists (io/as-file path))
+    (let [yaml-data (yaml-read-safe path)]
+      (if (f/failed? yaml-data)
+        yaml-data
+        (let [appname (or (:appname yaml-data)
+                          (-> path io/file .getName (str/replace #"\.ya?ml$" "")))
+              app-key (keyword appname)]
+          (merge {:appname appname
+                  :filename (-> path io/file .getName)
+                  :paths [path]}
+                 (dissoc yaml-data app-key)
+                 {app-key (merge defaults
+                                 (get yaml-data app-key))}))))
+    (f/fail (str "Configuration file not found: " path))))
 
 (defn- config-read
   "Read configurations from standard locations, overriding defaults or
@@ -167,28 +189,30 @@
   and optionally default values."
   ([appname] (config-read appname {}))
   ([appname defaults & flags]
-   (let [home (System/getenv "HOME")
-         pwd  (System/getenv "PWD" )
-         file (str appname ".yaml")
-         paths [(str      "/etc/" appname "/" file)
-                (str home "/."    appname "/" file)
-                (str pwd  "/"     file)
-                ;; TODO: this should be resources
-                (str pwd "/resources/"  file)
-                (str pwd "/test-resources/" file)]]
-     (loop [[p & remaining] paths
-            res defaults]
-       (if p
-         (if (.exists (io/as-file p))
-           (let [yaml-data (yaml-read-safe p)]
-             (if (f/failed? yaml-data)
-               yaml-data
-               (recur remaining (merge res yaml-data))))
-           (recur remaining res))
-         {:appname appname
-          :filename file
-          :paths paths
-          (keyword appname) res})))))
+   (if (config-file-path? appname)
+     (explicit-config-read appname defaults)
+     (let [home (System/getenv "HOME")
+           pwd  (System/getenv "PWD" )
+           file (str appname ".yaml")
+           paths [(str      "/etc/" appname "/" file)
+                  (str home "/."    appname "/" file)
+                  (str pwd  "/"     file)
+                  ;; TODO: this should be resources
+                  (str pwd "/resources/"  file)
+                  (str pwd "/test-resources/" file)]]
+       (loop [[p & remaining] paths
+              res defaults]
+         (if p
+           (if (.exists (io/as-file p))
+             (let [yaml-data (yaml-read-safe p)]
+               (if (f/failed? yaml-data)
+                 yaml-data
+                 (recur remaining (merge res yaml-data))))
+             (recur remaining res))
+           {:appname appname
+            :filename file
+            :paths paths
+            (keyword appname) res}))))))
 
 (defn- spy "Print out a config structure nicely formatted"
   [edn]
