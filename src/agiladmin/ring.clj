@@ -39,7 +39,9 @@
                       ;; namespaces/patterns. Useful for turning off
                       ;; logging in noisy libraries, etc.:
 ;;                      :ns-whitelist  ["agiladmin.*"]
-                      :ns-blacklist  ["org.eclipse.jetty.*"]})
+                      :ns-blacklist  ["org.eclipse.jetty.*"
+                                      "org.apache.http.wire"
+                                      "org.apache.http.headers"]})
 
   ;; load configuration
   (reset! config (conf/load-config

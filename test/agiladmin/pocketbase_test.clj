@@ -90,3 +90,14 @@
             :query-params {"filter" "verified = false"
                            "sort" "email"
                            "perPage" 200}}])))
+
+(fact "PocketBase errors surface the API message"
+      (with-redefs [clj-http.client/request
+                    (fn [_]
+                      {:status 400
+                       :body {:message "Failed to authenticate."}})]
+        (try
+          (pocketbase/sign-in config "user@example.org" "pw" {})
+          false => true
+          (catch clojure.lang.ExceptionInfo ex
+            (.getMessage ex) => "Failed to authenticate."))))

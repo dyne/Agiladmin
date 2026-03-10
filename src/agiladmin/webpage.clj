@@ -334,8 +334,8 @@
    [:h1 "Login into Agiladmin"
     [:form {:action "/login"
             :method "post"}
-     [:input {:type "text" :name "username"
-              :placeholder "Username"
+     [:input {:type "text" :name "email"
+              :placeholder "Email"
               :class "form-control"
               :style "margin-top: 1em"}]
      [:input {:type "password" :name "password"
@@ -352,7 +352,7 @@
     [:form {:action "/signup"
             :method "post"}
      [:input {:type "text" :name "name"
-              :placeholder "Name"
+              :placeholder "Display name"
               :class "form-control"
               :style "margin-top: 1em"}]
      [:input {:type "text" :name "email"
@@ -367,6 +367,6 @@
               :placeholder "Repeat password"
               :class "form-control"
               :style "margin-top: 1em"}]
-     [:input {:type "submit" :value "Sign In"
+     [:input {:type "submit" :value "Sign Up"
               :class "btn btn-primary btn-lg btn-block"
               :style "margin-top: 1em"}]]]])
