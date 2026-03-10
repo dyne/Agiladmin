@@ -1,0 +1,8 @@
+BADFIELDS:
+  duration: nope
+  tasks:
+    - id: alpha
+      start_date: 01-01-2016
+      text: Wrong duration type
+      duration: 1
+      pm: 1
