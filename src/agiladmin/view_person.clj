@@ -181,7 +181,7 @@
             " voluntary hours."
             " (with 21% VAT added is " (+ pay (* pay 0.21)) ")"
             [:div {:class "month-detail"}
-             (->> (derive-cost-per-hour worked config projects)
+             (-> (derive-cost-per-hour worked config projects)
                   (tab/select-cols [:project :task :tag :hours :cost :cph])
                   (to-monthly-bill-table projects))]])])
          )

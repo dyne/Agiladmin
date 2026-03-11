@@ -32,23 +32,26 @@
   "Takes a dataset and converts it into an hiccup table ready to be
   converted into html"
   [data]
-  [:table {:class "sortable table"}
-   [:thead nil
-    [:tr nil (for [t (:column-names data)]
-               [:th nil t])]]
-   [:tbody nil
-    (for [t (:rows data)]
-      [:tr nil (for [tt t]
-                 [:td nil
-                  (cond
-                    (and (= (first tt) :progress) (not= (second tt) 0.0))
-                    (if-let [pro (second tt)]
-                      [:span (format "%.0f%%" (round (* pro 100)))
-                       [:br]
-                       [:progress {:max 1 :value pro} pro]])
-                    (= (second tt) 0) "-"
-                    :else
-                    tt)])])]])
+  (let [columns (:column-names data)]
+    [:table {:class "sortable table"}
+     [:thead nil
+      [:tr nil (for [t columns]
+                 [:th nil t])]]
+     [:tbody nil
+      (for [row (:rows data)]
+        [:tr nil
+         (for [column columns
+               :let [value (get row column)]]
+           [:td nil
+            (cond
+              (and (= column :progress) (not= value 0.0))
+              (if-let [pro value]
+                [:span (format "%.0f%%" (round (* pro 100)))
+                 [:br]
+                 [:progress {:max 1 :value pro} pro]])
+              (= value 0) "-"
+              :else
+              value)])])]]))
 
 
 (defn to-monthly-bill-table
@@ -56,26 +59,31 @@
   added for the monthly billing of a person, ready for inclusion in a
   hiccup web page"
   [projects data]
-  [:table {:class "sortable table"}
-   [:thead nil
-    [:tr nil (for [t (:column-names data)]
-               [:th nil t])]]
-   [:tbody nil
-    (for [t (:rows data)]
-      ;; views.clj:263 ($ [:project :task :tag :hours :cost :cph])
-      [:tr nil
-       [:td nil (web/button
-                 "/project" (:project t)
-                 (hf/hidden-field "project" (:project t))
-                 "btn-secondary btn-sm")]
-       [:td nil (if-not (= (:task t) "")
-                  [:span (str (:task t) " - ")
-                   [:small (get-in projects [(-> t :project keyword) :idx
-                                             (-> t :task    keyword) :text])]])]
-       [:td nil (:tag t)]
-       [:td nil (:hours t)]
-       [:td nil (if (= (:cost t) 0) "-" (:cost t))]
-       [:td nil (:cph t)]])]])
+  (let [columns (:column-names data)
+        rows (:rows data)]
+    [:table {:class "sortable table"}
+     [:thead nil
+      (into [:tr nil]
+            (map (fn [column]
+                   [:th nil column])
+                 columns))]
+     (into
+      [:tbody nil]
+      (map (fn [row]
+             [:tr nil
+              [:td nil (web/button
+                        "/project" (:project row)
+                        (hf/hidden-field "project" (:project row))
+                        "btn-secondary btn-sm")]
+              [:td nil (when-not (= (:task row) "")
+                         [:span (str (:task row) " - ")
+                          [:small (get-in projects [(-> row :project keyword) :idx
+                                                    (-> row :task keyword) :text])]])]
+              [:td nil (:tag row)]
+              [:td nil (:hours row)]
+              [:td nil (if (= (:cost row) 0) "-" (:cost row))]
+              [:td nil (:cph row)]])
+           rows))]))
 
 (defn to-excel
   "Takes a dataset and converts it in a format read to be written to
