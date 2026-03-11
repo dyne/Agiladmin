@@ -111,3 +111,34 @@
                         {}
                         {:email "admin@example.org"})]
           (:body response) => (contains "Project configuration missing."))))
+
+(fact "Manager project view omits edit controls and cost output"
+      (with-redefs [agiladmin.config/load-project
+                    (fn [_ _]
+                      {:CORE {:type "h2020"
+                              :duration 12
+                              :tasks []}})
+                    agiladmin.config/q (fn [_ _] "ignored/")
+                    agiladmin.core/load-all-timesheets (fn [& _] [])
+                    agiladmin.core/load-project-monthly-hours
+                    (fn [_ _]
+                      {:column-names [:month :name :project :task :tag :hours]
+                       :rows [{:month "2026-01"
+                               :name "Manager User"
+                               :project "CORE"
+                               :task "TASK-1"
+                               :tag ""
+                               :hours 15}]})
+                    agiladmin.core/current-proj-month (fn [_] 3)
+                    agiladmin.core/derive-empty-tasks (fn [_ _] {:rows []})
+                    agiladmin.utils/now (fn [] {:year 2026 :month 1 :day 10})]
+        (let [response (view-project/h2020
+                        {:params {:project "CORE"}}
+                        {:agiladmin {:budgets {:path "ignored/"}}}
+                        {:email "manager@example.org"
+                         :name "Manager User"
+                         :role "manager"})]
+          (:body response) => (contains "Task/Person totals")
+          (:body response) =not=> (contains "Edit project configuration")
+          (:body response) =not=> (contains ":cost")
+          (:body response) =not=> (contains ">cost<"))))
