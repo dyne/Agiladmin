@@ -13,13 +13,22 @@
       (session/param {:params {"person" "Denis Roio"}} :person)
       => "Denis Roio")
 
-(fact "Session check keeps the admin flag from the authenticated session"
+(fact "Session check keeps the role from the authenticated session"
+      (session/check-account config {:session {:auth {:email "admin@example.org"
+                                                      :name "Admin"
+                                                      :role "admin"}}})
+      => {:email "admin@example.org"
+          :name "Admin"
+          :role "admin"})
+
+(fact "Session check maps a legacy admin flag to the admin role"
       (session/check-account config {:session {:auth {:email "admin@example.org"
                                                       :name "Admin"
                                                       :admin true}}})
       => {:email "admin@example.org"
           :name "Admin"
-          :admin true})
+          :admin true
+          :role "admin"})
 
 (fact "Session check does not require a live auth backend"
       (session/check {:session {:config config
@@ -28,7 +37,7 @@
                      (fn [_ _ account] account))
       => {:email "user@example.org"
           :name "User"
-          :admin false})
+          :role nil})
 
 (fact "Session check fails without a login in the session"
       (f/failed? (session/check-account config {:session {:config config}})) => truthy)

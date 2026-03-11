@@ -23,7 +23,7 @@
   {:id (:id record)
    :email (:email record)
    :name (:name record)
-   :admin (true? (:admin record))
+   :role (some-> (:role record) str/trim not-empty)
    :other-names []
    :verified (:verified record)})
 

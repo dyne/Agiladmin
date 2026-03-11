@@ -33,7 +33,7 @@
                       config
                       {:email "admin@example.org"
                        :name "Admin"
-                       :admin true}
+                       :role "admin"}
                       "Luca-Pacioli"
                       "2016")]
         (:body response) => (contains "Yearly totals")

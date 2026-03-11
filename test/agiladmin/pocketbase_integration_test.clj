@@ -91,13 +91,13 @@
     (first items)))
 
 (defn- upsert-user!
-  [config {:keys [email password name admin]}]
+  [config {:keys [email password name role]}]
   (let [token (superuser-token config)
         payload {:email email
                  :password password
                  :passwordConfirm password
                  :name name
-                 :admin admin
+                 :role role
                  :verified true
                  :emailVisibility true}]
     (if-let [user (find-user-by-email config token email)]
@@ -114,7 +114,7 @@
                     :form-params payload})
           ensure-success))))
 
-(defn- login-refreshes-admin?
+(defn- login-refreshes-role?
   []
   (let [config (pb-config)
         email (or (System/getenv "AGILADMIN_PB_IT_USER_EMAIL")
@@ -127,30 +127,30 @@
       (upsert-user! config {:email email
                             :password password
                             :name name
-                            :admin false})
-      (let [non-admin (pocketbase/sign-in config email password {})]
-        (when-not (false? (:admin non-admin))
-          (throw (ex-info "Expected first login to return admin=false."
-                          {:user non-admin}))))
+                            :role ""})
+      (let [plain-user (pocketbase/sign-in config email password {})]
+        (when-not (nil? (:role plain-user))
+          (throw (ex-info "Expected first login to return an empty role."
+                          {:user plain-user}))))
       (upsert-user! config {:email email
                             :password password
                             :name name
-                            :admin true})
+                            :role "admin"})
       (let [admin-user (pocketbase/sign-in config email password {})]
-        (when-not (true? (:admin admin-user))
-          (throw (ex-info "Expected second login to return admin=true."
+        (when-not (= "admin" (:role admin-user))
+          (throw (ex-info "Expected second login to return role=admin."
                           {:user admin-user}))))
       (auth/init! (pocketbase/backend config))
       (let [login-response (with-redefs [agiladmin.view-auth/config {:agiladmin {:pocketbase config}}]
                              (view-auth/login-post {:params {:email email
                                                              :password password}
                                                     :remote-addr "127.0.0.1"}))]
-        (true? (get-in login-response [:session :auth :admin])))
+        (= "admin" (get-in login-response [:session :auth :role])))
       (finally
         (auth/init! previous-backend)))))
 
-(fact "Live PocketBase login refreshes the admin flag into the session"
+(fact "Live PocketBase login refreshes the role into the session"
       (if-not (enabled?)
         true
-        (login-refreshes-admin?))
+        (login-refreshes-role?))
       => true)

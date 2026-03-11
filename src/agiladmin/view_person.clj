@@ -62,7 +62,7 @@
 (defn list-all
   "list all persons"
   [request config account]
-  (if-not (:admin account)
+  (if-not (s/admin? account)
     (web/render-error-page account "Unauthorized access")
     (web/render
      account
@@ -197,7 +197,7 @@
                  (clojure.core/get params "year")
                  (:year (util/now)))]
     (cond ;; admin check
-      (:admin account) (list-person config account person year)
+      (s/admin? account) (list-person config account person year)
       ;; check that person views its own account
       (= (:name account) person) (list-person config account person year)
 

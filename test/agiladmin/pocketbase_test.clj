@@ -21,6 +21,7 @@
                                   :record {:id "user-1"
                                            :email "user@example.org"
                                            :name "User Name"
+                                           :role ""
                                            :verified true}}}
                           "http://127.0.0.1:8090/api/collections/users/auth-refresh"
                           {:status 200
@@ -28,7 +29,7 @@
                                   :record {:id "user-1"
                                            :email "user@example.org"
                                            :name "User Name"
-                                           :admin true
+                                           :role "admin"
                                            :verified true}}}
                           "http://127.0.0.1:8090/api/collections/users/records"
                           (if (= :post (:method request))
@@ -36,13 +37,13 @@
                              :body {:id "user-3"
                                     :email "user@example.org"
                                     :name "User Name"
-                                    :admin false
+                                    :role ""
                                     :verified false}}
                             {:status 200
                              :body {:items [{:id "user-2"
                                              :email "pending@example.org"
                                              :name "Pending User"
-                                             :admin false
+                                             :role ""
                                              :verified false}]}})
                           "http://127.0.0.1:8090/api/collections/users/confirm-verification"
                           {:status 200 :body {:token "verified-token"}}
@@ -55,14 +56,14 @@
           {:id "user-1"
            :email "user@example.org"
            :name "User Name"
-           :admin true
+           :role "admin"
            :other-names []
            :verified true}
           (pocketbase/sign-up config "User Name" "user@example.org" "pw" {} ["Alias"]) =>
           {:id "user-3"
            :email "user@example.org"
            :name "User Name"
-           :admin false
+           :role nil
            :other-names ["Alias"]
            :verified false}
           (pocketbase/confirm-verification config "token") => {:token "verified-token"}
@@ -71,7 +72,7 @@
           [{:id "user-2"
             :email "pending@example.org"
             :name "Pending User"
-            :admin false
+            :role nil
             :other-names []
             :verified false}]
           (map #(select-keys % [:method :url :query-params :form-params :headers]) @calls) =>
@@ -117,7 +118,7 @@
                                 :record {:id "user-1"
                                          :email "user@example.org"
                                          :name "User Name"
-                                         :admin false
+                                         :role ""
                                          :verified true}}}
                         "http://127.0.0.1:8090/api/collections/users/auth-refresh"
                         {:status 403
@@ -126,7 +127,7 @@
         {:id "user-1"
          :email "user@example.org"
          :name "User Name"
-         :admin false
+         :role nil
          :other-names []
          :verified true}))
 

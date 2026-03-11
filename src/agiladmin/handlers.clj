@@ -76,9 +76,9 @@
                        account (s/check-account config request)]
          (cond
            ;; user is an admin, can list all personnel and activation requests
-           (:admin account) (view-person/list-all request config account)
+           (s/admin? account) (view-person/list-all request config account)
            ;; user is not an admin, redirect to own personnel page
-           (-> account :admin not)
+           (not (s/admin? account))
            (view-person/list-person config account (:name account) (:year (util/now)))
            :else
            (web/render [:div (web/render-error "Unauthorized access.")]))

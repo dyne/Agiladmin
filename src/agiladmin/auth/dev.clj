@@ -5,7 +5,7 @@
   {:id "dev-admin"
    :email "admin"
    :name "Admin"
-   :admin true
+   :role "admin"
    :other-names []
    :verified true})
 
@@ -13,7 +13,7 @@
   {:id "dev-guest"
    :email "guest"
    :name "Guest"
-   :admin false
+   :role nil
    :other-names []
    :verified true})
 

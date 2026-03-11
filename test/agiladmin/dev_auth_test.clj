@@ -7,5 +7,5 @@
       (let [backend (dev-auth/backend)]
         ((:sign-in backend) "admin" "admin" {}) => dev-auth/default-user
         ((:sign-in backend) "guest" "guest" {}) => dev-auth/guest-user
-        (:admin ((:sign-in backend) "guest" "guest" {})) => false
+        (:role ((:sign-in backend) "guest" "guest" {})) => nil
         (f/failed? ((:sign-in backend) "admin" "wrong" {})) => truthy))
