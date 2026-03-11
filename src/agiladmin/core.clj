@@ -24,7 +24,6 @@
             [agiladmin.utils :as util]
             [agiladmin.graphics :refer :all]
             [agiladmin.config :as conf]
-            [incanter.core :refer :all]
             [auxiliary.core :as aux]
             [auxiliary.string :refer [strcasecmp]]
             [failjure.core :as f]
@@ -55,7 +54,6 @@
            '[agiladmin.graphics :refer :all]
            '[agiladmin.utils :refer :all]
            '[agiladmin.config :refer :all]
-           '[incanter.core :refer :all]
            '[clojure.string :refer :all]
            '[clojure.java.io :as io]
            '[clojure.pprint :reder :all]
@@ -151,7 +149,7 @@
             (let [f (doall m)]
               (if (empty? months) (if (not-empty f) (concat res f) res)
                   (recur  months  (if (not-empty f) (concat res f) res))))))
-        (mapcat identity) vec to-dataset)))
+        (mapcat identity) vec tab/dataset)))
 
 (defn load-project-monthly-hours
   "load the named project hours from a sequence of timesheets and
@@ -215,26 +213,22 @@
    (if-let [projects (load-all-projects conf)]
      (derive-costs hours conf projects)))
   ([hours conf projects]
-   (with-data hours
-     (add-derived-column :cost
-                         [:month :name :project :tag :hours]
-                         (fn [month name proj tag hours]
-                           (if-let [cost (get-project-rate projects name proj month)]
-                             (if (and (> cost 0) (not (strcasecmp tag "VOL")))
-                               ;; then
-                               (util/round (* cost hours))
-                               ;; else
-                               0)
-                             ;; else
-                             0))))))
+   (tab/add-column hours :cost
+                   (fn [row]
+                     (let [{:keys [month name project tag hours]} row]
+                       (if-let [cost (get-project-rate projects name project month)]
+                         (if (and (> cost 0) (not (strcasecmp tag "VOL")))
+                           (util/round (* cost hours))
+                           0)
+                         0))))))
 
 (defn derive-years
   "gets a dataset of hours per month and adds a 'year' column from its
   YYYY-MM field in :month."
   [hours conf projects]
-  (with-data hours
-    (add-derived-column :year [:month]
-                        (fn [month] (first (split month #"-" 2))))))
+  (tab/add-column hours :year
+                  (fn [row]
+                    (first (split (:month row) #"-" 2)))))
 
 
 
@@ -245,73 +239,73 @@
    (if-let [projects (load-all-projects conf)]
      (derive-cost-per-hour hours conf projects)))
   ([hours conf projects]
-   (with-data hours
-     (add-derived-column :cph [:month :name :project]
-                         (fn [month name project]
-                           (get-project-rate projects name project month))))))
+   (tab/add-column hours :cph
+                   (fn [row]
+                     (get-project-rate projects
+                                       (:name row)
+                                       (:project row)
+                                       (:month row))))))
 
 
 (defn simple-task-derivation
   "internal macro: used inside derive-task-details for the columns that simply
   copy a value from the project/task configuration"
-  [conf table-field conf-field data]
-  (add-derived-column table-field [:project :task]
-                      (fn [proj task]
-                        (let [p   (-> proj keyword)
-                              t   (-> task keyword)]
-                          (get-in conf [p :idx t conf-field]))) data))
+  [data conf table-field conf-field]
+  (tab/add-column data table-field
+                  (fn [row]
+                    (let [p (-> (:project row) keyword)
+                          t (-> (:task row) keyword)]
+                      (get-in conf [p :idx t conf-field])))))
 
 (defn derive-empty-tasks
   "gets a dataset of project tasks that are empty and add column
   names used in task details"
   [conf used]
   (let [tasks (-> conf (get-in [(-> conf first first) :tasks]))
-        used-task-ids (let [tasks-column ($ :task used)]
+        used-task-ids (let [tasks-column (tab/column-values used :task)]
                         (cond
                           (nil? tasks-column) #{}
                           (string? tasks-column) #{tasks-column}
                           :else (set (seq tasks-column))))]
         (log/info used-task-ids)
-        (-> (to-dataset tasks)
-          (query-dataset (fn [row] (not (contains? used-task-ids (:id row))))))
-  )
-)
+        (-> tasks
+            tab/dataset
+            (tab/filter-rows (fn [row]
+                               (not (contains? used-task-ids (:id row))))))))
 
 (defn derive-task-details
   "gets a dataset of project hours and costs and add columns derived
   from calculations on each task row and its prject configuration:
   tot-hours, pm, description, progress etc."
   [p-hours conf]
-  (->> p-hours
-       (simple-task-derivation conf :pm :pm)
-        (add-derived-column :h-left [:project :task :hours]
-                        (fn [proj task hours]
-                          (let [p   (-> proj keyword)
-                                t   (-> task keyword)]
-                            (if-let [tot (get-in conf [p :idx t :pm])]
-                               (-> (- (* tot 150) hours))))))
-       (simple-task-derivation conf :description :text)
-       (simple-task-derivation conf :start :start_date)
-       (add-derived-column :end [:project :task]
-                           (fn [proj task]
-                             (let [p   (-> proj keyword)
-                                   t   (-> task keyword)]
-                               (let [duration (get-in conf [p :idx t :duration])
-                                     start (get-in conf [p :idx t :start_date])]
-                                 (if (or (= start nil) (= duration nil)
-                                         (= start 0) (= duration 0))
-                                   ""
-                                        ; else
-                                   (tf/unparse time-format
-                                               (t/plus (tf/parse time-format start)
-                                                       (t/months duration)))
-                                   )))))
-       (add-derived-column :progress [:project :task :hours]
-                           (fn [proj task hours]
-                             (let [p   (-> proj keyword)
-                                   t   (-> task keyword)]
-                               (if-let [tot (get-in conf [p :idx t :pm])]
-                                 (-> hours (/ (* tot 150)) util/round)))))))
+  (-> p-hours
+      (simple-task-derivation conf :pm :pm)
+      (tab/add-column :h-left
+                       (fn [row]
+                         (let [p (-> (:project row) keyword)
+                               t (-> (:task row) keyword)]
+                           (when-let [tot (get-in conf [p :idx t :pm])]
+                             (- (* tot 150) (:hours row))))))
+      (simple-task-derivation conf :description :text)
+      (simple-task-derivation conf :start :start_date)
+      (tab/add-column :end
+                       (fn [row]
+                         (let [p (-> (:project row) keyword)
+                               t (-> (:task row) keyword)
+                               duration (get-in conf [p :idx t :duration])
+                               start (get-in conf [p :idx t :start_date])]
+                           (if (or (= start nil) (= duration nil)
+                                   (= start 0) (= duration 0))
+                             ""
+                             (tf/unparse time-format
+                                         (t/plus (tf/parse time-format start)
+                                                 (t/months duration)))))))
+      (tab/add-column :progress
+                       (fn [row]
+                         (let [p (-> (:project row) keyword)
+                               t (-> (:task row) keyword)]
+                           (when-let [tot (get-in conf [p :idx t :pm])]
+                             (-> (:hours row) (/ (* tot 150)) util/round)))))))
 
 (defn load-timesheet [path]
   (if-let [ts (try (load-workbook path)

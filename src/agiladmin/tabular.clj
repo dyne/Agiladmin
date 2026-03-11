@@ -50,6 +50,16 @@
                  (update row col f))
                (:rows data))})
 
+(defn add-column
+  [data col f]
+  (let [column-names (if (some #{col} (:column-names data))
+                       (:column-names data)
+                       (conj (vec (:column-names data)) col))]
+    {:column-names column-names
+     :rows (mapv (fn [row]
+                   (assoc row col (f row)))
+                 (:rows data))}))
+
 (defn column-values
   [data col]
   (mapv col (:rows data)))
