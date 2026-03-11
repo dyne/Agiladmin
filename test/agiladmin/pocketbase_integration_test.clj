@@ -11,9 +11,12 @@
   (#{"1" "true" "TRUE" "yes" "YES"} (System/getenv "AGILADMIN_PB_IT")))
 
 (defn- require-env
-  [name]
-  (or (System/getenv name)
-      (throw (ex-info (str "Missing env var: " name) {:env name}))))
+  ([name]
+   (require-env name nil))
+  ([name default]
+   (or (System/getenv name)
+       default
+       (throw (ex-info (str "Missing env var: " name) {:env name})))))
 
 (defn- trim-slash
   [value]
@@ -21,10 +24,10 @@
 
 (defn- pb-config
   []
-  {:base-url (trim-slash (require-env "AGILADMIN_PB_BASE_URL"))
-   :users-collection (or (System/getenv "AGILADMIN_PB_USERS_COLLECTION") "users")
-   :superuser-email (require-env "AGILADMIN_PB_SUPERUSER_EMAIL")
-   :superuser-password (require-env "AGILADMIN_PB_SUPERUSER_PASSWORD")})
+  {:base-url (trim-slash (require-env "AGILADMIN_PB_BASE_URL" "http://127.0.0.1:8090"))
+   :users-collection (require-env "AGILADMIN_PB_USERS_COLLECTION" "users")
+   :superuser-email (require-env "AGILADMIN_PB_SUPERUSER_EMAIL" "admin@example.org")
+   :superuser-password (require-env "AGILADMIN_PB_SUPERUSER_PASSWORD" "change-me")})
 
 (defn- request
   [method url options]
