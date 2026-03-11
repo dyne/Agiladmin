@@ -27,8 +27,7 @@
 ;;            [incanter.charts :refer :all]
             [taoensso.timbre :as log]))
 
-;; TODO: inline images for charts, see
-;; https://github.com/incanter/incanter/blob/master/examples/blog/projects/simple_web_app/src/simple_web_app.clj
+;; TODO: inline images for charts if chart rendering is reintroduced.
 
 (defn to-table
   "Takes a dataset and converts it into an hiccup table ready to be
