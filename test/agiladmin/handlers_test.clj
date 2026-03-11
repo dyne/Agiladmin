@@ -71,3 +71,101 @@
       (let [response (handlers/app-routes (mock/request :get "/missing"))]
         (:status response) => 404
         (:body response) => (contains "Page Not Found")))
+
+(fact "Login post routes credentials to the auth view"
+      (let [calls (atom [])]
+        (with-redefs [agiladmin.view-auth/login-post
+                      (fn [request]
+                        (swap! calls conj (select-keys (:params request) [:email :password]))
+                        {:status 200 :body "logged in"})]
+          (let [response (handlers/app-routes
+                          (assoc (mock/request :post "/login")
+                                 :params {:email "user@example.org"
+                                          :password "secret"}))]
+            (:status response) => 200
+            (:body response) => "logged in"
+            @calls => [{:email "user@example.org"
+                        :password "secret"}]))))
+
+(fact "Signup post routes submitted fields to the auth view"
+      (let [calls (atom [])]
+        (with-redefs [agiladmin.view-auth/signup-post
+                      (fn [request]
+                        (swap! calls conj (select-keys (:params request) [:name :email]))
+                        {:status 200 :body "signed up"})]
+          (let [response (handlers/app-routes
+                          (assoc (mock/request :post "/signup")
+                                 :params {:name "User Name"
+                                          :email "user@example.org"
+                                          :password "secret"
+                                          :repeat-password "secret"}))]
+            (:status response) => 200
+            (:body response) => "signed up"
+            @calls => [{:name "User Name"
+                        :email "user@example.org"}]))))
+
+(fact "Logout get routes to the auth view"
+      (with-redefs [agiladmin.view-auth/logout-get
+                    (fn [_]
+                      {:status 200 :body "logged out"})]
+        (let [response (handlers/app-routes (mock/request :get "/logout"))]
+          (:status response) => 200
+          (:body response) => "logged out")))
+
+(fact "Timesheet upload route requires authentication"
+      (let [response (handlers/app-routes
+                      (assoc (mock/request :post "/timesheets/upload")
+                             :params {}))]
+        (:status response) => 200
+        (:body response) => (contains "Login into Agiladmin")))
+
+(fact "Timesheet upload route delegates to the upload view for authenticated users"
+      (let [calls (atom [])]
+        (with-redefs [agiladmin.view-timesheet/upload
+                      (fn [request config account]
+                        (swap! calls conj [config account])
+                        {:status 200 :body "uploaded"})]
+          (let [response (handlers/app-routes
+                          (assoc (mock/request :post "/timesheets/upload")
+                                 :params {}
+                                 :session admin-session))]
+            (:status response) => 200
+            (:body response) => "uploaded"
+            @calls => [[admin-config
+                        {:email "admin@example.org"
+                         :name "Admin User"
+                         :admin true}]]))))
+
+(fact "Timesheet download returns the spreadsheet file when present"
+      (with-redefs [clojure.java.io/as-file
+                    (fn [_]
+                      (proxy [java.io.File] ["test/assets/2026_timesheet_User.xlsx"]
+                        (exists [] true)))
+                    clojure.java.io/file
+                    (fn [path]
+                      path)]
+        (let [response (handlers/app-routes
+                        (assoc (mock/request :get "/timesheets/download/2026_timesheet_User.xlsx")
+                               :session admin-session))]
+          (get-in response [:headers "Content-Type"])
+          => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          (:body response) => "test/assets/2026_timesheet_User.xlsx")))
+
+(fact "Timesheet download reports a missing spreadsheet"
+      (with-redefs [clojure.java.io/as-file
+                    (fn [_]
+                      (proxy [java.io.File] ["missing.xlsx"]
+                        (exists [] false)))]
+        (let [response (handlers/app-routes
+                        (assoc (mock/request :get "/timesheets/download/missing.xlsx")
+                               :session admin-session))]
+          (:body response) => (contains "Where is this file gone?! test/assets/missing.xlsx"))))
+
+(fact "Generic post root renders the passed cancellation message for authenticated users"
+      (with-redefs [agiladmin.ring/config (atom admin-config)]
+        (let [response (handlers/app-routes
+                        (assoc (mock/request :post "/")
+                               :params {:message "Operation canceled"}
+                               :session admin-session))]
+          (:status response) => 200
+          (:body response) => (contains "Operation canceled"))))
