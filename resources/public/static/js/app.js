@@ -134,6 +134,12 @@
           logo.setAttribute("src", src);
         }
       });
+
+    Array.prototype.slice
+      .call(document.querySelectorAll("[data-theme-invert]"))
+      .forEach(function (image) {
+        image.classList.toggle("invert", theme === darkTheme);
+      });
   }
 
   function initThemeToggle(root) {

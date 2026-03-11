@@ -21,6 +21,7 @@
           (:body response) => (contains "data-text-filter-value=\"Ada-Lovelace\"")
           (:body response) => (contains "inline-flex max-w-full w-full")
           (:body response) => (contains "/static/img/dyne-icon-black.svg")
+          (:body response) => (contains "data-theme-invert=\"true\"")
           (:body response) => (contains "data-theme-toggle=\"true\"")
           (:body response) => (contains "/static/img/dyne-logotype-black.svg")
           (:body response) => (contains "data-theme-logo=\"true\"")
