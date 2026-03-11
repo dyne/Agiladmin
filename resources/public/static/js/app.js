@@ -174,11 +174,90 @@
     applyTheme(initialTheme === darkTheme ? darkTheme : lightTheme);
   }
 
+  function showPageLoading() {
+    Array.prototype.slice
+      .call(document.querySelectorAll("[data-page-loading]"))
+      .forEach(function (indicator) {
+        indicator.style.display = "flex";
+      });
+  }
+
+  function afterNextPaint(callback) {
+    window.requestAnimationFrame(function () {
+      window.requestAnimationFrame(function () {
+        callback();
+      });
+    });
+  }
+
+  function initPageLoading(root) {
+    Array.prototype.slice
+      .call(root.querySelectorAll("a[href]"))
+      .forEach(function (link) {
+        if (link.dataset.loadingBound === "true") {
+          return;
+        }
+
+        var href = link.getAttribute("href") || "";
+        var target = link.getAttribute("target");
+        var rel = link.getAttribute("rel") || "";
+        if (
+          href === "" ||
+          href.indexOf("#") === 0 ||
+          href.indexOf("mailto:") === 0 ||
+          href.indexOf("tel:") === 0 ||
+          target === "_blank" ||
+          rel.indexOf("external") !== -1
+        ) {
+          return;
+        }
+
+        link.dataset.loadingBound = "true";
+        link.addEventListener("click", function (event) {
+          if (
+            event.defaultPrevented ||
+            event.metaKey ||
+            event.ctrlKey ||
+            event.shiftKey ||
+            event.altKey ||
+            event.button !== 0
+          ) {
+            return;
+          }
+          event.preventDefault();
+          showPageLoading();
+          afterNextPaint(function () {
+            window.location.assign(href);
+          });
+        });
+      });
+
+    Array.prototype.slice
+      .call(root.querySelectorAll("form"))
+      .forEach(function (form) {
+        if (form.dataset.loadingBound === "true") {
+          return;
+        }
+
+        form.dataset.loadingBound = "true";
+        form.addEventListener("submit", function (event) {
+          if (!form.hasAttribute("hx-post") && !form.hasAttribute("hx-get")) {
+            event.preventDefault();
+            showPageLoading();
+            afterNextPaint(function () {
+              HTMLFormElement.prototype.submit.call(form);
+            });
+          }
+        });
+      });
+  }
+
   function boot(root) {
     initTabGroups(root);
     initNavToggles(root);
     initTextFilters(root);
     initThemeToggle(root);
+    initPageLoading(root);
   }
 
   document.addEventListener("DOMContentLoaded", function () {
@@ -187,5 +266,17 @@
 
   document.addEventListener("htmx:afterSwap", function (event) {
     boot(event.target);
+  });
+
+  document.addEventListener("htmx:beforeRequest", function () {
+    showPageLoading();
+  });
+
+  document.addEventListener("htmx:afterRequest", function () {
+    Array.prototype.slice
+      .call(document.querySelectorAll("[data-page-loading]"))
+      .forEach(function (indicator) {
+        indicator.style.display = "none";
+      });
   });
 })();
