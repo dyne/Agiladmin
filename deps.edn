@@ -21,7 +21,6 @@
         formidable/formidable {:mvn/version "0.1.10"}
         markdown-clj/markdown-clj {:mvn/version "1.0.7"}
         io.forward/yaml {:mvn/version "1.0.11"}
-        org.flatland/ordered {:mvn/version "1.15.12"}
         dk.ative/docjure {:mvn/version "1.12.0"}
         org.apache.poi/poi {:mvn/version "3.17"}
         org.apache.poi/poi-ooxml {:mvn/version "3.17"}
