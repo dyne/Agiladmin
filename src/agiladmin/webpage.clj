@@ -40,13 +40,7 @@
 (declare render-edn)
 (declare render-error)
 (declare render-error-page)
-(declare render-static)
 (declare render-fragment)
-
-(defn q [req]
-  "wrapper to retrieve parameters"
-  ;; TODO: sanitise and check for irregular chars
-  (get-in req (conj [:params] req)))
 
 (defn button
   ([url text] (button url text [:p]))
@@ -71,19 +65,6 @@
     (list
      (hf/hidden-field "year" (-> year Integer. dec))
       (hf/hidden-field "person" person)))])
-
-(defn button-cancel-submit [argmap]
-  [:div
-   {:class (str "flex flex-wrap justify-end gap-3 " (:btn-group-class argmap))
-    :role "group"}
-   (button
-    (:cancel-url argmap) "Cancel"
-    (:cancel-params argmap)
-    "btn btn-error btn-lg")
-   (button
-    (:submit-url argmap) "Submit"
-    (:submit-params argmap)
-    "btn btn-success btn-lg")])
 
 (defn htmx-request?
   [request]
@@ -114,12 +95,6 @@
                 :hidden (when-not (zero? idx) true)}
       content])])
 
-
-(defn reload-session [request]
-  ;; TODO: validation of all data loaded via prismatic schema
-  (conf/load-config "agiladmin" conf/default-settings)
-
-  )
 
 (defn render
   ([body]
@@ -169,7 +144,7 @@
        "Agiladmin"
        "https://agiladmin.dyne.org")) ;; default desc
 
-  ([title desc url]
+  ([title _desc _url]
    [:head [:meta {:charset "utf-8"}]
     [:meta {:http-equiv "X-UA-Compatible" :content "IE=edge,chrome=1"}]
     [:meta
@@ -270,19 +245,6 @@
             :title "Software by Dyne.org"}]]]
     [:div {:class "footer text-sm text-base-content/70"}
      "For enquiries please contact Manuela Annibali &lt;manuela@dyne.org&gt;"]]])
-
-(defn render-static [body]
-  (page/html5 (render-head)
-              [:body {:class "min-h-screen bg-base-200 text-base-content"
-                      :data-theme "nord"}
-
-               navbar-guest
-
-               [:main {:class "mx-auto w-full max-w-screen-xl px-4 pb-12 pt-24"} body]
-
-               (render-footer)
-               ]))
-
 
 ;; highlight functions do no conversion, take the format they highlight
 ;; render functions take edn and convert to the highlight format

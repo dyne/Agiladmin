@@ -63,7 +63,7 @@
 
 (defn list-all
   "list all persons"
-  [request config account]
+  [_request config account]
   (if-not (s/admin? account)
     (web/render-error-page account "Unauthorized access")
     (let [year (:year (util/now))
