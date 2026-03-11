@@ -1,9 +1,0 @@
-dist: trusty
-language: clojure
-lein: lein
-script: lein midje
-jdk:
-  - oraclejdk8
-  - oraclejdk9
-services:
-  - mongod
