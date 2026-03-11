@@ -30,15 +30,15 @@
   [account message]
   (web/render
    account
-   [:div {:class "container-fluid"}
-    [:div {:class "alert alert-info"}
+   [:div {:class "space-y-4"}
+    [:div {:class "alert alert-info shadow-sm"}
      message]]))
 
 (defn- render-reload-error
   [account message]
   (web/render
    account
-   [:div {:class "container-fluid"}
+   [:div {:class "space-y-4"}
     (web/render-error message)]))
 
 (defn- git-ready?
@@ -57,10 +57,10 @@
   [account repo]
   (web/render
    account
-   [:div {:class "container-fluid"}
-    [:div [:h1 "Git status"]
+   [:div {:class "space-y-6"}
+    [:div [:h1 {:class "text-3xl font-semibold"} "Git status"]
      (web/render-yaml (git/git-status repo))]
-    [:div [:h1 "Log (last 20 changes)"]
+    [:div [:h1 {:class "text-3xl font-semibold"} "Log (last 20 changes)"]
      (web/render-git-log repo)]]))
 
 (defn start [request config account]
@@ -85,7 +85,7 @@
                 (:path budgets)))
           (web/render
            account
-           [:div {:class "container-fluid"}
+           [:div {:class "space-y-6"}
             (git/with-identity {:name (:ssh-key budgets)
                                 :passphrase ""
                                 :exclusive true}
@@ -97,12 +97,12 @@
                                                            [:p (str "Error in git-pull: " (.getMessage ex))]
                                                            [:p (-> ex Throwable->map :cause)]]))))]
                                  (if (= (type res) org.eclipse.jgit.api.PullResult)
-                                   [:div {:class "alert alert-success"}
+                                   [:div {:class "alert alert-success shadow-sm"}
                                     (str "Reloaded successfully from " (:git budgets))]
                                    res)))
-            [:div [:h1 "Git status"]
+            [:div [:h1 {:class "text-3xl font-semibold"} "Git status"]
              (web/render-yaml (git/git-status repo))]
-            [:div [:h1 "Log (last 20 changes)"]
+            [:div [:h1 {:class "text-3xl font-semibold"} "Log (last 20 changes)"]
              (web/render-git-log repo)]]))
         (render-reload-message
          account
@@ -133,14 +133,14 @@
                                                    (-> (str keypath ".pub") slurp str)])))))]
           (web/render
            account
-           [:div {:class "container-fluid"}
+           [:div {:class "space-y-6"}
             clone-result
             (if-let [repo (safe-load-repo (:path budgets))]
               [:div
-               [:div [:h1 "Git status"]
+               [:div [:h1 {:class "text-3xl font-semibold"} "Git status"]
                 (web/render-yaml (git/git-status repo))]
-               [:div [:h1 "Log (last 20 changes)"] (web/render-git-log repo)]]
-              [:div {:class "alert alert-info"}
+               [:div [:h1 {:class "text-3xl font-semibold"} "Log (last 20 changes)"] (web/render-git-log repo)]]
+              [:div {:class "alert alert-info shadow-sm"}
                (str "No budgets repository is available yet at " (:path budgets))])]))
         (render-reload-message
          account

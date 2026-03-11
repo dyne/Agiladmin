@@ -44,7 +44,8 @@
 (defn person-download-toolbar
   [person year costs]
   [:form {:action "/persons/spreadsheet"
-          :method "post"}
+          :method "post"
+          :class "space-y-3"}
    [:h3 "Download yearly totals:"]
    ;; (hf/hidden-field "format" "excel")
    (hf/hidden-field "person" person)
@@ -52,48 +53,52 @@
    (hf/hidden-field "costs" (-> costs json/write-str))
    ;; [:input {:type "submit" :name "format1" :value "excel"
    ;;          :class "btn btn-default"}]
-   [:input {:type "submit" :name "format2" :value "json"
-            :class "btn btn-default"}]
-   [:input {:type "submit" :name "format3" :value "csv"
-            :class "btn btn-default"}]
-   [:input {:type "submit" :name "format4" :value "html"
-            :class "btn btn-default"}]])
+   [:div {:class "flex flex-wrap gap-2"}
+    [:input {:type "submit" :name "format2" :value "json"
+             :class "btn btn-ghost"}]
+    [:input {:type "submit" :name "format3" :value "csv"
+             :class "btn btn-ghost"}]
+    [:input {:type "submit" :name "format4" :value "html"
+             :class "btn btn-ghost"}]]])
 
 (defn list-all
   "list all persons"
   [request config account]
   (if-not (s/admin? account)
     (web/render-error-page account "Unauthorized access")
-    (web/render
-     account
-     [:div {:class "row-fluid"}
-      [:div {:class "persons col-lg-4"}
-       [:h2 "Persons"]
-       ;; list all persons
-       (let [year (:year (util/now))]
-         (for [f (->> (util/list-files-matching
+    (let [year (:year (util/now))
+          people (->> (util/list-files-matching
                        (conf/q config [:agiladmin :budgets :path])
                        #".*_timesheet_.*xlsx$")
                       (keep #(util/timesheet-to-name (.getName %)))
                       clojure.core/sort
-                      distinct)]
-           ;; (map #(.getName %)) distinct)]
-           [:div {:class "row log-person"}
-            (web/button "/person" f
-                        (list (hf/hidden-field "person" f)
-                              (hf/hidden-field "year" year)))]))]
-     [:div {:class "newcomers col-lg-4"}
-       [:h2 "Newcomers"]
-       (f/if-let-failed?
-           [pending-users (auth/list-pending-users)]
-         (web/render-error (str "Unable to load pending users: "
-                                (f/message pending-users)))
-         [:ul
-          (for [{:keys [email name]} pending-users]
-            [:li
-             [:strong (or name email)]
-             (when (and name email)
-               [:span (str " <" email ">")])])])]])))
+                      distinct)
+          person-buttons (mapv (fn [person]
+                                 [:div {:class "log-person"}
+                                  (web/button "/person" person
+                                              (list (hf/hidden-field "person" person)
+                                                    (hf/hidden-field "year" year)))])
+                               people)]
+      (web/render
+       account
+       [:div {:class "grid gap-6 lg:grid-cols-2"}
+        [:div {:class "card bg-base-100 shadow-sm"}
+         [:div {:class "card-body"}
+          [:h2 "Persons"]
+          (into [:div {:class "space-y-2"}] person-buttons)]]
+        [:div {:class "card bg-base-100 shadow-sm"}
+         [:div {:class "card-body"}
+          [:h2 "Newcomers"]
+          (f/if-let-failed?
+            [pending-users (auth/list-pending-users)]
+            (web/render-error (str "Unable to load pending users: "
+                                   (f/message pending-users)))
+            [:ul {:class "space-y-2"}
+             (for [{:keys [email name]} pending-users]
+               [:li
+                [:strong {:class "font-semibold"} (or name email)]
+                (when (and name email)
+                  [:span {:class "text-sm text-base-content/70"} (str " <" email ">")])])])]]]))))
 
 (defn download
   [request config account]
@@ -123,7 +128,7 @@
       costs (-> (map-timesheets
                  [timesheet] load-monthly-hours (fn [_] true))
                 (derive-costs config projects))]
-     [:div {:class "container-fluid"}
+     [:div {:class "space-y-6"}
       ;; insert the Git Id of the file (Git object in master)
       (person-download-timesheet ts-file) [:br]
       ;; (if-let [githead (util/git-id config ts-file)]
@@ -145,7 +150,7 @@
                                           {:cost (reduce + 0 (map :cost rows))}))))
               monthly-average (-> (tab/average-col monthly-costs :cost)
                                   util/round)]
-          [:div
+          [:div {:class "space-y-6"}
            [:h1 "Yearly totals"]
            (-> {:Total_hours (-> (tab/sum-col costs :hours) util/round)
                 :Voluntary_hours (-> (tab/sum-col voluntary-costs :hours) util/round)
@@ -156,7 +161,7 @@
             person year
             (into [["Date" "Name" "Project" "Task" "Tags" "Hours" "Cost" "CPH"]]
                   (-> costs (derive-cost-per-hour config projects) tab/to-row-seq)))
-           [:hr]
+           [:div {:class "divider"}]
            [:h1 "Monthly totals"]
            (for [m (-> (range 1 13) vec rseq)
                  :let [worked (tab/filter-by costs {:month (str year '- m)})
@@ -167,20 +172,21 @@
                        breakdown (-> (derive-cost-per-hour worked config projects)
                                      (tab/select-cols [:project :task :tag :hours :cost :cph]))]
                  :when (> mtot 0)]
-             [:div
-              [:strong (util/month-name m)] " total bill for "
-              (util/dotname person) " is "
-              [:strong pay]
-              " for " (- mtot mvol)
-              " hours worked across "
-              (keep #(when (= (:month %) (str year '- m))
-                       (:days %))
-                    (:sheets timesheet))
-              " days, plus " mvol
-              " voluntary hours."
-              " (with 21% VAT added is " (+ pay (* pay 0.21)) ")"
-              [:div {:class "month-detail"}
-               (to-monthly-bill-table projects breakdown)]])]))
+             [:div {:class "card bg-base-100 shadow-sm"}
+              [:div {:class "card-body gap-3"}
+               [:strong (util/month-name m)] " total bill for "
+               (util/dotname person) " is "
+               [:strong pay]
+               " for " (- mtot mvol)
+               " hours worked across "
+               (keep #(when (= (:month %) (str year '- m))
+                        (:days %))
+                     (:sheets timesheet))
+               " days, plus " mvol
+               " voluntary hours."
+               " (with 21% VAT added is " (+ pay (* pay 0.21)) ")"
+               [:div {:class "month-detail overflow-x-auto"}
+                (to-monthly-bill-table projects breakdown)]]])]))
       (web/button-prev-year year person)]
      (f/when-failed [e]
        [:div (web/render-error (f/message e))

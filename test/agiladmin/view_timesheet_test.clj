@@ -1,7 +1,13 @@
 (ns agiladmin.view-timesheet-test
   (:require [agiladmin.view-timesheet :as view-timesheet]
+            [hiccup.core :as hiccup]
             [failjure.core]
             [midje.sweet :refer :all]))
+
+(fact "Timesheet upload form uses HTMX for progressive enhancement"
+      (let [html (hiccup/html view-timesheet/upload-form)]
+        html => (contains "hx-post=\"/timesheets/upload\"")
+        html => (contains "id=\"timesheet-workspace\"")))
 
 (fact "Timesheet upload rejects files above the configured size limit"
       (let [response (view-timesheet/upload

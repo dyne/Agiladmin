@@ -41,11 +41,38 @@
           :indent-objects? false
           :indent-arrays? false)))
 
+(def workspace-id "timesheet-workspace")
+
+(defn- workspace
+  [body]
+  [:div {:id workspace-id :class "space-y-6"} body])
+
+(defn- render-workspace
+  [request account body]
+  (let [fragment (workspace body)]
+    (if (web/htmx-request? request)
+      (web/render-fragment fragment)
+      (web/render account fragment))))
+
+(defn- action-form
+  [request url label fields class-name]
+  (let [attrs (cond-> {:action url
+                       :method "post"
+                       :class "inline-flex"}
+                (web/htmx-request? request)
+                (assoc :hx-post url
+                       :hx-target (str "#" workspace-id)
+                       :hx-swap "outerHTML"))]
+    (into
+     [:form attrs]
+     (concat fields
+             [[:input {:type "submit" :value label :class class-name}]]))))
+
 (defn textual-diff [left right]
-  [:div {:class "row"}
-   [:div {:class "col-md-5"}
+  [:div {:class "grid gap-4 lg:grid-cols-2"}
+   [:div {:class "rounded-box border border-base-300 bg-base-100 p-4 shadow-sm"}
     [:pre (str "\n" (with-out-str (print left)))]]
-   [:div {:class "col-md-5"}
+   [:div {:class "rounded-box border border-base-300 bg-base-100 p-4 shadow-sm"}
     [:pre {:id "display"}]
     [:script
      (str "\n"
@@ -69,11 +96,11 @@ window.onload = dodiff;\n")]]])
 
 (defn- hours-prepare-diff [data] (:rows data))
 (defn json-visual-diff [left right]
-  [:div {:class "timesheet-diff"}
-   [:div {:class "col-md-3 timesheet-old-json"}
+  [:div {:class "grid gap-4 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] timesheet-diff"}
+   [:div {:class "timesheet-old-json rounded-box border border-base-300 bg-base-100 p-4 shadow-sm"}
     (web/highlight-json
      (-> (:rows right) (json/generate-string {:pretty true})))]
-   [:div {:class "col-md-4" :id "visual"}]
+   [:div {:class "rounded-box border border-base-300 bg-base-100 p-4 shadow-sm" :id "visual"}]
    [:script
     (str "\n"
          "function jsondiff() {\n"
@@ -85,30 +112,38 @@ window.onload = dodiff;\n")]]])
          "window.onload = jsondiff;\n")]])
 
 (def upload-form
-  [:div {:class "container-fluid"}
-   [:h1 "Upload a new timesheet"]
-   [:p " Choose the file in your computer and click 'Submit' to
-proceed to validation."]
-   [:div {:class "form-group"}
-    [:form {:action "/timesheets/upload" :method "post"
-            :class "form-shell"
-            :enctype "multipart/form-data"}
-     [:fieldset {:class "fieldset btn btn-default btn-file btn-lg"}
-      [:input {:name "file" :type "file"}]]
-     ;; [:fieldset {:class "fieldset-submit"}
-     [:input {:class "btn btn-primary btn-lg"
-              :id "field-submit" :type "submit"
-              :name "submit" :value "submit"}]]]])
+  (workspace
+   [:div {:class "card mx-auto max-w-3xl bg-base-100 shadow-xl"}
+    [:div {:class "card-body gap-4"}
+     [:h1 {:class "card-title text-3xl"} "Upload a new timesheet"]
+     [:p "Choose the file in your computer and click 'Submit' to proceed to validation."]
+     [:form {:action "/timesheets/upload"
+             :method "post"
+             :class "space-y-4"
+             :enctype "multipart/form-data"
+             :hx-post "/timesheets/upload"
+             :hx-target (str "#" workspace-id)
+             :hx-swap "outerHTML"
+             :hx-encoding "multipart/form-data"}
+      [:input {:name "file"
+               :type "file"
+               :class "file-input file-input-bordered w-full"}]
+      [:input {:class "btn btn-primary btn-lg"
+               :id "field-submit" :type "submit"
+               :name "submit" :value "submit"}]]]]))
 
 (defn cancel [request config account]
   (f/if-let-ok? [tempfile (s/param request :tempfile)]
-    (web/render
+    (render-workspace
+     request
      account
-     [:div {:class (str "alert alert-danger") :role "alert"}
-      (str "Canceled upload of timesheet: " tempfile " ")
-      (str "("
-           (if-not (str/blank? tempfile) (io/delete-file tempfile))
-           ")")])
+     [:div {:class "space-y-4"}
+      [:div {:class "alert alert-warning shadow-sm" :role "alert"}
+       [:span (str "Canceled upload of timesheet: " tempfile " ")]
+       [:span (str "("
+                   (if-not (str/blank? tempfile) (io/delete-file tempfile))
+                   ")")]]
+      upload-form])
     (web/render-error-page (f/message tempfile))))
 
 (defn upload [request config account]
@@ -134,56 +169,51 @@ proceed to validation."]
            [ts (load-timesheet path)
             all-pjs (load-all-projects config)
             hours (map-timesheets [ts])]
-           (web/render
+           (render-workspace
+            request
             account
-            [:div {:class "container-fluid"}
-             [:div {:class "timesheet-dataset-contents"}
-              [:div {:class "alert alert-info"}
-               (str "Uploaded: " (fs/base-name path))]
-              ;; TODO: do not visualise submit button if diff is equal
-              (web/button-cancel-submit
-               {:btn-group-class "pull-right"
-                :cancel-url "/timesheets/cancel"
-                :cancel-params
-                (list (hf/hidden-field "tempfile" path))
-                :cancel-message (str "Upload operation canceled: " filename)
-                :submit-url "/timesheets/submit"
-                :submit-params
-                (list (hf/hidden-field "path" path))})
-              [:div {:class "container"}
-               [:ul {:class "nav nav-pills"}
-                [:li {:class "active"}
-                 [:a {:href "#diff" :data-toggle "pill" } "Differences"]]
-                [:li [:a {:href "#content" :data-toggle "pill" } "Contents"]]]
-               [:div {:class "tab-content clearfix"}
-          ;; -------------------------------------------------------
-          ;; DIFF (default tab
-          [:div {:class "tab-pane fade in active" :id "diff"}
-           [:h2 "Differences: old (to the left) and new (to the right)"]
-           (if (.exists
-                (io/file (str (conf/q config
-                                      [:agiladmin :budgets :path])
-                              (fs/base-name filename))))
-             ;; compare with old timesheet of same name
-             (f/attempt-all
-              [old-ts
-               (load-timesheet
-                (str (conf/q config [:agiladmin :budgets :path])
-                     (fs/base-name filename)))
-               old-hours (map-timesheets [old-ts])]
-              ;; ---------------
-              (textual-diff old-hours hours)
-              (f/when-failed [e]
-                (web/render-error
-                 (log/spy :error ["Error parsing old timesheet: " e]))))
-             ;; else - this timesheet did not exist before (new year)
-             [:div {:class "alert alert-info" :role "alert"}
-              "This is a new timesheet, no historical information available to compare"])]
-          ;; -------------------------------------------------------
-          ;; CONTENT tab
-          [:div {:class "tab-pane fade" :id "content"}
-           [:h2 "Contents of the new timesheet"]
-           (to-table (tab/drop-cols hours [:name]))]]]]])
+            [:div {:class "space-y-4 timesheet-dataset-contents"}
+             [:div {:class "flex flex-wrap items-center gap-3 rounded-box border border-info/30 bg-info/10 p-4 text-info-content shadow-sm"}
+              [:span {:class "font-semibold"} (str "Uploaded: " (fs/base-name path))]
+              [:div {:class "ml-auto flex flex-wrap gap-3"}
+               (action-form request
+                            "/timesheets/cancel"
+                            "Cancel"
+                            [(hf/hidden-field "tempfile" path)]
+                            "btn btn-error btn-lg")
+               (action-form request
+                            "/timesheets/submit"
+                            "Submit"
+                            [(hf/hidden-field "path" path)]
+                            "btn btn-success btn-lg")]]
+             (web/tabs
+              "timesheet-upload"
+              [{:id "diff"
+                :title "Differences"
+                :content [:div {:class "space-y-4"}
+                          [:h2 {:class "text-2xl font-semibold"} "Differences: old (to the left) and new (to the right)"]
+                          (if (.exists
+                               (io/file (str (conf/q config
+                                                     [:agiladmin :budgets :path])
+                                             (fs/base-name filename))))
+                            (f/attempt-all
+                             [old-ts
+                              (load-timesheet
+                               (str (conf/q config [:agiladmin :budgets :path])
+                                    (fs/base-name filename)))
+                              old-hours (map-timesheets [old-ts])]
+                             (textual-diff old-hours hours)
+                             (f/when-failed [e]
+                               (web/render-error
+                                (log/spy :error ["Error parsing old timesheet: " e]))))
+                            [:div {:class "alert alert-info shadow-sm" :role "alert"}
+                             "This is a new timesheet, no historical information available to compare"])]}
+               {:id "content"
+                :title "Contents"
+                :content [:div {:class "space-y-4"}
+                          [:h2 {:class "text-2xl font-semibold"} "Contents of the new timesheet"]
+                          [:div {:class "overflow-x-auto"}
+                           (to-table (tab/drop-cols hours [:name]))]]}])])
      ;; handle failjure of timesheet loading from the uploaded file
      (f/when-failed [e]
        (web/render-error-page
@@ -192,11 +222,13 @@ proceed to validation."]
                          (web/render-yaml e)])))))))))
 
 (defn- render-commit-message
-  [message]
-  (web/render
-   [:div {:class "container-fluid"}
-    [:div {:class "alert alert-info"}
-     message]]))
+  ([message]
+   (render-commit-message nil nil message))
+  ([request account message]
+   (let [body [:div {:class "alert alert-info shadow-sm"} message]]
+     (if request
+       (render-workspace request account body)
+       (web/render body)))))
 
 (defn- safe-load-repo
   [repo]
@@ -228,24 +260,26 @@ proceed to validation."]
       (let [repo (conf/q conf [:agiladmin :budgets :path])
             dst (str repo (fs/base-name path))]
         (if (not (and (seq repo) (.isDirectory (io/file repo))))
-          (render-commit-message
+          (render-commit-message req acct
            (str "Timesheet submit is unavailable until the budgets directory exists: " repo))
           (if-let [gitrepo (safe-load-repo repo)]
             (let [keypath (conf/q conf [:agiladmin :budgets :ssh-key])
                   base-path (archive-timesheet! gitrepo path dst keypath req)]
-              (web/render
-               [:div {:class "container-fluid"}
-                [:h1 dst]
-                [:div
+              (render-workspace
+               req
+               acct
+               [:div {:class "space-y-4"}
+                [:h1 {:class "text-3xl font-semibold"} dst]
+                [:div {:class "space-y-4"}
                  [:p (str "Timesheet archived: " base-path)]
                  (let [pname (util/timesheet-to-name base-path)
                        year (:year (util/now))]
                    (web/button "/person" (str "Go back to " pname)
                                (list (hf/hidden-field "person" pname)
                                      (hf/hidden-field "year" year))))
-                 [:h3 "Log of recent changes:"]
+                 [:h3 {:class "text-2xl font-semibold"} "Log of recent changes:"]
                  (web/render-git-log gitrepo)]]))
-            (render-commit-message
+            (render-commit-message req acct
              (str "Timesheet submit is unavailable until the budgets directory is a git repository: " repo)))))
       ;; else
       (web/render-error-page

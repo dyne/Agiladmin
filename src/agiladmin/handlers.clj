@@ -149,7 +149,7 @@
   (POST "/" request
         ;; generic endpoint for canceled operations
         (web/render (s/check-account @ring/config request)
-                    [:div {:class (str "alert alert-danger") :role "alert"}
+                    [:div {:class "alert alert-warning shadow-sm" :role "alert"}
                      (s/param request :message)]))
 
   (GET "/config" request
@@ -157,8 +157,8 @@
         (fn [req conf acct]
           (web/render
            acct
-           [:div {:class "container-fluid"}
-            [:div {:class "row-fluid"}
+           [:div {:class "space-y-6"}
+            [:div {:class "space-y-3"}
              [:h1 "SSH authentication keys"]
              [:div "Public: "
               [:pre
@@ -180,9 +180,10 @@
         (fn [req conf acct]
           (web/render
            acct
-           [:div {:class "container-fluid"}
+           [:div {:class "space-y-4"}
             [:form {:action "/config/edit"
-                    :method "post"}
+                    :method "post"
+                    :class "space-y-4"}
              [:h1 "Configuration editor"]
              (web/edit-edn conf)]]))
         (s/check request)))
@@ -192,7 +193,7 @@
          (fn [req conf acct]
            (web/render
             acct
-            [:div {:class "container-fluid"}
+            [:div {:class "space-y-4"}
              [:h1 "Saving configuration"]
              (web/highlight-yaml (get-in request [:params :editor]))]))
          (s/check request)))
