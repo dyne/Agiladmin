@@ -38,4 +38,6 @@
                       "2016")]
         (:body response) => (contains "Yearly totals")
         (:body response) => (contains "Monthly totals")
-        (:body response) => (contains "Luca-Pacioli")))
+        (:body response) => (contains "Luca-Pacioli")
+        (:body response) => (contains "Management and coordination")
+        (:body response) => (contains "<table class=\"sortable table\"><thead><tr><th>project</th>")))
