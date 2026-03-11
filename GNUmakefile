@@ -1,5 +1,6 @@
 CLOJURE ?= clj
-JAR ?= target/0.4.0-SNAPSHOT-standalone.jar
+AGILADMIN_VERSION ?= 0.4.0-SNAPSHOT
+JAR ?= target/$(AGILADMIN_VERSION)-standalone.jar
 
 .PHONY: help test test-pocketbase-integration run dev run-pocketbase build clean
 
@@ -39,7 +40,7 @@ run-pocketbase:
 	AGILADMIN_CONF=$(CONF) $(CLOJURE) -M:run
 
 build:
-	$(CLOJURE) -T:build uber
+	AGILADMIN_VERSION=$(AGILADMIN_VERSION) $(CLOJURE) -T:build uber
 	@printf 'Built %s\n' "$(JAR)"
 
 clean:

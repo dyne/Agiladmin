@@ -2,7 +2,9 @@
   (:require [clojure.tools.build.api :as b]))
 
 (def lib 'agiladmin/agiladmin)
-(def version "0.4.0-SNAPSHOT")
+(def version
+  (or (System/getenv "AGILADMIN_VERSION")
+      "0.4.0-SNAPSHOT"))
 (def class-dir "target/classes")
 (def basis (delay (b/create-basis {:project "deps.edn"})))
 (def uber-file (format "target/%s-standalone.jar" version))
