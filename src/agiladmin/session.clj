@@ -40,13 +40,21 @@
       :else
       (conj login {:admin false}))))
 
+(defn- render-check-failure
+  [request error]
+  (if-let [account (get-in request [:session :auth])]
+    (web/render account
+                [:div
+                 (web/render-error error)])
+    (web/render
+     [:div
+      (web/render-error error)
+      web/login-form])))
+
 (defn check [request fun]
   (f/attempt-all
    [config (check-config request)
     account (check-account config request)]
    (fun request config account)
-    (f/when-failed [e]
-      (web/render
-       [:div
-        (web/render-error (f/message e))
-        web/login-form]))))
+   (f/when-failed [e]
+     (render-check-failure request (f/message e)))))
