@@ -20,7 +20,6 @@
 (ns agiladmin.view-person
   (:require
    [agiladmin.core :refer :all]
-   [agiladmin.auth.core :as auth]
    [agiladmin.tabular :as tab]
    [agiladmin.utils :as util]
    [agiladmin.graphics :refer :all]
@@ -84,24 +83,11 @@
                                people)]
       (web/render
        account
-       [:div {:class "grid gap-6 lg:grid-cols-2"}
+       [:div {:class "space-y-4"}
         (web/filterable-button-list "persons-list"
                                     "Persons"
                                     "No persons match the current filter."
-                                    person-buttons)
-        [:div {:class "card bg-base-100 shadow-sm"}
-         [:div {:class "card-body"}
-          [:h2 "Newcomers"]
-          (f/if-let-failed?
-            [pending-users (auth/list-pending-users)]
-            (web/render-error (str "Unable to load pending users: "
-                                   (f/message pending-users)))
-            [:ul {:class "space-y-2"}
-             (for [{:keys [email name]} pending-users]
-               [:li
-                [:strong {:class "font-semibold"} (or name email)]
-                (when (and name email)
-                  [:span {:class "text-sm text-base-content/70"} (str " <" email ">")])])])]]]))))
+                                    person-buttons)]))))
 
 (defn download
   [request config account]

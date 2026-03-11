@@ -52,9 +52,12 @@
    (let [fields (cond
                   (nil? field) []
                   (and (seq? field) (every? vector? field)) field
-                  :else [field])]
+                  :else [field])
+         form-class (str "inline-flex max-w-full"
+                         (when (re-find #"(?:^|\s)w-full(?:\s|$)" type)
+                           " w-full"))]
    (apply hf/form-to
-          {:class "inline-flex"} [:post url]
+          {:class form-class} [:post url]
           (concat fields
                   [(hf/submit-button {:class type} text)])))))
 

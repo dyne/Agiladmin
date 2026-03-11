@@ -4,28 +4,12 @@
             [failjure.core]
             [midje.sweet :refer :all]))
 
-(fact "Admin personnel view renders pending PocketBase users"
-      (with-redefs [agiladmin.auth.core/list-pending-users
-                    (fn []
-                      [{:email "pending@example.org"
-                        :name "Pending User"
-                        :verified false}])]
-        (let [response (view-person/list-all
-                        {}
-                        {:agiladmin {:budgets {:path "test/assets/"}}}
-                        {:email "admin@example.org"
-                         :role "admin"})]
-          (:body response) => (contains "Pending User")
-          (:body response) => (contains "pending@example.org"))))
-
 (fact "Admin personnel view renders a compact filterable persons list"
       (with-redefs [agiladmin.utils/now (fn [] {:year 2026})
                     agiladmin.utils/list-files-matching
                     (fn [_ _]
                       [(java.io.File. "2026_timesheet_Ada-Lovelace.xlsx")
-                       (java.io.File. "2026_timesheet_Grace-Hopper.xlsx")])
-                    agiladmin.auth.core/list-pending-users
-                    (fn [] [])]
+                       (java.io.File. "2026_timesheet_Grace-Hopper.xlsx")])]
         (let [response (view-person/list-all
                         {}
                         {:agiladmin {:budgets {:path "ignored/"}}}
@@ -34,7 +18,9 @@
           (:body response) => (contains "data-text-filter=\"persons-list\"")
           (:body response) => (contains "Filter persons")
           (:body response) => (contains "Clear Persons filter")
-          (:body response) => (contains "data-text-filter-value=\"Ada-Lovelace\""))))
+          (:body response) => (contains "data-text-filter-value=\"Ada-Lovelace\"")
+          (:body response) => (contains "inline-flex max-w-full w-full")
+          (:body response) =not=> (contains "Newcomers"))))
 
 (fact "Personnel list rejects non-admin access"
       (let [response (view-person/list-all
@@ -43,17 +29,6 @@
                       {:email "user@example.org"
                        :role nil})]
         (:body response) => (contains "Unauthorized access")))
-
-(fact "Personnel list shows pending-user backend failures"
-      (with-redefs [agiladmin.auth.core/list-pending-users
-                    (fn []
-                      (failjure.core/fail "PocketBase unavailable."))]
-        (let [response (view-person/list-all
-                        {}
-                        {:agiladmin {:budgets {:path "test/assets/"}}}
-                        {:email "admin@example.org"
-                         :role "admin"})]
-          (:body response) => (contains "Unable to load pending users: PocketBase unavailable."))))
 
 (fact "Personnel download returns raw json when requested"
       (let [payload (json/write-str [["Date" "Hours"] ["2026-01" 10]])

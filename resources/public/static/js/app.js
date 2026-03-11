@@ -66,7 +66,9 @@
         return;
       }
 
-      var items = Array.from(list.querySelectorAll("[data-text-filter-item]"));
+      var items = Array.prototype.slice.call(
+        list.querySelectorAll("[data-text-filter-item]")
+      );
       var emptyState = list.querySelector("[data-text-filter-empty]");
 
       function update() {
@@ -109,7 +111,7 @@
     boot(document);
   });
 
-  document.body.addEventListener("htmx:afterSwap", function (event) {
+  document.addEventListener("htmx:afterSwap", function (event) {
     boot(event.target);
   });
 })();
