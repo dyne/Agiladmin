@@ -25,6 +25,7 @@
             [taoensso.timbre :as log]
             [failjure.core :as f]
             [agiladmin.ring :as ring]
+            [hiccup.core :as hiccup]
             [hiccup.page :as page]
             [hiccup.form :as hf]
             [clj-jgit.porcelain :as git]
@@ -40,6 +41,7 @@
 (declare render-error)
 (declare render-error-page)
 (declare render-static)
+(declare render-fragment)
 
 (defn q [req]
   "wrapper to retrieve parameters"
@@ -49,7 +51,7 @@
 (defn button
   ([url text] (button url text [:p]))
 
-  ([url text field] (button url text field "btn-secondary btn-lg"))
+  ([url text field] (button url text field "btn btn-primary"))
 
   ([url text field type]
    (let [fields (cond
@@ -57,33 +59,60 @@
                   (and (seq? field) (every? vector? field)) field
                   :else [field])]
    (apply hf/form-to
-          [:post url]
+          {:class "inline-flex"} [:post url]
           (concat fields
-                  [(hf/submit-button {:class (str "btn " type)} text)])))))
+                  [(hf/submit-button {:class type} text)])))))
 
 (defn button-prev-year [year person]
-  [:div {:class "col-lg-2"}
+  [:div {:class "w-full lg:w-1/4"}
    (button
     "/person"
     (str "Go to previous year ("(-> year Integer. dec)")")
     (list
      (hf/hidden-field "year" (-> year Integer. dec))
-     (hf/hidden-field "person" person)))])
+      (hf/hidden-field "person" person)))])
 
 (defn button-cancel-submit [argmap]
   [:div
-   {:class
-    (str "row col-md-6 btn-group btn-group-lg "
-         (:btn-group-class argmap))
+   {:class (str "flex flex-wrap justify-end gap-3 " (:btn-group-class argmap))
     :role "group"}
    (button
     (:cancel-url argmap) "Cancel"
     (:cancel-params argmap)
-    "btn-primary btn-lg btn-danger col-md-3")
+    "btn btn-error btn-lg")
    (button
     (:submit-url argmap) "Submit"
     (:submit-params argmap)
-    "btn-primary btn-lg btn-success col-md-3")])
+    "btn btn-success btn-lg")])
+
+(defn htmx-request?
+  [request]
+  (let [value (or (get-in request [:headers "hx-request"])
+                  (get-in request [:headers "HX-Request"]))]
+    (= "true" value)))
+
+(defn render-fragment
+  [body]
+  {:headers {"Content-Type" "text/html; charset=utf-8"}
+   :body (hiccup/html body)})
+
+(defn tabs
+  [group-id tabs]
+  [:div {:class "space-y-4" :data-tab-group group-id}
+   [:div {:class "tabs tabs-boxed flex w-full flex-wrap gap-2 bg-base-200 p-2"}
+    (for [[idx {:keys [id title]}] (map-indexed vector tabs)]
+      [:button {:type "button"
+                :class (str "tab min-w-max px-4 " (when (zero? idx) "tab-active"))
+                :data-tab-trigger id
+                :aria-controls id
+                :aria-selected (if (zero? idx) "true" "false")}
+       title])]
+   (for [[idx {:keys [id content]}] (map-indexed vector tabs)]
+     [:section {:id id
+                :class "rounded-box border border-base-300 bg-base-100 p-4 shadow-sm"
+                :data-tab-panel id
+                :hidden (when-not (zero? idx) true)}
+      content])])
 
 
 (defn reload-session [request]
@@ -98,37 +127,39 @@
              "text/html; charset=utf-8"}
    :body (page/html5
           (render-head)
-          [:body ;; {:class "static"}
+          [:body {:data-theme "nord"
+                  :class "min-h-screen bg-base-200 text-base-content"}
            navbar-guest
-           [:div {:class "container-fluid"} body]
+           [:main {:class "mx-auto w-full max-w-screen-2xl px-4 pb-12 pt-24 md:px-6"} body]
            (render-footer)])})
   ([account body]
    {:headers {"Content-Type"
               "text/html; charset=utf-8"}
     :body (page/html5
            (render-head)
-           [:body (if (empty? account)
+           [:body {:data-theme "nord"
+                   :class "min-h-screen bg-base-200 text-base-content"}
+            (if (empty? account)
                     navbar-guest
                     navbar-account)
-            [:div {:class "container-fluid"} body]
+            [:main {:class "mx-auto w-full max-w-screen-2xl px-4 pb-12 pt-24 md:px-6"} body]
             (render-footer)])}))
 
 
 (defn render-error
   "render an error message without ending the page"
   [err]
-  [:div {:class "alert alert-danger" :role "alert"}
-   [:span {:class "far fa-meh"
-           :aria-hidden "true" :style "padding: .5em"}]
-   [:span {:class "sr-only"} "Error:" ]
-   err])
+  [:div {:class "alert alert-error shadow-sm" :role "alert"}
+   [:span {:class "far fa-meh text-lg" :aria-hidden "true"}]
+   [:span {:class "sr-only"} "Error:"]
+   [:span err]])
 
 (defn render-error-page
   ([]    (render-error-page {} "Unknown"))
   ([err] (render-error-page {} err))
   ([session error]
    (render
-    [:div {:class "container-fluid"}
+    [:div {:class "space-y-4"}
      (render-error error)])))
 
 
@@ -151,8 +182,8 @@
     (page/include-js  "/static/js/dhtmlxgantt.js")
     (page/include-js  "/static/js/dhtmlxgantt_marker.js")
     (page/include-js  "/static/js/sorttable.js")
-    (page/include-js  "/static/js/jquery-3.2.1.min.js")
-    (page/include-js  "/static/js/bootstrap.min.js")
+    (page/include-js  "/static/js/htmx.min.js")
+    (page/include-js  "/static/js/app.js")
     (page/include-js  "/static/js/highlight.pack.js")
     (page/include-js  "/static/js/diff.js")
     (page/include-js  "/static/js/jsondiffpatch.min.js")
@@ -160,9 +191,8 @@
     (page/include-js  "/static/js/diff_match_patch_uncompressed.js")
 
     ;; cascade style sheets
-    (page/include-css "/static/css/bootstrap.min.css")
+    (page/include-css "/static/css/app.css")
     (page/include-css "/static/css/dhtmlxgantt.css")
-    (page/include-css "/static/css/bootstrap-theme.min.css")
     (page/include-css "/static/css/json-html.css")
     (page/include-css "/static/css/highlight-tomorrow.css")
     (page/include-css "/static/css/formatters-styles/html.css")
@@ -173,93 +203,82 @@
 
 (def navbar-guest
   [:nav
-   {:class "navbar navbar-default navbar-fixed-top navbar-expand-md navbar-expand-lg"}
-    [:div {:class "navbar-header"}
-     [:button {:class "navbar-toggle" :type "button"
-               :data-toggle "collapse"
-               :data-target "#navbarResponsive"
-               :aria-controls "navbarResponsive"
-               :aria-expanded "false"
-               :aria-label "Toggle navigation"}
-      [:span {:class "sr-only"} "Toggle navigation"]
-      [:span {:class "icon-bar"}]
-      [:span {:class "icon-bar"}]
-      [:span {:class "icon-bar"}]]
-     [:img {:src "/static/img/dyne-logo-small.png" :class "navbar-brand"}]
-     [:a {:class "navbar-brand far fa-handshake" :href "/"} "Agiladmin"]]
-    [:div {:class "collapse navbar-collapse" :id "navbarResponsive"}
-     [:ul {:class "nav navbar-nav hidden-sm ml-auto"}
-      ;; --
-      [:li {:class "divider" :role "separator"}]
-      [:li {:class "nav-item"}
-       [:a {:class "nav-link far fa-address-card"
-            :href "/login"} " Login"]]
-      ]]])
+   {:class "navbar fixed inset-x-0 top-0 z-40 border-b border-base-300 bg-base-100/95 px-4 shadow-sm backdrop-blur md:px-6"}
+   [:div {:class "flex-1 gap-3"}
+    [:img {:src "/static/img/dyne-logo-small.png"
+           :class "h-10 w-auto rounded-md bg-base-100 p-1"}]
+    [:a {:class "btn btn-ghost text-lg normal-case"
+         :href "/"} [:span {:class "far fa-handshake"}] " Agiladmin"]]
+   [:div {:class "flex-none"}
+    [:button {:type "button"
+              :class "btn btn-ghost btn-square md:hidden"
+              :data-nav-toggle "guest-nav"
+              :aria-controls "guest-nav"
+              :aria-expanded "false"
+              :aria-label "Toggle navigation"}
+     [:span {:class "far fa-bars"}]]
+    [:ul {:class "menu menu-horizontal hidden items-center gap-2 px-1 md:flex"}
+     [:li [:a {:class "gap-2" :href "/login"}
+           [:span {:class "far fa-address-card"}] "Login"]]]]
+   [:div {:id "guest-nav"
+          :class "hidden w-full basis-full pt-3 md:hidden"}
+    [:ul {:class "menu rounded-box bg-base-100 p-2 shadow"}
+     [:li [:a {:class "gap-2" :href "/login"}
+           [:span {:class "far fa-address-card"}] "Login"]]]]])
 
 (def navbar-account
-  [:nav {:class "navbar navbar-default navbar-fixed-top navbar-expand-lg"}
-
-    [:div {:class "navbar-header"}
-     [:button {:class "navbar-toggle" :type "button"
-               :data-toggle "collapse" :data-target "#navbarResponsive"
-               :aria-controls "navbarResponsive" :aria-expanded "false"
-               :aria-label "Toggle navigation"}
-      [:span {:class "sr-only"} "Toggle navigation"]
-      [:span {:class "icon-bar"}]
-      [:span {:class "icon-bar"}]
-      [:span {:class "icon-bar"}]]
-     [:img {:src "/static/img/dyne-logo-small.png" :class "navbar-brand"}]
-     [:a {:class "navbar-brand far fa-handshake" :href "/"} "Agiladmin"]]
-
-    [:div {:class "collapse navbar-collapse" :id "navbarResponsive"}
-     [:ul {:class "nav navbar-nav hidden-sm ml-auto"}
-      ;; --
-      [:li {:class "divider" :role "separator"}]
-      [:li {:class "nav-item"}
-       [:a {:class "nav-link far fa-address-card"
-            :href "/persons/list"} " Personnel"]]
-      [:li {:class "nav-item"}
-       [:a {:class "nav-link far fa-paper-plane"
-            :href "/projects/list"} " Projects"]]
-      [:li {:class "nav-item"}
-       [:a {:class "nav-link far fa-plus-square"
-            :href "/timesheets"} " Upload"]]
-      [:li {:class "nav-item"}
-       [:a {:class "nav-link far fa-save"
-            :href "/reload"} " Reload"]]
-      ;; --
-      [:li {:role "separator" :class "divider"} ]
-      [:li {:class "nav-item"}
-       [:a {:class "nav-link far fa-file-code"
-            :href "/config"} " Configuration"]]
-      ]]])
+  [:nav {:class "navbar fixed inset-x-0 top-0 z-40 border-b border-base-300 bg-base-100/95 px-4 shadow-sm backdrop-blur md:px-6"}
+   [:div {:class "flex-1 gap-3"}
+    [:img {:src "/static/img/dyne-logo-small.png"
+           :class "h-10 w-auto rounded-md bg-base-100 p-1"}]
+    [:a {:class "btn btn-ghost text-lg normal-case"
+         :href "/"} [:span {:class "far fa-handshake"}] " Agiladmin"]]
+   [:div {:class "flex-none"}
+    [:button {:type "button"
+              :class "btn btn-ghost btn-square md:hidden"
+              :data-nav-toggle "account-nav"
+              :aria-controls "account-nav"
+              :aria-expanded "false"
+              :aria-label "Toggle navigation"}
+     [:span {:class "far fa-bars"}]]
+    [:ul {:class "menu menu-horizontal hidden items-center gap-2 px-1 md:flex"}
+     [:li [:a {:class "gap-2" :href "/persons/list"} [:span {:class "far fa-address-card"}] "Personnel"]]
+     [:li [:a {:class "gap-2" :href "/projects/list"} [:span {:class "far fa-paper-plane"}] "Projects"]]
+     [:li [:a {:class "gap-2" :href "/timesheets"} [:span {:class "far fa-plus-square"}] "Upload"]]
+     [:li [:a {:class "gap-2" :href "/reload"} [:span {:class "far fa-save"}] "Reload"]]
+     [:li [:a {:class "gap-2" :href "/config"} [:span {:class "far fa-file-code"}] "Configuration"]]]]
+   [:div {:id "account-nav"
+          :class "hidden w-full basis-full pt-3 md:hidden"}
+    [:ul {:class "menu rounded-box bg-base-100 p-2 shadow"}
+     [:li [:a {:class "gap-2" :href "/persons/list"} [:span {:class "far fa-address-card"}] "Personnel"]]
+     [:li [:a {:class "gap-2" :href "/projects/list"} [:span {:class "far fa-paper-plane"}] "Projects"]]
+     [:li [:a {:class "gap-2" :href "/timesheets"} [:span {:class "far fa-plus-square"}] "Upload"]]
+     [:li [:a {:class "gap-2" :href "/reload"} [:span {:class "far fa-save"}] "Reload"]]
+     [:li [:a {:class "gap-2" :href "/config"} [:span {:class "far fa-file-code"}] "Configuration"]]]]])
 
 (defn render-footer []
-  [:footer {:class "row" :style "margin: 20px"}
-   [:hr]
-
-   [:div {:class "footer col-lg-3"}
-    [:img {:src "/static/img/AGPLv3.png" :style "margin-top: 2.5em"
-           :alt "Affero GPLv3 License"
-           :title "Affero GPLv3 License"} ]]
-
-   [:div {:class "footer col-lg-3"}
+  [:footer {:class "mx-auto mt-12 w-full max-w-screen-2xl border-t border-base-300 px-4 py-8 md:px-6"}
+   [:div {:class "grid gap-6 md:grid-cols-3 md:items-end"}
+    [:div {:class "footer"}
+     [:img {:src "/static/img/AGPLv3.png" :class "h-auto max-w-40"
+            :alt "Affero GPLv3 License"
+            :title "Affero GPLv3 License"}]]
+    [:div {:class "footer"}
     [:a {:href "https://www.dyne.org"}
      [:img {:src "/static/img/swbydyne.png"
             :alt   "Software by Dyne.org"
             :title "Software by Dyne.org"}]]]
-
-   [:div {:class "footer col-lg-3"}
-    "For enquiries please contact Manuela Annibali
-    &lt;manuela@dyne.org&gt;"]])
+    [:div {:class "footer text-sm text-base-content/70"}
+     "For enquiries please contact Manuela Annibali &lt;manuela@dyne.org&gt;"]]])
 
 (defn render-static [body]
   (page/html5 (render-head)
-              [:body {:class "fxc static"}
+              [:body {:class "min-h-screen bg-base-200 text-base-content"
+                      :data-theme "nord"}
 
                navbar-guest
 
-               [:div {:class "container"} body]
+               [:main {:class "mx-auto w-full max-w-screen-xl px-4 pb-12 pt-24"} body]
 
                (render-footer)
                ]))
@@ -306,8 +325,8 @@
 (defn edit-edn
   "renders an editor for the edn in yaml format"
   [data]
-  [:div;; {:class "form-group"}
-   [:textarea {:class "form-control"
+  [:div {:class "space-y-4"}
+   [:textarea {:class "textarea textarea-bordered min-h-80 w-full font-mono text-sm"
                :rows "20" :data-editor "yaml"
                :id "config" :name "editor"}
     (yaml/generate-string data)]
@@ -318,7 +337,7 @@
    ;; code to embed the ace editor on all elements in page
    ;; that contain the attribute "data-editor" set to the
    ;; mode language of choice
-   [:input {:class "btn btn-success btn-lg pull-top"
+   [:input {:class "btn btn-success btn-lg"
             :type "submit" :value "submit"}]])
 
 (defn render-git-log
@@ -334,43 +353,41 @@
   (slurp (io/resource "public/static/README.html")))
 
 (defonce login-form
-  [:div
-   [:h1 "Login into Agiladmin"
-    [:form {:action "/login"
-            :method "post"}
-     [:input {:type "text" :name "email"
-              :placeholder "Email"
-              :class "form-control"
-              :style "margin-top: 1em"}]
-     [:input {:type "password" :name "password"
-              :placeholder "Password"
-              :class "form-control"
-              :style "margin-top: 1em"}]
-     [:input {:type "submit" :value "Login"
-              :class "btn btn-primary btn-lg btn-block"
-              :style "margin-top: 1em"}]]]])
+  [:div {:class "mx-auto max-w-lg"}
+   [:div {:class "card bg-base-100 shadow-xl"}
+    [:div {:class "card-body gap-4"}
+     [:h1 {:class "card-title text-3xl"} "Login into Agiladmin"]
+     [:form {:action "/login"
+             :method "post"
+             :class "space-y-4"}
+      [:input {:type "text" :name "email"
+               :placeholder "Email"
+               :class "input input-bordered w-full"}]
+      [:input {:type "password" :name "password"
+               :placeholder "Password"
+               :class "input input-bordered w-full"}]
+      [:input {:type "submit" :value "Login"
+               :class "btn btn-primary btn-lg w-full"}]]]]])
 
 (defonce signup-form
-  [:div
-   [:h1 "Sign Up Agiladmin"
-    [:form {:action "/signup"
-            :method "post"}
-     [:input {:type "text" :name "name"
-              :placeholder "Display name"
-              :class "form-control"
-              :style "margin-top: 1em"}]
-     [:input {:type "text" :name "email"
-              :placeholder "Email"
-              :class "form-control"
-              :style "margin-top: 1em"}]
-     [:input {:type "password" :name "password"
-              :placeholder "Password"
-              :class "form-control"
-              :style "margin-top: 1em"}]
-     [:input {:type "password" :name "repeat-password"
-              :placeholder "Repeat password"
-              :class "form-control"
-              :style "margin-top: 1em"}]
-     [:input {:type "submit" :value "Sign Up"
-              :class "btn btn-primary btn-lg btn-block"
-              :style "margin-top: 1em"}]]]])
+  [:div {:class "mx-auto max-w-lg"}
+   [:div {:class "card bg-base-100 shadow-xl"}
+    [:div {:class "card-body gap-4"}
+     [:h1 {:class "card-title text-3xl"} "Sign Up Agiladmin"]
+     [:form {:action "/signup"
+             :method "post"
+             :class "space-y-4"}
+      [:input {:type "text" :name "name"
+               :placeholder "Display name"
+               :class "input input-bordered w-full"}]
+      [:input {:type "text" :name "email"
+               :placeholder "Email"
+               :class "input input-bordered w-full"}]
+      [:input {:type "password" :name "password"
+               :placeholder "Password"
+               :class "input input-bordered w-full"}]
+      [:input {:type "password" :name "repeat-password"
+               :placeholder "Repeat password"
+               :class "input input-bordered w-full"}]
+      [:input {:type "submit" :value "Sign Up"
+               :class "btn btn-primary btn-lg w-full"}]]]]])
