@@ -19,7 +19,6 @@
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 (ns agiladmin.view-project
-  (:refer-clojure :exclude [sort])
   (:require
    [clojure.java.io :as io]
    [clojure.string :refer [trim]]

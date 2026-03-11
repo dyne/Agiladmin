@@ -1,8 +1,7 @@
 CLOJURE ?= clj
 JAR ?= target/0.4.0-SNAPSHOT-standalone.jar
-DEV_AUTH ?= 0
 
-.PHONY: help test test-pocketbase-integration run dev dev-auth run-pocketbase build clean
+.PHONY: help test test-pocketbase-integration run dev run-pocketbase build clean
 
 help:
 	@printf '%s\n' \
@@ -11,7 +10,6 @@ help:
 	  '  make test-pocketbase-integration  Run opt-in live PocketBase integration tests' \
 	  '  make run    Start the web application with dev auth fallback' \
 	  '  make dev    Start with request-time code reload enabled' \
-	  '  make dev-auth  Start with request-time code reload and dev auth users' \
 	  '  make run-pocketbase CONF=doc/agiladmin.pocketbase.yaml  Start with a PocketBase config' \
 	  '  make build  Build the standalone uberjar' \
 	  '  make clean  Remove build outputs'
@@ -33,9 +31,6 @@ run:
 	AGILADMIN_DEV_AUTH=1 $(CLOJURE) -M:run
 
 dev:
-	AGILADMIN_CONF=$(CONF) AGILADMIN_DEV_AUTH=$(DEV_AUTH) AGILADMIN_DEV_RELOAD=1 $(CLOJURE) -M:run
-
-dev-auth:
 	AGILADMIN_DEV_AUTH=1 AGILADMIN_DEV_RELOAD=1 $(CLOJURE) -M:run
 
 CONF ?= doc/agiladmin.pocketbase.yaml
