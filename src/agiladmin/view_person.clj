@@ -18,6 +18,7 @@
 ;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 (ns agiladmin.view-person
+  (:refer-clojure :exclude [sort])
   (:require
    [agiladmin.core :refer :all]
    [agiladmin.auth.core :as auth]
