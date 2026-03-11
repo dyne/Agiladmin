@@ -21,8 +21,14 @@
                                   :record {:id "user-1"
                                            :email "user@example.org"
                                            :name "User Name"
-                                           :admin true
                                            :verified true}}}
+                          "http://127.0.0.1:8090/api/collections/users/records/user-1"
+                          {:status 200
+                           :body {:id "user-1"
+                                  :email "user@example.org"
+                                  :name "User Name"
+                                  :admin true
+                                  :verified true}}
                           "http://127.0.0.1:8090/api/collections/users/records"
                           (if (= :post (:method request))
                             {:status 200
@@ -74,6 +80,13 @@
             :url "http://127.0.0.1:8090/api/collections/users/auth-with-password"
             :form-params {:identity "user@example.org"
                           :password "pw"}}
+           {:method :post
+            :url "http://127.0.0.1:8090/api/collections/_superusers/auth-with-password"
+            :form-params {:identity "admin@example.org"
+                          :password "secret"}}
+           {:method :get
+            :url "http://127.0.0.1:8090/api/collections/users/records/user-1"
+            :headers {"Authorization" "Bearer admin-token"}}
            {:method :post
             :url "http://127.0.0.1:8090/api/collections/users/records"
             :form-params {:email "user@example.org"
