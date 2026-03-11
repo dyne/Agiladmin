@@ -12,3 +12,7 @@ agiladmin.yaml
 budgets/
 pb_data/
 node_modules/
+.venv
+.envrc
+__pycache__
+*.xlsx
