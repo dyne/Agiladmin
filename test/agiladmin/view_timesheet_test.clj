@@ -1,6 +1,63 @@
 (ns agiladmin.view-timesheet-test
   (:require [agiladmin.view-timesheet :as view-timesheet]
+            [failjure.core]
             [midje.sweet :refer :all]))
+
+(fact "Timesheet upload rejects files above the configured size limit"
+      (let [response (view-timesheet/upload
+                      {:params {:file {:size 500001
+                                       :filename "upload.xlsx"
+                                       :tempfile "/tmp/upload.xlsx"}}}
+                      {}
+                      {:email "admin"})]
+        (:body response) => (contains "File too big in upload.")))
+
+(fact "Timesheet upload surfaces spreadsheet parse failures"
+      (with-redefs [clojure.java.io/copy (fn [& _] nil)
+                    clojure.java.io/delete-file (fn [& _] nil)
+                    clojure.java.io/file
+                    (fn
+                      ([path]
+                       (proxy [java.io.File] [path]
+                         (exists [] (= path "/tmp/upload.xlsx"))))
+                      ([parent child]
+                       (proxy [java.io.File] [(str parent "/" child)]
+                         (exists [] false))))
+                    agiladmin.core/load-timesheet (fn [_]
+                                                    (failjure.core/fail "Spreadsheet is invalid."))]
+        (let [response (view-timesheet/upload
+                        {:params {:file {:size 1024
+                                         :filename "upload.xlsx"
+                                         :tempfile "/tmp/upload.xlsx"}}}
+                        {:agiladmin {:budgets {:path "budgets/"}}}
+                        {:email "admin"})]
+          (:body response) => (contains "Error parsing timesheet")
+          (:body response) => (contains "Spreadsheet is invalid."))))
+
+(fact "Timesheet upload explains when there is no historical file to diff against"
+      (with-redefs [clojure.java.io/copy (fn [& _] nil)
+                    clojure.java.io/delete-file (fn [& _] nil)
+                    clojure.java.io/file
+                    (fn
+                      ([path]
+                       (proxy [java.io.File] [path]
+                         (exists [] (= path "/tmp/upload.xlsx"))))
+                      ([parent child]
+                       (proxy [java.io.File] [(str parent "/" child)]
+                         (exists [] false))))
+                    agiladmin.core/load-timesheet (fn [_] {:sheets []})
+                    agiladmin.core/load-all-projects (fn [_] {})
+                    agiladmin.core/map-timesheets (fn [& _] {:rows []})
+                    incanter.core/sel (fn [hours & _] hours)
+                    agiladmin.graphics/to-table (fn [_] [:table "hours"])]
+        (let [response (view-timesheet/upload
+                        {:params {:file {:size 1024
+                                         :filename "upload.xlsx"
+                                         :tempfile "/tmp/upload.xlsx"}}}
+                        {:agiladmin {:budgets {:path "budgets/"}}}
+                        {:email "admin"})]
+          (:body response) => (contains "This is a new timesheet, no historical information available to compare")
+          (:body response) => (contains "Uploaded: upload.xlsx"))))
 
 (fact "Timesheet submit explains when the budgets directory is missing"
       (with-redefs [clojure.java.io/file
@@ -27,3 +84,15 @@
                         {:agiladmin {:budgets {:path "budgets/"}}}
                         {:email "admin"})]
           (:body response) => (contains "Timesheet submit is unavailable until the budgets directory is a git repository: budgets/"))))
+
+(fact "Timesheet submit reports a missing uploaded file"
+      (with-redefs [clojure.java.io/file
+                    (fn [path]
+                      (proxy [java.io.File] [path]
+                        (exists [] false)
+                        (isDirectory [] false)))]
+        (let [response (view-timesheet/commit
+                        {:params {:path "/tmp/upload.xlsx"}}
+                        {:agiladmin {:budgets {:path "budgets/"}}}
+                        {:email "admin"})]
+          (:body response) => (contains "Where is this file gone?! /tmp/upload.xlsx"))))
