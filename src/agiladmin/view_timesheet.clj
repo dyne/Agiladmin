@@ -28,18 +28,10 @@
    [agiladmin.config :as conf]
    [agiladmin.session :as s]
    [taoensso.timbre :as log]
-   [cheshire.core :as json]
    [failjure.core :as f]
    [hiccup.form :as hf]
    [me.raynes.fs :as fs]
    [clj-jgit.porcelain :as git]))
-
-(def json-dataset-pp
-  (json/create-pretty-printer
-   (assoc json/default-pretty-print-options
-          :line-break " "
-          :indent-objects? false
-          :indent-arrays? false)))
 
 (def workspace-id "timesheet-workspace")
 
@@ -94,23 +86,6 @@ display.appendChild(fragment);\n
 }\n
 window.onload = dodiff;\n")]]])
 
-(defn- hours-prepare-diff [data] (:rows data))
-(defn json-visual-diff [left right]
-  [:div {:class "grid gap-4 xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] timesheet-diff"}
-   [:div {:class "timesheet-old-json rounded-box border border-base-300 bg-base-100 p-4 shadow-sm"}
-    (web/highlight-json
-     (-> (:rows right) (json/generate-string {:pretty true})))]
-   [:div {:class "rounded-box border border-base-300 bg-base-100 p-4 shadow-sm" :id "visual"}]
-   [:script
-    (str "\n"
-         "function jsondiff() {\n"
-         " var left = " (-> left hours-prepare-diff json/generate-string) ";\n"
-         " var right = " (-> right hours-prepare-diff json/generate-string) ";\n"
-         " var delta = jsondiffpatch.diff(left,right);\n"
-         " jsondiffpatch.formatters.html.hideUnchanged();"
-         " document.getElementById('visual').innerHTML = jsondiffpatch.formatters.html.format(delta, left);\n}\n"
-         "window.onload = jsondiff;\n")]])
-
 (def upload-form
   (workspace
    [:div {:class "card mx-auto max-w-3xl bg-base-100 shadow-xl"}
@@ -157,7 +132,7 @@ window.onload = dodiff;\n")]]])
       ;; TODO: put in config
       (web/render-error-page params "File too big in upload.")
       :else
-      (let [file (io/copy tempfile (io/file "/tmp" filename))
+      (let [_ (io/copy tempfile (io/file "/tmp" filename))
             path (str "/tmp/" filename)]
         (io/delete-file tempfile)
         (if (not (.exists (io/file path)))
@@ -167,7 +142,6 @@ window.onload = dodiff;\n")]]])
           ;; else load into dataset
           (f/attempt-all
            [ts (load-timesheet path)
-            all-pjs (load-all-projects config)
             hours (map-timesheets [ts])]
            (render-workspace
             request
