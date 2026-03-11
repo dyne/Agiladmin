@@ -1,275 +1,232 @@
 # Agiladmin
 
-<a href="https://www.dyne.org"><img
-	src="https://secrets.dyne.org/static/img/swbydyne.png"
-		alt="software by Dyne.org"
-			title="software by Dyne.org" class="pull-right"></a>
+Agiladmin is a Clojure web application for payroll, timesheet, and
+project administration. It imports monthly `.xlsx` timesheets, loads
+project definitions from YAML files in a Git-backed budgets
+repository, computes hours and costs, and renders HTML reports for
+personnel and projects.
 
+The current codebase targets `org.clojure/clojure` `1.12.4` and starts
+with the Clojure CLI. Authentication is backend-driven: PocketBase is
+supported for real deployments, and a development-only fallback
+backend is available for local manual testing.
 
-[![Build Status](https://travis-ci.org/dyne/Agiladmin.svg?branch=master)](https://travis-ci.org/dyne/Agiladmin)
+![](https://files.dyne.org/software_by_dyne.png)
 
+## Current State
 
-A cross-platform application for payroll administration. Spreadsheet
-based environment for processing timesheets through project
-administration, fit for use by small and medium organisations and
-enterprises.
+- Runtime: Ring + Compojure on Jetty
+- Data processing: Incanter datasets, Docjure / Apache POI, YAML files
+- Storage model:
+  - project metadata and uploaded spreadsheets live in a Git-managed budgets directory
+  - authentication is handled through a backend abstraction, with PocketBase currently implemented
+- Build: Clojure CLI with `deps.edn`
+- Tests: Midje
 
-Agiladmin is used internally at Dyne.org to document working hours,
-calculate budgets and pay co-workers based on monthly efforts.
+The app is old and fairly stateful. Startup performs real side effects:
 
-Agiladmin accepts and renders `xlsx` files to ease the integration with
-the workflow of expert financial admins without disrupting their
-tooling. It adopts Git as a backend to synchronise the collection of
-timesheets. It leverages the power of Clojure in data-centric
-applications to allow easy generation and customisation of graphics
-and reports related to personnel and projects.
+- configuration is loaded from YAML
+- an SSH keypair is generated if the configured private key does not exist
+- the authentication backend is initialized and health-checked
 
-Agiladmin should be considered software in ALPHA stage and for now is
-only used internally at Dyne.org to manage research projects according
-to the EU Horizon 2020 financial guidelines.
+## Requirements
 
-Users should consider this a technological preview and Dyne.org staff
-may or may not be able to help adopting this software at this
-stage. We are working on more documentation and once in BETA stage we
-will offer training and support.
+- Java and the Clojure CLI
+- a writable budgets Git checkout or clone target
+- a valid `agiladmin.yaml` configuration file, or an explicit config path via `AGILADMIN_CONF`
+- for real auth flows: a reachable PocketBase instance
 
-## Getting started
+## Running
 
-There are two ways to start Agiladmin, one is using docker and is
-recommended for development, another is locally using the Clojure CLI
-and is recommended for production.
+The main entry point is:
 
-### Development setup with docker
-
-Since agiladmin requires the JVM and a PocketBase instance for user
-authentication it is handy to use docker to set it up for preview and
-for development. The procedure follows:
-
-```
-git clone https://github.com/dyne/agiladmin
-git clone https://github.com/dyne/docker-dyne-software
-cd docker-dyne-software/agiladmin
-./build
-```
-
-At this point the agiladmin docker is built on your system, tagged as
-`dyne/agiladmin:latest`. To run it using as sourcecode the local
-directory of agiladmin, so that modifications can go live while
-coding, use:
-```
-./devel /home/user/path/to/agiladmin
-```
-This command will start the local copy of agiladmin source inside the
-docker and make the port `3000` reachable to connect from the host.
-
-The source of agiladmin will still need some configurations in order
-to activate projects and a `budgets` repository with excel sheets and
-project configurations. Refer to the next section for details.
-
-If an instance of Agiladmin is already setup then it can be cloned
-locally for testing and development simply going on the
-`Configuration` tab and communicating the ssh public key to the admin
-of the budgets git repository. Then Agiladmin should be configured
-with that git repository.
-
-### Production setup with the Clojure CLI
-
-This repository now targets `org.clojure/clojure` `1.12.4` through
-`deps.edn`. To start agiladmin locally, install the Clojure CLI and
-run:
-
-```
+```sh
 clj -M:run
 ```
 
-To execute the Midje suite with the same CLI setup, run:
+That runs `agiladmin.main`, which initializes the app and starts Jetty with the host and port from config.
 
-```
-clj -M:test
+### Local Development With Dev Auth
+
+For manual testing without PocketBase:
+
+```sh
+make run
 ```
 
-For local manual testing, `make run` enables a development auth backend
-when no PocketBase configuration is available. Use:
+This sets `AGILADMIN_DEV_AUTH=1` and enables a simple in-memory development auth backend.
+
+Use these credentials:
 
 - username: `admin`
 - password: `admin`
 
-This fallback is only enabled by `make run` via `AGILADMIN_DEV_AUTH=1`.
+The dev auth backend only supports sign-in. Sign-up and pending-user flows are intentionally disabled there.
 
-To start against a real PocketBase instance instead, use:
+### Running With PocketBase
+
+The repository ships an example config at [doc/agiladmin.pocketbase.yaml](/home/jrml/devel/planb-agiladmin/doc/agiladmin.pocketbase.yaml).
+
+Run with it using:
 
 ```sh
 make run-pocketbase CONF=doc/agiladmin.pocketbase.yaml
 ```
 
-Adjust [`doc/agiladmin.pocketbase.yaml`](/home/jrml/devel/planb-agiladmin/doc/agiladmin.pocketbase.yaml) for your own budgets repo, project list, and PocketBase superuser credentials.
+Or directly:
 
-This application expects a configuration file to be present in the base of its source directory, called `agiladmin.yaml`, example below:
-
-```yaml
-# list of projects administered by agiladmin
-# for each name there must be an equivalent config file
-# in the configured budgets repository.
-# see below for an example project config file
-projects:
-  - TINFOIL
-  - DEVUAN
-  - ADMIN
-
-# settings for the webserver running agiladmin
-webserver:
-  anti-forgery: false
-  ssl-redirect: false
-  port: 8000
-  host: localhost
-
-budgets:
-  # this is a git repository where all budgets are stored
-  # agiladmin creates commits on the git and reads from it
-  git: ssh://git@git.onmy.org/admin/budgets
-  
-  # this is the name of the ssh private key authorised to
-  # access the git repository above. If not present will be
-  # generated by agiladmin, the public part available on its
-  # web interface under the "config" section
-  ssh-key: id_rsa
-
-  # this is where the budget git repo is cloned, relative to
-  # the sourcecode folder of agiladmin
-  path: budgets/
-
-source:
-  # if automatic updates are activated, agiladmin will update
-  # its code from this git repository
-  git: https://github.com/dyne/agiladmin
-  update: no
-
-# authentication configuration (PocketBase)
-pocketbase:
-  base-url: http://127.0.0.1:8090
-  users-collection: users
-  superuser-email: admin@example.org
-  superuser-password: changeme
+```sh
+AGILADMIN_CONF=doc/agiladmin.pocketbase.yaml clj -M:run
 ```
 
-PocketBase setup requirements:
+PocketBase is optional in config, but without either PocketBase or `AGILADMIN_DEV_AUTH=1`, authentication is not initialized and login will not work.
 
-- start a PocketBase server reachable from `pocketbase.base-url`
-- create an auth collection named `users` or set `users-collection` to the chosen auth collection name
-- enable email/password sign-in for that auth collection
-- configure PocketBase SMTP and verification email delivery
-- create a PocketBase superuser and copy its credentials into `superuser-email` and `superuser-password`
+## Testing
 
-Agiladmin keeps the browser session locally, but user records, passwords,
-verification state, and pending-user queries now come from PocketBase.
+Run the test suite with:
 
-Each project should also have its own configuration file, a commented
-example below:
+```sh
+clj -M:test
+```
+
+Or:
+
+```sh
+make test
+```
+
+The current test suite covers:
+
+- config loading and validation
+- spreadsheet ingestion and cost derivation
+- auth backends and session behavior
+- selected view logic
+- `ring/init` startup behavior
+
+It does not comprehensively cover route behavior, Git push side effects, or frontend rendering.
+
+## Building
+
+Build the standalone jar with:
+
+```sh
+make build
+```
+
+This produces:
+
+```text
+target/0.4.0-SNAPSHOT-standalone.jar
+```
+
+## Configuration
+
+By default the app looks for `agiladmin.yaml` in standard locations,
+including the current working directory. You can also point to an
+explicit YAML file path with `AGILADMIN_CONF`.
+
+Example:
 
 ```yaml
-# this is a small project example for agiladmin, to be placed
-# in the budgets repository and called with the same project
-# name as specified in the configuration, plus .yaml extension
-DYNE:
-  # date when the project started
-  start_date: 01-01-1999
-  # duration in months
-  duration: 9999
-  # average cost per hour
-  cph: 30
+appname: agiladmin
 
-  # individual rates per hour
+agiladmin:
+  webserver:
+    host: localhost
+    port: 8000
+    anti-forgery: false
+    ssl-redirect: false
+
+  budgets:
+    git: ssh://git@example.org/admin-budgets
+    ssh-key: id_rsa
+    path: budgets/
+
+  projects:
+    - CORE
+    - ADMIN
+
+  source:
+    git: https://github.com/dyne/agiladmin
+    update: false
+
+  pocketbase:
+    base-url: http://127.0.0.1:8090
+    users-collection: users
+    superuser-email: admin@example.org
+    superuser-password: change-me
+```
+
+Notes:
+
+- `budgets.ssh-key` is the private key path used for Git access; if it does not exist, Agiladmin generates a new keypair and exposes the public key in the `/config` page
+- `pocketbase` is optional only if you are using dev auth locally
+
+## Project Configuration
+
+Each project listed in `agiladmin.projects` must have a corresponding
+YAML file in the budgets path, usually `<PROJECT>.yaml`.
+
+Minimal example:
+
+```yaml
+CORE:
+  start_date: 01-01-2025
+  duration: 12
+  cph: 50
+
   rates:
-    L.Blissett: 40
-    D.Maver: 30	
+    A.User: 55
+    B.User: 45
 
-  # empty list of project tasks
   tasks: []
 ```
 
-A more complex project may contain also tasks with descriptions, start dates, duration and paid person-months (pm). In such cases the projects will have a "gantt" chart rendered to indicate the progress. Here an example of such a configuration:
+Task-based example:
 
 ```yaml
-SOFTWARE:
-  start_date: 01-12-2016
-  duration: 36
-  cph: 46.66
+CORE:
+  start_date: 01-01-2025
+  duration: 12
+  cph: 50
 
   rates:
-    L.Blissett: 50
-    D.Maver: 43
+    A.User: 55
 
   tasks:
-    - id: T1.1
-      text: Distributed architecture specifications
-      start_date: 01-12-2016
-      duration: 36
-      pm: 2
-
-    - id: T1.2
-      text: Privacy Design Strategies
-      start_date: 01-12-2016
-      duration: 24
+    - id: T1
+      text: Coordination
+      start_date: 01-01-2025
+      duration: 12
       pm: 1
-
-    - id: T1.3
-      text: Lean methodology - use cases and requirements
-      pm: 1
-      start_date: 01-12-2016
-      duration: 36
-
-    - id: T4.5
-      text: Lean testing, continous integration, interoperability 
-      pm: 2
-      start_date: 01-01-2018
-      duration: 24
-
-    - id: T5.1
-      text: Pilots specifications and implementation
-      pm: 2
-      start_date: 01-07-2017
-      duration: 30
-
-    - id: T6.1
-      text: Dissemination, Exploitation & Impact Assessment Strategy
-      pm: 1
-      start_date: 01-12-2016
-      duration: 36
-
-    - id: T6.2
-      text: Stakeholders engagement & co-creation methodologies
-      pm: 2
-      start_date: 01-12-2016
-      duration: 36
-
-    - id: T6.4
-      text: Open Standardization
-      pm: 1
-      start_date: 01-12-2016
-      duration: 36
 ```
+
+Notes:
+
+- task ids are normalized to uppercase internally
+- the loader also accepts a direct-entry file shape where the file contains the project entry itself rather than a top-level project key
+- spreadsheet parsing is position-based and depends on the current Excel template layout
+
+## Repository Layout
+
+- [src/agiladmin/handlers.clj](/home/jrml/devel/planb-agiladmin/src/agiladmin/handlers.clj): main HTTP routes
+- [src/agiladmin/ring.clj](/home/jrml/devel/planb-agiladmin/src/agiladmin/ring.clj): initialization and middleware defaults
+- [src/agiladmin/core.clj](/home/jrml/devel/planb-agiladmin/src/agiladmin/core.clj): spreadsheet and project logic
+- [src/agiladmin/view_timesheet.clj](/home/jrml/devel/planb-agiladmin/src/agiladmin/view_timesheet.clj): upload and Git commit flow
+- [src/agiladmin/auth/pocketbase.clj](/home/jrml/devel/planb-agiladmin/src/agiladmin/auth/pocketbase.clj): PocketBase auth backend
+- [test/agiladmin/](/home/jrml/devel/planb-agiladmin/test/agiladmin): Midje test suite
+
+## Operational Notes
+
+- Timesheet upload and commit logic writes temporary files under `/tmp/...`
+- The budgets repository is mutable application state; timesheet submission performs Git operations
+- Runtime code references `:agiladmin :admins` and `:agiladmin :webserver :salt`, but those keys are not declared in the current config schema yet
+- The app serves a bundled static HTML README on `/`, so updating this file does not automatically change the in-app landing page
 
 ## License
 
-Copyright (C) 2016-2019 Dyne.org foundation
+Copyright (C) 2016-2026 Dyne.org foundation
 
 Sourcecode written and maintained by Denis Roio <jaromil@dyne.org>
 
 Designed in cooperation with Manuela Annibali <manuela@dyne.org>
-
-With reviews and contributions by Andrea D'Intino <andrea@dyne.org>
-
-```
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU Affero General Public License for more details.
-
-You should have received a copy of the GNU Affero General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
-```
