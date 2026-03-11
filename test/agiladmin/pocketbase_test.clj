@@ -22,13 +22,14 @@
                                            :email "user@example.org"
                                            :name "User Name"
                                            :verified true}}}
-                          "http://127.0.0.1:8090/api/collections/users/records/user-1"
+                          "http://127.0.0.1:8090/api/collections/users/auth-refresh"
                           {:status 200
-                           :body {:id "user-1"
-                                  :email "user@example.org"
-                                  :name "User Name"
-                                  :admin true
-                                  :verified true}}
+                           :body {:token "refreshed-user-token"
+                                  :record {:id "user-1"
+                                           :email "user@example.org"
+                                           :name "User Name"
+                                           :admin true
+                                           :verified true}}}
                           "http://127.0.0.1:8090/api/collections/users/records"
                           (if (= :post (:method request))
                             {:status 200
@@ -81,7 +82,7 @@
             :form-params {:identity "user@example.org"
                           :password "pw"}}
            {:method :get
-            :url "http://127.0.0.1:8090/api/collections/users/records/user-1"
+            :url "http://127.0.0.1:8090/api/collections/users/auth-refresh"
             :headers {"Authorization" "Bearer user-token"}}
            {:method :post
             :url "http://127.0.0.1:8090/api/collections/users/records"
@@ -118,7 +119,7 @@
                                          :name "User Name"
                                          :admin false
                                          :verified true}}}
-                        "http://127.0.0.1:8090/api/collections/users/records/user-1"
+                        "http://127.0.0.1:8090/api/collections/users/auth-refresh"
                         {:status 403
                          :body {:message "Forbidden."}}))]
         (pocketbase/sign-in config "user@example.org" "pw" {}) =>
