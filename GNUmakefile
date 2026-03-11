@@ -1,12 +1,13 @@
 CLOJURE ?= clj
 JAR ?= target/0.4.0-SNAPSHOT-standalone.jar
 
-.PHONY: help test run run-pocketbase build clean
+.PHONY: help test test-pocketbase-integration run run-pocketbase build clean
 
 help:
 	@printf '%s\n' \
 	  'Available targets:' \
 	  '  make test   Run the Midje test suite' \
+	  '  make test-pocketbase-integration  Run opt-in live PocketBase integration tests' \
 	  '  make run    Start the web application with dev auth fallback' \
 	  '  make run-pocketbase CONF=doc/agiladmin.pocketbase.yaml  Start with a PocketBase config' \
 	  '  make build  Build the standalone uberjar' \
@@ -14,6 +15,9 @@ help:
 
 test:
 	$(CLOJURE) -M:test
+
+test-pocketbase-integration:
+	AGILADMIN_PB_IT=1 $(CLOJURE) -M:test
 
 run:
 	AGILADMIN_DEV_AUTH=1 $(CLOJURE) -M:run
