@@ -79,6 +79,10 @@ AGILADMIN_CONF=doc/agiladmin.pocketbase.yaml clj -M:run
 
 PocketBase is optional in config, but without either PocketBase or `AGILADMIN_DEV_AUTH=1`, authentication is not initialized and login will not work.
 
+Agiladmin expects the PocketBase `users` auth collection to have a boolean `admin` field. The repository can track that schema change in `pb_migrations/`; the current migration is [1773211470_updated_users.js](/home/jrml/devel/planb-agiladmin/pb_migrations/1773211470_updated_users.js).
+
+Admin features are enabled from the PocketBase user record returned at login. If a user is promoted to admin in PocketBase, they need to log out and log back in before Agiladmin sees the change.
+
 ## Testing
 
 Run the test suite with:
@@ -212,13 +216,14 @@ Notes:
 - [src/agiladmin/core.clj](/home/jrml/devel/planb-agiladmin/src/agiladmin/core.clj): spreadsheet and project logic
 - [src/agiladmin/view_timesheet.clj](/home/jrml/devel/planb-agiladmin/src/agiladmin/view_timesheet.clj): upload and Git commit flow
 - [src/agiladmin/auth/pocketbase.clj](/home/jrml/devel/planb-agiladmin/src/agiladmin/auth/pocketbase.clj): PocketBase auth backend
+- [pb_migrations/](/home/jrml/devel/planb-agiladmin/pb_migrations): PocketBase schema migrations tracked with the app
 - [test/agiladmin/](/home/jrml/devel/planb-agiladmin/test/agiladmin): Midje test suite
 
 ## Operational Notes
 
 - Timesheet upload and commit logic writes temporary files under `/tmp/...`
 - The budgets repository is mutable application state; timesheet submission performs Git operations
-- Runtime code references `:agiladmin :admins` and `:agiladmin :webserver :salt`, but those keys are not declared in the current config schema yet
+- PocketBase-backed admin access depends on a boolean `admin` field on the auth users collection
 - The app serves a bundled static HTML README on `/`, so updating this file does not automatically change the in-app landing page
 
 ## License
