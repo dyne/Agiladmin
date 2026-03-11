@@ -74,9 +74,7 @@
          (for [f (->> (util/list-files-matching
                        (conf/q config [:agiladmin :budgets :path])
                        #".*_timesheet_.*xlsx$")
-                      (map #(second
-                             (re-find util/regex-timesheet-to-name
-                                      (.getName %))))
+                      (keep #(util/timesheet-to-name (.getName %)))
                       clojure.core/sort
                       distinct)]
            ;; (map #(.getName %)) distinct)]

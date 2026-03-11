@@ -81,3 +81,19 @@
                        :name "User Name"
                        :admin false})]
         (:body response) => (contains "Unauthorized access")))
+
+(fact "Admin personnel view ignores xlsx files that do not match the timesheet naming pattern"
+      (with-redefs [agiladmin.utils/now (fn [] {:year 2026})
+                    agiladmin.utils/list-files-matching
+                    (fn [_ _]
+                      [(java.io.File. "2026_timesheet_User-Name.xlsx")
+                       (java.io.File. "notes_timesheet_backup.xlsx")])
+                    agiladmin.auth.core/list-pending-users
+                    (fn [] [])]
+        (let [response (view-person/list-all
+                        {}
+                        {:agiladmin {:budgets {:path "ignored/"}}}
+                        {:email "admin@example.org"
+                         :admin true})]
+          (:body response) => (contains "User-Name")
+          (:body response) =not=> (contains "notes_timesheet_backup"))))
