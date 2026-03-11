@@ -26,3 +26,22 @@
         (tab/to-row-seq data) => [["2026-01" 10]
                                   ["2026-02" 20]]
         (tab/column-values data :hours) => [10 20]))
+
+(fact "Tabular filtering, ordering, and aggregation use plain row maps"
+      (let [data {:column-names [:month :name :hours :cost]
+                  :rows [{:month "2026-02" :name "Bob" :hours 2 :cost 20}
+                         {:month "2026-01" :name "Alice" :hours 3 :cost 30}
+                         {:month "2026-01" :name "Alice" :hours 4 :cost 40}]}
+            january (tab/filter-by data {:month "2026-01"})]
+        january => {:column-names [:month :name :hours :cost]
+                    :rows [{:month "2026-01" :name "Alice" :hours 3 :cost 30}
+                           {:month "2026-01" :name "Alice" :hours 4 :cost 40}]}
+        (tab/order-by-col data :month :asc)
+        => {:column-names [:month :name :hours :cost]
+            :rows [{:month "2026-01" :name "Alice" :hours 3 :cost 30}
+                   {:month "2026-01" :name "Alice" :hours 4 :cost 40}
+                   {:month "2026-02" :name "Bob" :hours 2 :cost 20}]}
+        (tab/aggregate-sum data [:hours :cost] [:month :name])
+        => {:column-names [:month :name :hours :cost]
+            :rows [{:month "2026-02" :name "Bob" :hours 2 :cost 20}
+                   {:month "2026-01" :name "Alice" :hours 7 :cost 70}]}))

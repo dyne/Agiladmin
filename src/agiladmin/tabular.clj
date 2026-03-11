@@ -88,3 +88,42 @@
     (if (seq values)
       (/ (reduce + 0 values) (count values))
       0)))
+
+(defn order-by-col
+  [data col direction]
+  (let [cmp (case direction
+              :desc #(compare %2 %1)
+              :asc compare
+              compare)]
+    {:column-names (:column-names data)
+     :rows (->> (:rows data)
+                (sort-by col cmp)
+                vec)}))
+
+(defn aggregate-sum
+  [data fields group-cols]
+  (let [fields (if (coll? fields) (vec fields) [fields])
+        group-cols (vec group-cols)
+        initial-row (fn [row]
+                      (merge (select-keys row group-cols)
+                             (zipmap fields (repeat 0))))
+        grouped
+        (reduce (fn [{:keys [order by-key]} row]
+                  (let [group-key (select-keys row group-cols)
+                        row-key (mapv group-key group-cols)
+                        next-row (reduce (fn [acc field]
+                                           (update acc field + (or (get row field) 0)))
+                                         (or (get by-key row-key)
+                                             (initial-row row))
+                                         fields)]
+                    {:order (if (contains? by-key row-key)
+                              order
+                              (conj order row-key))
+                     :by-key (assoc by-key row-key next-row)}))
+                {:order []
+                 :by-key {}}
+                (:rows data))]
+    {:column-names (vec (concat group-cols fields))
+     :rows (mapv (fn [row-key]
+                   (get-in grouped [:by-key row-key]))
+                 (:order grouped))}))
