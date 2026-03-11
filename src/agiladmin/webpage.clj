@@ -22,6 +22,7 @@
             [clojure.data.csv :as csv]
             [yaml.core :as yaml]
             [agiladmin.config :as conf]
+            [agiladmin.version :as version]
             [taoensso.timbre :as log]
             [failjure.core :as f]
             [agiladmin.ring :as ring]
@@ -218,13 +219,15 @@
     [:div {:class "flex flex-1 items-center gap-2 md:gap-3"}
      [:a {:class "flex items-center gap-2 no-underline md:gap-3"
           :href "/"}
-      [:span {:class "flex h-7 w-7 items-center justify-center rounded-full border border-base-300 bg-base-100 shadow-sm md:h-8 md:w-8"}
+      [:span {:class "flex h-7 w-7 items-center justify-center overflow-hidden rounded-full border border-base-300/50 bg-base-100 shadow-sm md:h-8 md:w-8"}
        [:img {:src "/static/img/dyne-icon-black.svg"
-              :class "h-3.5 w-3.5 md:h-4 md:w-4"
-              :alt "Dyne icon"}]]
+              :class "h-[1.2rem] w-[1.2rem] object-contain md:h-[1.44rem] md:w-[1.44rem]"
+              :alt "Dyne icon"
+              :data-theme-invert "true"}]]
       [:div {:class "leading-tight"}
        [:div {:class "text-sm font-semibold tracking-wide md:text-base"} "Agiladmin"]
-       [:div {:class "text-[10px] uppercase tracking-[0.25em] text-base-content/60 md:text-xs"} "Dyne.org"]]]]
+       [:div {:class "text-[10px] uppercase tracking-[0.25em] text-base-content/60 md:text-xs"}
+        (str "v" version/current)]]]]
     [:div {:class "flex items-center gap-2"}
      [:div {:class "hidden md:block"}
       (theme-toggle)]
