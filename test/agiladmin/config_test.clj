@@ -16,11 +16,24 @@
                                 :users-collection "users"
                                 :superuser-email "admin@example.org"
                                 :superuser-password "changeme"}
-                   :projects ["UNO" "DUE" "TRE"]
                    :source {:git "https://github.com/dyne/agiladmin" :update true}}
        :appname "agiladmin-test"
        :filename "agiladmin.yaml"
        :paths ["test/assets/"]})
+
+(fact "Project names can be discovered from yaml files in the budgets path"
+      (conf/project-names {:agiladmin {:budgets {:path "test/assets/"}}
+                           :filename "agiladmin.yaml"})
+      => ["BADFIELDS" "BROKEN" "DIRECT" "DUE" "INVALIDYAML" "TRE" "UNO"])
+
+(fact "Project discovery only considers top-level yaml files in the budgets path"
+      (let [base "/tmp/project-discovery"
+            _ (.mkdirs (java.io.File. (str base "/archived")))
+            _ (spit (str base "/ACTIVE.yaml") "ACTIVE:\n  duration: 1\n")
+            _ (spit (str base "/archived/OLD.yaml") "OLD:\n  duration: 1\n")]
+        (conf/project-names {:agiladmin {:budgets {:path base}}
+                             :filename "agiladmin.yaml"})
+        => ["ACTIVE"]))
 
 (fact "Named project configuration validates and normalizes task ids"
       (let [proj (f/ok->> "UNO" (conf/load-project config))]
@@ -67,8 +80,8 @@
                     :pm 12}}}}))
 
 (fact "Direct-entry project files are accepted and keyed by filename"
-      (let [direct-config {:agiladmin {:projects ["DIRECT"]
-                                       :budgets {:path "test/assets/"}}}
+      (let [direct-config {:agiladmin {:budgets {:path "test/assets/"}}
+                           :filename "agiladmin.yaml"}
             proj (conf/load-project direct-config "DIRECT")]
         (f/failed? proj) => false
         proj => {:DIRECT
@@ -86,16 +99,37 @@
                                 :duration 1
                                 :pm 1}}}}))
 
+(fact "Project tasks may omit per-task schedule fields"
+      (let [path "/tmp/PARTIAL.yaml"
+            _ (spit path
+                    (str "PARTIAL:\n"
+                         "  start_date: 01-01-2026\n"
+                         "  duration: 12\n"
+                         "  tasks:\n"
+                         "    - id: T1\n"
+                         "      text: Coordination\n"
+                         "      pm: 1\n"))
+            partial-config {:agiladmin {:budgets {:path "/tmp/"}}
+                            :filename "agiladmin.yaml"}
+            proj (conf/load-project partial-config "PARTIAL")]
+        (f/failed? proj) => false
+        (get-in proj [:PARTIAL :tasks 0]) => {:id "T1"
+                                              :text "Coordination"
+                                              :pm 1}
+        (get-in proj [:PARTIAL :idx :T1]) => {:id "T1"
+                                              :text "Coordination"
+                                              :pm 1}))
+
 (fact "Project loader reports a missing project key explicitly"
-      (let [broken-config {:agiladmin {:projects ["BROKEN"]
-                                       :budgets {:path "test/assets/"}}}
+      (let [broken-config {:agiladmin {:budgets {:path "test/assets/"}}
+                           :filename "agiladmin.yaml"}
             proj (conf/load-project broken-config "BROKEN")]
         (f/failed? proj) => true
         (f/message proj) => (contains "does not define project BROKEN")))
 
 (fact "Project loader reports field-level schema errors with the file path"
-      (let [badfields-config {:agiladmin {:projects ["BADFIELDS"]
-                                          :budgets {:path "test/assets/"}}}
+      (let [badfields-config {:agiladmin {:budgets {:path "test/assets/"}}
+                              :filename "agiladmin.yaml"}
             proj (conf/load-project badfields-config "BADFIELDS")]
         (f/failed? proj) => true
         (f/message proj) => (contains "Invalid project configuration at test/assets/BADFIELDS.yaml")
@@ -121,8 +155,8 @@
         (f/message conf) => (contains "Configuration file not found: /tmp/does-not-exist-agiladmin.yaml")))
 
 (fact "Project loader reports invalid YAML in the project file"
-      (let [broken-config {:agiladmin {:projects ["INVALIDYAML"]
-                                       :budgets {:path "test/assets/"}}}
+      (let [broken-config {:agiladmin {:budgets {:path "test/assets/"}}
+                           :filename "agiladmin.yaml"}
             proj (conf/load-project broken-config "INVALIDYAML")]
         (f/failed? proj) => true
         (f/message proj) => (contains "Invalid YAML at test/assets/INVALIDYAML.yaml")))

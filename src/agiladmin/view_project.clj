@@ -43,7 +43,7 @@
    account
    [:div {:class "projects"}
     [:h2 "Projects"]
-    (for [pj (conf/q config [:agiladmin :projects])]
+    (for [pj (conf/project-names config)]
      [:div {:class "row log-project"}
       (web/button "/project" pj
                   (hf/hidden-field "project" pj))])]))

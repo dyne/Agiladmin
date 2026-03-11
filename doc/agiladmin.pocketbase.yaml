@@ -16,10 +16,6 @@ agiladmin:
     git: https://github.com/dyne/agiladmin
     update: false
 
-  projects:
-    - CORE
-    - ADMIN
-
   pocketbase:
     base-url: http://127.0.0.1:8090
     users-collection: users

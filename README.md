@@ -144,10 +144,6 @@ agiladmin:
     ssh-key: id_rsa
     path: budgets/
 
-  projects:
-    - CORE
-    - ADMIN
-
   source:
     git: https://github.com/dyne/agiladmin
     update: false
@@ -162,12 +158,13 @@ agiladmin:
 Notes:
 
 - `budgets.ssh-key` is the private key path used for Git access; if it does not exist, Agiladmin generates a new keypair and exposes the public key in the `/config` page
+- project names are discovered from `*.yaml` files in `budgets.path`, using the part of the filename before the first `.`
 - `pocketbase` is optional only if you are using dev auth locally
 
 ## Project Configuration
 
-Each project listed in `agiladmin.projects` must have a corresponding
-YAML file in the budgets path, usually `<PROJECT>.yaml`.
+Each project is discovered from a YAML file in the budgets path, usually
+`<PROJECT>.yaml`.
 
 Minimal example:
 
