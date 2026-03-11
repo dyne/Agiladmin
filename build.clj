@@ -1,10 +1,28 @@
 (ns build
-  (:require [clojure.tools.build.api :as b]))
+  (:require [clojure.java.io :as io]
+            [clojure.java.shell :as shell]
+            [clojure.string :as str]
+            [clojure.tools.build.api :as b]))
+
+(defn- git-present?
+  []
+  (.exists (io/file ".git")))
+
+(defn- git-version
+  []
+  (when (git-present?)
+    (let [{:keys [exit out]} (shell/sh "git" "describe" "--tags" "--match" "v[0-9]*.[0-9]*.[0-9]*" "--abbrev=0")]
+      (when (zero? exit)
+        (some-> out
+                str/trim
+                (str/replace #"^v" "")
+                not-empty)))))
 
 (def lib 'agiladmin/agiladmin)
 (def version
   (or (System/getenv "AGILADMIN_VERSION")
-      "0.4.0-SNAPSHOT"))
+      (git-version)
+      "DEV-SNAPSHOT"))
 (def class-dir "target/classes")
 (def basis (delay (b/create-basis {:project "deps.edn"})))
 (def uber-file (format "target/%s-standalone.jar" version))

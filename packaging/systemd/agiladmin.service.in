@@ -7,6 +7,7 @@ Wants=network-online.target
 Type=simple
 WorkingDirectory=@APP_HOME@
 Environment=AGILADMIN_CONF=@APP_HOME@/etc/agiladmin.yaml
+Environment=AGILADMIN_VERSION=@AGILADMIN_VERSION@
 Environment=JAVA_OPTS=
 ExecStart=/bin/sh -lc 'exec /usr/bin/java $$JAVA_OPTS -jar @APP_HOME@/lib/agiladmin.jar'
 Restart=on-failure

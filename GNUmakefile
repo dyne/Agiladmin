@@ -1,10 +1,12 @@
 CLOJURE ?= clj
-AGILADMIN_VERSION ?= 0.4.0-SNAPSHOT
+AGILADMIN_VERSION ?= $(shell if [ -d .git ]; then v=$$(git describe --tags --match 'v[0-9]*.[0-9]*.[0-9]*' --abbrev=0 2>/dev/null | sed 's/^v//'); if [ -n "$$v" ]; then printf '%s' "$$v"; else printf '%s' DEV-SNAPSHOT; fi; else printf '%s' DEV-SNAPSHOT; fi)
 PREFIX ?= /usr/local
 DESTDIR ?=
 APP_NAME ?= agiladmin
 APP_HOME ?= $(PREFIX)/$(APP_NAME)
 SYSTEMD_UNIT_DIR ?= $(PREFIX)/lib/systemd/system
+POCKETBASE_APP_DIR ?= $(APP_HOME)/pocketbase
+POCKETBASE_MIGRATIONS_DIR ?= $(POCKETBASE_APP_DIR)/migrations
 JAR ?= target/$(AGILADMIN_VERSION)-standalone.jar
 
 .PHONY: help test test-pocketbase-integration run dev run-pocketbase build install clean
@@ -55,15 +57,18 @@ install: build
 		"$(DESTDIR)$(APP_HOME)/etc" \
 		"$(DESTDIR)$(APP_HOME)/run" \
 		"$(DESTDIR)$(APP_HOME)/log" \
+		"$(DESTDIR)$(POCKETBASE_MIGRATIONS_DIR)" \
 		"$(DESTDIR)$(SYSTEMD_UNIT_DIR)"
 	install -m 0644 "$(JAR)" "$(DESTDIR)$(APP_HOME)/lib/agiladmin.jar"
 	install -m 0644 README.md "$(DESTDIR)$(APP_HOME)/doc/README.md"
 	install -m 0644 LICENSE.txt "$(DESTDIR)$(APP_HOME)/doc/LICENSE.txt"
 	install -m 0644 doc/agiladmin.pocketbase.yaml "$(DESTDIR)$(APP_HOME)/etc/agiladmin.yaml"
 	install -m 0644 doc/agiladmin.pocketbase.yaml "$(DESTDIR)$(APP_HOME)/etc/agiladmin.yaml.example"
+	install -m 0644 pb_migrations/*.js "$(DESTDIR)$(POCKETBASE_MIGRATIONS_DIR)/"
 	sed \
 		-e 's|@APP_HOME@|$(APP_HOME)|g' \
 		-e 's|@APP_NAME@|$(APP_NAME)|g' \
+		-e 's|@AGILADMIN_VERSION@|$(AGILADMIN_VERSION)|g' \
 		packaging/systemd/agiladmin.service.in > "$(DESTDIR)$(SYSTEMD_UNIT_DIR)/agiladmin.service"
 	chmod 0644 "$(DESTDIR)$(SYSTEMD_UNIT_DIR)/agiladmin.service"
 	@printf '%s\n' \

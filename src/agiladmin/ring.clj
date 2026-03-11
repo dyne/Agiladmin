@@ -4,6 +4,7 @@
    [agiladmin.auth.core :as auth-core]
    [agiladmin.auth.dev :as dev-auth]
    [agiladmin.auth.pocketbase :as pocketbase]
+   [agiladmin.pocketbase-process :as pocketbase-process]
    [agiladmin.config :as conf]
    [failjure.core :as f]
    [taoensso.timbre :as log]
@@ -61,6 +62,8 @@
   (let [auth-enabled?
         (if-let [pocketbase-conf (get-in @config [:agiladmin :pocketbase])]
           (do
+            (when (:manage-process pocketbase-conf)
+              (pocketbase-process/start! pocketbase-conf))
             (auth-core/init! (pocketbase/backend pocketbase-conf))
             true)
           (if (dev-auth-enabled?)

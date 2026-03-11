@@ -89,6 +89,8 @@ Initialize the users collection field on a fresh PocketBase instance with:
 AGILADMIN_CONF=doc/agiladmin.pocketbase.yaml clj -M -m agiladmin.pocketbase-init
 ```
 
+If `agiladmin.pocketbase.manage-process` is `true`, Agiladmin starts PocketBase itself, serves it with the configured migrations directory, waits for health, applies the role bootstrap when the installed Agiladmin version changes, and stops PocketBase again on exit.
+
 ## Testing
 
 Run the test suite with:
@@ -227,6 +229,7 @@ Notes:
 - Timesheet upload and commit logic writes temporary files under `/tmp/...`
 - The budgets repository is mutable application state; timesheet submission performs Git operations
 - PocketBase-backed role-aware access depends on a `role` select field on the auth users collection
+- Managed PocketBase mode uses a local version marker file to record that the current Agiladmin version has applied its bootstrap step
 - The app serves a bundled static HTML README on `/`, so updating this file does not automatically change the in-app landing page
 
 ## License

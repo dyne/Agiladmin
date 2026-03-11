@@ -43,7 +43,12 @@
     (s/optional-key :pocketbase) {:base-url s/Str
                                   :users-collection s/Str
                                   :superuser-email s/Str
-                                  :superuser-password s/Str}
+                                  :superuser-password s/Str
+                                  (s/optional-key :manage-process) s/Bool
+                                  (s/optional-key :binary) s/Str
+                                  (s/optional-key :dir) s/Str
+                                  (s/optional-key :migrations-dir) s/Str
+                                  (s/optional-key :version-file) s/Str}
     }
    :appname s/Str
    :paths [s/Str]

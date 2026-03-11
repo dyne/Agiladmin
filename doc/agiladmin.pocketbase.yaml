@@ -21,3 +21,8 @@ agiladmin:
     users-collection: users
     superuser-email: admin@example.org
     superuser-password: change-me
+    manage-process: false
+    binary: pocketbase
+    dir: /var/lib/agiladmin/pocketbase
+    migrations-dir: /usr/local/agiladmin/pocketbase/migrations
+    version-file: /var/lib/agiladmin/pocketbase/.agiladmin-version
