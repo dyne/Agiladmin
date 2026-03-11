@@ -17,6 +17,14 @@
    :other-names []
    :verified true})
 
+(def manager-user
+  {:id "dev-manager"
+   :email "manager"
+   :name "Manager"
+   :role "manager"
+   :other-names []
+   :verified true})
+
 (defn backend
   []
   {:healthy? (fn [] true)
@@ -29,6 +37,10 @@
                 (and (= username "guest")
                      (= password "guest"))
                 guest-user
+
+                (and (= username "manager")
+                     (= password "manager"))
+                manager-user
 
                 :else
                 (f/fail "Invalid development credentials.")))
