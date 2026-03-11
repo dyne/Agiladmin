@@ -33,7 +33,7 @@
   converted into html"
   [data]
   (let [columns (:column-names data)]
-    [:table {:class "sortable table"}
+    [:table {:class "sortable table table-zebra"}
      [:thead nil
       [:tr nil (for [t columns]
                  [:th nil t])]]
@@ -46,9 +46,10 @@
             (cond
               (and (= column :progress) (not= value 0.0))
               (if-let [pro value]
-                [:span (format "%.0f%%" (round (* pro 100)))
+                [:span {:class "space-y-2"}
+                 [:span {:class "font-semibold"} (format "%.0f%%" (round (* pro 100)))]
                  [:br]
-                 [:progress {:max 1 :value pro} pro]])
+                 [:progress {:class "progress progress-primary w-full" :max 1 :value pro} pro]])
               (= value 0) "-"
               :else
               value)])])]]))
@@ -61,7 +62,7 @@
   [projects data]
   (let [columns (:column-names data)
         rows (:rows data)]
-    [:table {:class "sortable table"}
+    [:table {:class "sortable table table-zebra"}
      [:thead nil
       (into [:tr nil]
             (map (fn [column]
@@ -74,7 +75,7 @@
               [:td nil (web/button
                         "/project" (:project row)
                         (hf/hidden-field "project" (:project row))
-                        "btn-secondary btn-sm")]
+                        "btn btn-primary btn-sm")]
               [:td nil (when-not (= (:task row) "")
                          [:span (str (:task row) " - ")
                           [:small (get-in projects [(-> row :project keyword) :idx

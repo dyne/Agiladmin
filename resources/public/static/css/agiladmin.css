@@ -1,159 +1,62 @@
 body {
-	font-family: "arial";
-	font-size: 22px;
-	font-smooth: always;
-	-webkit-font-smoothing: antialiased;
-	padding-top: 65px;
-}
-
-code {
-	font-size: .8em;
-	/* display: block; */
-	white-space: pre-wrap;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 .editor {
-	position: absolute;
-	top: 0;
-	right: 0;
-	bottom: 0;
-	left: 0;
+  position: absolute;
+  inset: 0;
 }
-
-/* .btn { */
-/* 	margin: 0 1.5em 0 1.5em; */
-/* } */
 
 .edit-project {
-	margin-top: 2em;
-	margin-bottom: 2em;
+  margin-top: 1.5rem;
+  margin-bottom: 1.5rem;
 }
 
-/* GANTT */
-/* hide progress drag in projects and objectives */
-.project-task .gantt_task_progress_drag .phase-task,
-.gantt_task_progress_drag { display: none !important; }
-/* hide 'plus' buttons for tasks */
-.regular-task .gantt_add { display: none; }
-.gantt_task_progress{ text-align: left; }
-.gantt_task_content{ text-align: left; padding-left: 5em;}
-.gantt_task_progress span{
-	color: #FFF;
-	position: relative;
-	z-index: 20;
-	padding: 3px; margin-left:3px;
-	border-radius: 3px;}
-
-.log-person {
-	padding: .5em;
-}
-
-.log-project {
-	padding: .5em;
-}
-
-.month-total {
-	padding: 1em;
-}
-
+.log-person,
+.log-project,
 .month-detail {
-	padding: 1em;
+  padding: 0.5rem 0;
 }
 
-.select-year {
-	padding: .1em;
-	margin: .5em;
+.commitlog pre,
+.timesheet-dataset-contents pre {
+  max-width: 100%;
 }
 
-h1, h2, h3, h4 { }
-
-p {
-	letter-spacing: 0.01rem;
-	font-style: normal;
-	line-height: 1.5;
-}
-
-img {
-	width: auto;
-	height: auto;
-	max-width: 100%;
-	vertical-align: middle;
-	overflow: hidden;
-}
-
-/* Sortable tables */
 table.sortable thead {
-    background-color:#eee;
-    color:#666666;
-    font-weight: bold;
-    cursor: default;
+  background-color: rgb(216 222 233 / 0.7);
+  color: rgb(59 66 82);
+  cursor: default;
 }
 
 table.sortable td {
-	font-size: .8em;
-	font-family: "arial"
+  font-size: 0.95rem;
 }
 
-.input-form {
-	clear: right;
+.project-task .gantt_task_progress_drag .phase-task,
+.gantt_task_progress_drag {
+  display: none !important;
 }
 
-li {
-    /* padding: .5em; */
+.regular-task .gantt_add {
+  display: none;
 }
 
-.secrets {
-	padding: 1em;
+.gantt_task_progress {
+  text-align: left;
 }
 
-.password {
-	font-size: 1.5;
-	padding: 1em;
-	/* display: inline-block; */
+.gantt_task_content {
+  text-align: left;
+  padding-left: 5em;
 }
 
-
-.navbar-text {
-	margin-top: 22px;
-}
-
-.password .content {
-	font-size: 1em;
-}
-
-.slices {
-
-}
-
-.slices ul {
-	list-style: none;
-}
-
-.slices .content {
-	font-size: .5em;
-}
-
-.qrcode {
-    float: left;
-    margin-left: -19px;
-}
-
-
-.card {
-    border: solid 3px #888;
-    border-radius: 5px;
-    padding: 1.5em 2.2em .8em 2.2em;
-}
-
-.card .gravatar {
-    margin-top: 19px;
-}
-
-.balance {
-    font-size: 2em;
-    margin: 1em 0;
-}
-
-.wallet-details {
-    display: inline-block;
+.gantt_task_progress span {
+  color: #fff;
+  position: relative;
+  z-index: 20;
+  padding: 3px;
+  margin-left: 3px;
+  border-radius: 3px;
 }
