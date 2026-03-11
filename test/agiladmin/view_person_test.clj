@@ -23,6 +23,7 @@
           (:body response) => (contains "/static/img/dyne-icon-black.svg")
           (:body response) => (contains "data-theme-invert=\"true\"")
           (:body response) => (contains "data-theme-toggle=\"true\"")
+          (:body response) => (contains "data-page-loading=\"true\"")
           (:body response) => (contains "/static/img/dyne-logotype-black.svg")
           (:body response) => (contains "data-theme-logo=\"true\"")
           (:body response) => (contains "data-theme-logo-dark=\"/static/img/dyne-logotype-white.svg\"")

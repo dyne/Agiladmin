@@ -261,7 +261,13 @@
                   :class "min-h-screen bg-base-200 text-base-content"}
            navbar-guest
            [:main {:class "mx-auto w-full max-w-screen-2xl px-4 pb-12 pt-6 md:px-6"} body]
-           (render-footer)])})
+           (render-footer)
+           [:div {:data-page-loading "true"
+                  :aria-live "polite"
+                  :style "position:fixed;inset:0;z-index:2147483647;display:none;align-items:center;justify-content:center;background:rgba(46,52,64,0.22);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);"}
+            [:div {:style "display:flex;flex-direction:column;align-items:center;gap:1rem;padding:1.5rem 2rem;border:1px solid rgba(216,222,233,0.45);border-radius:1rem;background:rgba(236,239,244,0.78);box-shadow:0 20px 50px rgba(46,52,64,0.18);"}
+             [:span {:class "loading loading-spinner loading-lg text-primary"}]
+             [:span {:class "text-sm font-semibold tracking-wide"} "Loading"]]]])})
   ([account body]
    {:headers {"Content-Type"
               "text/html; charset=utf-8"}
@@ -275,13 +281,19 @@
                     navbar-guest
                     navbar-account)
             [:main {:class "mx-auto w-full max-w-screen-2xl px-4 pb-12 pt-6 md:px-6"} body]
-            (render-footer)])}))
+            (render-footer)
+            [:div {:data-page-loading "true"
+                   :aria-live "polite"
+                   :style "position:fixed;inset:0;z-index:2147483647;display:none;align-items:center;justify-content:center;background:rgba(46,52,64,0.22);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);"}
+             [:div {:style "display:flex;flex-direction:column;align-items:center;gap:1rem;padding:1.5rem 2rem;border:1px solid rgba(216,222,233,0.45);border-radius:1rem;background:rgba(236,239,244,0.78);box-shadow:0 20px 50px rgba(46,52,64,0.18);"}
+              [:span {:class "loading loading-spinner loading-lg text-primary"}]
+              [:span {:class "text-sm font-semibold tracking-wide"} "Loading"]]]])}))
 
 
 (defn render-error
   "render an error message without ending the page"
   [err]
-  [:div {:class "alert alert-error shadow-sm" :role "alert"}
+  [:div {:class "alert alert-error mb-4 shadow-sm" :role "alert"}
    (icon :face-frown "h-5 w-5")
    [:span {:class "sr-only"} "Error:"]
    [:span err]])
