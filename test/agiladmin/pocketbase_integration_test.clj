@@ -101,8 +101,9 @@
                     :form-params payload})
           ensure-success))))
 
-(when (enabled?)
-  (fact "Live PocketBase login refreshes the admin flag into the session"
+(fact "Live PocketBase login refreshes the admin flag into the session"
+      (if-not (enabled?)
+        true => true
         (let [config (pb-config)
               email (or (System/getenv "AGILADMIN_PB_IT_USER_EMAIL")
                         "agiladmin-it@example.org")
