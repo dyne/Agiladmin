@@ -193,17 +193,17 @@
 
 (defn start
   [request config account]
-  (f/attempt-all
-   [person (s/param request :person)
-    year   (s/param request :year)]
-   (cond ;; admin check
-     (:admin account) (list-person config account person year)
-     ;; check that person views its own account
-     (= (:name account) person) (list-person config account person year)
+  (let [params (:params request)
+        person (or (clojure.core/get params :person)
+                   (clojure.core/get params "person")
+                   (:name account))
+        year (or (clojure.core/get params :year)
+                 (clojure.core/get params "year")
+                 (:year (util/now)))]
+    (cond ;; admin check
+      (:admin account) (list-person config account person year)
+      ;; check that person views its own account
+      (= (:name account) person) (list-person config account person year)
 
-     ;; (nil? person) (list-person [config account (:name account) year])
-
-     :else
-     (web/render-error-page account "Unauthorized access"))
-   (f/when-failed [e]
-     (web/render account (web/render-error (f/message e))))))
+      :else
+      (web/render-error-page account "Unauthorized access"))))
