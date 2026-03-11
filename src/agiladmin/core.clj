@@ -20,6 +20,7 @@
 (ns agiladmin.core
   (:refer-clojure :exclude [any?])
   (:require [clojure.string :refer [blank? split lower-case upper-case trim]]
+            [agiladmin.tabular :as tab]
             [agiladmin.utils :as util]
             [agiladmin.graphics :refer :all]
             [agiladmin.config :as conf]
@@ -61,31 +62,26 @@
            :reload))
 
 (defn map-col [data col-name f] 
-  (let [new-col-names (sort-by #(= % col-name) (col-names data))
-        new-dataset (conj-cols
-                     (sel data :except-cols col-name)
-                     ($map f col-name data))]
-    ($ (col-names data) (col-names new-dataset new-col-names) )))
+  (tab/map-column data col-name f))
 
 ;; redefining this to work with chaining (dataset is first argument)
 (defn aggr
   "aggregate fields (coll) grouping by some (coll) using a :rollup-fun or sum"
   [data fields group-by & {:keys [rollup-fun] :or {rollup-fun :sum}}]
-  ;; using aggregate from incanter 1.4x
-  (aggregate fields group-by :dataset data :rollup-fun rollup-fun))
+  (case rollup-fun
+    :sum (tab/aggregate-sum data fields group-by)
+    (throw (ex-info "Unsupported rollup function" {:rollup-fun rollup-fun}))))
 
 (defn sort
   "sort a dataset according to a specific :column in :asc or :desc order"
   [data column order]
-  ;; using $order from incanteer 1.4x
-  ($order column order data))
+  (tab/order-by-col data column order))
 
 (defn average
   "makes an average of the values of a certain column in a dataset"
   [col data]
-  (let [count (nrow data)
-        tot   (-> ($ col data) util/wrap sum)]
-    (util/round (/ tot count))))
+  (-> (tab/average-col data col)
+      util/round))
 
 (defn get-cell
   "return the value of cell in sheet at column and row position"
