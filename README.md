@@ -91,6 +91,8 @@ AGILADMIN_CONF=doc/agiladmin.pocketbase.yaml clj -M -m agiladmin.pocketbase-init
 
 If `agiladmin.pocketbase.manage-process` is `true`, Agiladmin starts PocketBase itself, serves it with the configured migrations directory, waits for health, applies the role bootstrap when the installed Agiladmin version changes, and stops PocketBase again on exit.
 
+PocketBase HTTP calls use bounded timeouts by default so startup does not hang forever if the service is unreachable. Override them with `agiladmin.pocketbase.connect-timeout-ms` and `agiladmin.pocketbase.socket-timeout-ms` if needed.
+
 ## Testing
 
 Run the test suite with:

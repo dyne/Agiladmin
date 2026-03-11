@@ -75,38 +75,68 @@
             :role nil
             :other-names []
             :verified false}]
-          (map #(select-keys % [:method :url :query-params :form-params :headers]) @calls) =>
+          (map #(select-keys % [:method :url :query-params :form-params :headers :conn-timeout :socket-timeout]) @calls) =>
           [{:method :get
-            :url "http://127.0.0.1:8090/api/health"}
+            :url "http://127.0.0.1:8090/api/health"
+            :conn-timeout 2000
+            :socket-timeout 2000}
            {:method :post
             :url "http://127.0.0.1:8090/api/collections/users/auth-with-password"
+            :conn-timeout 2000
+            :socket-timeout 2000
             :form-params {:identity "user@example.org"
                           :password "pw"}}
            {:method :post
             :url "http://127.0.0.1:8090/api/collections/users/auth-refresh"
+            :conn-timeout 2000
+            :socket-timeout 2000
             :headers {"Authorization" "Bearer user-token"}}
            {:method :post
             :url "http://127.0.0.1:8090/api/collections/users/records"
+            :conn-timeout 2000
+            :socket-timeout 2000
             :form-params {:email "user@example.org"
                           :password "pw"
                           :passwordConfirm "pw"
                           :name "User Name"}}
            {:method :post
             :url "http://127.0.0.1:8090/api/collections/users/confirm-verification"
+            :conn-timeout 2000
+            :socket-timeout 2000
             :form-params {:token "token"}}
            {:method :post
             :url "http://127.0.0.1:8090/api/collections/users/request-verification"
+            :conn-timeout 2000
+            :socket-timeout 2000
             :form-params {:email "user@example.org"}}
            {:method :post
             :url "http://127.0.0.1:8090/api/collections/_superusers/auth-with-password"
+            :conn-timeout 2000
+            :socket-timeout 2000
             :form-params {:identity "admin@example.org"
                           :password "secret"}}
            {:method :get
             :url "http://127.0.0.1:8090/api/collections/users/records"
+            :conn-timeout 2000
+            :socket-timeout 2000
             :headers {"Authorization" "Bearer admin-token"}
             :query-params {"filter" "verified = false"
                            "sort" "email"
                            "perPage" 200}}])))
+
+(fact "PocketBase request timeouts can be overridden from config"
+      (let [calls (atom [])
+            config-with-timeouts (assoc config
+                                        :connect-timeout-ms 1500
+                                        :socket-timeout-ms 4500)]
+        (with-redefs [clj-http.client/request
+                      (fn [request]
+                        (swap! calls conj request)
+                        {:status 200 :body {:code 200}})]
+          (pocketbase/healthy? config-with-timeouts) => true
+          (map #(select-keys % [:conn-timeout :socket-timeout]) @calls) =>
+          [{:conn-timeout 1500
+            :socket-timeout 4500}])))
 
 (fact "PocketBase sign-in falls back to the auth response when user lookup fails"
       (with-redefs [clj-http.client/request

@@ -44,6 +44,8 @@
                                   :users-collection s/Str
                                   :superuser-email s/Str
                                   :superuser-password s/Str
+                                  (s/optional-key :connect-timeout-ms) s/Num
+                                  (s/optional-key :socket-timeout-ms) s/Num
                                   (s/optional-key :manage-process) s/Bool
                                   (s/optional-key :binary) s/Str
                                   (s/optional-key :dir) s/Str

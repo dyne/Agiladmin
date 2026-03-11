@@ -6,6 +6,7 @@
 
 (def ^:private role-field-id "select2282622326")
 (def ^:private role-field-values ["admin" "manager"])
+(def ^:private default-timeout-ms 2000)
 
 (defn- trim-slash
   [value]
@@ -55,18 +56,23 @@
   (-> (request :post
                (endpoint (:base-url config)
                          (auth-collection-path config "/auth-refresh"))
+               config
                {:headers {"Authorization" (str "Bearer " token)}})
       ensure-success))
 
 (defn- request
-  [method url options]
+  [method url config options]
   (http/request
    (merge {:method method
            :url url
            :accept :json
            :as :json
            :coerce :always
-           :throw-exceptions false}
+           :throw-exceptions false
+           :conn-timeout (or (:connect-timeout-ms config)
+                             default-timeout-ms)
+           :socket-timeout (or (:socket-timeout-ms config)
+                               default-timeout-ms)}
           options)))
 
 (defn- ensure-success
@@ -81,6 +87,7 @@
   [config]
   (let [response (request :get
                           (endpoint (:base-url config) "/api/health")
+                          config
                           {})]
     (<= 200 (:status response) 299)))
 
@@ -88,6 +95,7 @@
   [config]
   (-> (request :post
                (endpoint (:base-url config) "/api/collections/_superusers/auth-with-password")
+               config
                {:content-type :json
                 :form-params {:identity (:superuser-email config)
                               :password (:superuser-password config)}})
@@ -100,12 +108,14 @@
         collection (-> (request :get
                                 (endpoint (:base-url config)
                                           (auth-collection-path config ""))
+                                config
                                 {:headers {"Authorization" (str "Bearer " token)}})
                        ensure-success)
         fields (normalize-collection-fields (:fields collection))]
     (-> (request :patch
                  (endpoint (:base-url config)
                            (auth-collection-path config ""))
+                 config
                  {:headers {"Authorization" (str "Bearer " token)}
                   :content-type :json
                   :form-params {:fields fields}})
@@ -117,6 +127,7 @@
         (-> (request :post
                      (endpoint (:base-url config)
                                (auth-collection-path config "/auth-with-password"))
+                     config
                      {:content-type :json
                       :form-params {:identity username
                                     :password password}})
@@ -132,6 +143,7 @@
   (let [record (-> (request :post
                             (endpoint (:base-url config)
                                       (auth-collection-path config "/records"))
+                            config
                             {:content-type :json
                              :form-params {:email email
                                            :password password
@@ -146,6 +158,7 @@
   (-> (request :post
                (endpoint (:base-url config)
                          (auth-collection-path config "/confirm-verification"))
+               config
                {:content-type :json
                 :form-params {:token token}})
       ensure-success))
@@ -155,6 +168,7 @@
   (-> (request :post
                (endpoint (:base-url config)
                          (auth-collection-path config "/request-verification"))
+               config
                {:content-type :json
                 :form-params {:email email}})
       ensure-success))
@@ -165,6 +179,7 @@
         response (request :get
                           (endpoint (:base-url config)
                                     (auth-collection-path config "/records"))
+                          config
                           {:headers {"Authorization" (str "Bearer " token)}
                            :query-params {"filter" "verified = false"
                                           "sort" "email"

@@ -21,6 +21,8 @@ agiladmin:
     users-collection: users
     superuser-email: admin@example.org
     superuser-password: change-me
+    connect-timeout-ms: 2000
+    socket-timeout-ms: 2000
     manage-process: false
     binary: pocketbase
     dir: /var/lib/agiladmin/pocketbase
