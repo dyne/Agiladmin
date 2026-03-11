@@ -114,3 +114,22 @@
         (:filename conf) => "agiladmin.pocketbase.yaml"
         (:paths conf) => ["doc/agiladmin.pocketbase.yaml"]
         (get-in conf [:agiladmin :pocketbase :base-url]) => "http://127.0.0.1:8090"))
+
+(fact "Application config loader reports an explicit missing file"
+      (let [conf (conf/load-config "/tmp/does-not-exist-agiladmin.yaml" conf/default-settings)]
+        (f/failed? conf) => true
+        (f/message conf) => (contains "Configuration file not found: /tmp/does-not-exist-agiladmin.yaml")))
+
+(fact "Project loader reports invalid YAML in the project file"
+      (let [broken-config {:agiladmin {:projects ["INVALIDYAML"]
+                                       :budgets {:path "test/assets/"}}}
+            proj (conf/load-project broken-config "INVALIDYAML")]
+        (f/failed? proj) => true
+        (f/message proj) => (contains "Invalid YAML at test/assets/INVALIDYAML.yaml")))
+
+(fact "Application config loader currently rejects runtime-only keys missing from the schema"
+      (let [conf (conf/load-config "extra-keys-config" conf/default-settings)]
+        (f/failed? conf) => true
+        (f/message conf) => (contains "Invalid configuration at")
+        (f/message conf) => (contains "test-resources/extra-keys-config.yaml")
+        (f/message conf) => (contains "disallowed-key")))

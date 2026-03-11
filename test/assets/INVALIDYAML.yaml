@@ -1,0 +1,12 @@
+BROKEN:
+  start_date: 01-01-2026
+  duration:
+    - bad
+    - yaml
+  tasks:
+    - id: ALPHA
+      text: Broken task
+      start_date: 01-01-2026
+      duration: 1
+      pm: 1
+    - [unterminated

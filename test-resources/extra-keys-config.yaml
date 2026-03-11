@@ -1,0 +1,20 @@
+appname: agiladmin
+
+agiladmin:
+  webserver:
+    host: localhost
+    port: 8000
+    anti-forgery: false
+    ssl-redirect: false
+    salt: abcdef0123456789abcdef0123456789
+
+  budgets:
+    git: ssh://git@example.org/admin-budgets
+    ssh-key: id_rsa
+    path: budgets/
+
+  projects:
+    - CORE
+
+  admins:
+    - admin@example.org
