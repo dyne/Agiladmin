@@ -1,9 +1,9 @@
 (ns agiladmin.core-test
   (:require [midje.sweet :refer :all]
             [agiladmin.core :as core]
+            [agiladmin.tabular :as tab]
             [agiladmin.ring :as ring]
-            [failjure.core :as f]
-            [incanter.core :as inc]))
+            [failjure.core :as f]))
 
 (def projects
   {:CORE {:start_date "01-01-2026"
@@ -42,21 +42,21 @@
       (core/get-project-rate projects "Carol" "CORE" "2026-01") => nil)
 
 (fact "Cost derivation bills hours, but keeps voluntary and unknown-rate rows at zero"
-      (let [hours (inc/to-dataset [{:month "2026-01"
-                                    :name "Alice"
-                                    :project "CORE"
-                                    :tag ""
-                                    :hours 2}
-                                   {:month "2026-01"
-                                    :name "Alice"
-                                    :project "CORE"
-                                    :tag "VOL"
-                                    :hours 3}
-                                   {:month "2026-01"
-                                    :name "Carol"
-                                    :project "CORE"
-                                    :tag ""
-                                    :hours 4}])
+      (let [hours (tab/dataset [{:month "2026-01"
+                                 :name "Alice"
+                                 :project "CORE"
+                                 :tag ""
+                                 :hours 2}
+                                {:month "2026-01"
+                                 :name "Alice"
+                                 :project "CORE"
+                                 :tag "VOL"
+                                 :hours 3}
+                                {:month "2026-01"
+                                 :name "Carol"
+                                 :project "CORE"
+                                 :tag ""
+                                 :hours 4}])
             costs (core/derive-costs hours {} projects)]
         costs => {:column-names [:month :name :project :tag :hours :cost]
                   :rows [{:month "2026-01"
@@ -79,11 +79,11 @@
                           :cost 0}]}))
 
 (fact "Cost-per-hour and year derivation add the expected columns"
-      (let [hours (inc/to-dataset [{:month "2026-10"
-                                    :name "Bob"
-                                    :project "CORE"
-                                    :tag ""
-                                    :hours 5}])]
+      (let [hours (tab/dataset [{:month "2026-10"
+                                 :name "Bob"
+                                 :project "CORE"
+                                 :tag ""
+                                 :hours 5}])]
         (core/derive-cost-per-hour hours {} projects)
         => {:column-names [:month :name :project :tag :hours :cph]
             :rows [{:month "2026-10"
@@ -102,12 +102,12 @@
                     :year "2026"}]}))
 
 (fact "Task detail derivation adds task metadata and progress fields"
-      (let [task-hours (inc/to-dataset [{:project "CORE"
-                                         :task "T1"
-                                         :hours 75}
-                                        {:project "CORE"
-                                         :task "T2"
-                                         :hours 60}])]
+      (let [task-hours (tab/dataset [{:project "CORE"
+                                      :task "T1"
+                                      :hours 75}
+                                     {:project "CORE"
+                                      :task "T2"
+                                      :hours 60}])]
         (core/derive-task-details task-hours projects)
         => {:column-names [:project :task :hours :pm :h-left :description :start :end :progress]
             :rows [{:project "CORE"
@@ -130,7 +130,7 @@
                     :progress 0.2}]}))
 
 (fact "Empty-task derivation returns tasks not present in used-hours data"
-      (let [used (inc/to-dataset [{:task "T1"}])]
+      (let [used (tab/dataset [{:task "T1"}])]
         (core/derive-empty-tasks projects used)
         => {:column-names [:id :text :start_date :duration :pm]
             :rows [{:id "T2"
