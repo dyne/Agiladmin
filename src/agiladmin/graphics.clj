@@ -72,10 +72,10 @@
                   [:span (str (:task t) " - ")
                    [:small (get-in projects [(-> t :project keyword) :idx
                                              (-> t :task    keyword) :text])]])]
-         [:td nil (:tag t)]
-         [:td nil (:hours t)]
-         [:td nil (if (= (:cost t) 0) "-" (:cost t))]
-         [:td nil (:cph t)]])]])
+       [:td nil (:tag t)]
+       [:td nil (:hours t)]
+       [:td nil (if (= (:cost t) 0) "-" (:cost t))]
+       [:td nil (:cph t)]])]])
 
 (defn to-excel
   "Takes a dataset and converts it in a format read to be written to
