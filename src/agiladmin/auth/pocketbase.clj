@@ -27,12 +27,11 @@
    :other-names []
    :verified (:verified record)})
 
-(defn- fetch-user-record
-  [config token user-id]
+(defn- refresh-auth-record
+  [config token]
   (-> (request :get
                (endpoint (:base-url config)
-                         (str (auth-collection-path config "/records/")
-                              user-id))
+                         (auth-collection-path config "/auth-refresh"))
                {:headers {"Authorization" (str "Bearer " token)}})
       ensure-success))
 
@@ -83,7 +82,7 @@
                                     :password password}})
             ensure-success)]
     (-> (try
-          (fetch-user-record config token (:id record))
+          (:record (refresh-auth-record config token))
           (catch Exception _
             record))
         session-user)))
