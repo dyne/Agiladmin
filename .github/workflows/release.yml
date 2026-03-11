@@ -2,8 +2,8 @@ name: Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - master
   workflow_dispatch:
 
 permissions:
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   release:
-    name: Build and publish release
+    name: Semantic release
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -19,8 +19,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Set release version
-        run: echo "AGILADMIN_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
 
       - name: Set up Java
         uses: actions/setup-java@v4
@@ -43,21 +46,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-clojure-
 
+      - name: Install release tooling
+        run: npm install
+
       - name: Run tests
         run: make test CLOJURE=clojure
 
-      - name: Build uberjar
-        run: make build CLOJURE=clojure AGILADMIN_VERSION="$AGILADMIN_VERSION"
-
-      - name: Generate checksums
-        run: sha256sum "target/${AGILADMIN_VERSION}-standalone.jar" > "target/${AGILADMIN_VERSION}-standalone.jar.sha256"
-
-      - name: Create GitHub release
-        uses: softprops/action-gh-release@v2
+      - name: Create Release
+        run: npx semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          files: |
-            target/${{ env.AGILADMIN_VERSION }}-standalone.jar
-            target/${{ env.AGILADMIN_VERSION }}-standalone.jar.sha256
-          generate_release_notes: true
