@@ -44,3 +44,15 @@
                    [:confirm "user@example.org" "token"]
                    [:request "user@example.org"]
                    [:pending]]))
+
+(fact "Auth core turns backend exceptions into failjure failures"
+      (let [previous @auth/backend
+            backend {:list-pending-users (fn []
+                                           (throw (ex-info "PocketBase unreachable." {})))}]
+        (auth/init! backend)
+        (try
+          (let [result (auth/list-pending-users)]
+            (f/failed? result) => truthy
+            (f/message result) => "PocketBase unreachable.")
+          (finally
+            (auth/init! previous)))))
