@@ -5,6 +5,7 @@
   {:id "dev-admin"
    :email "admin"
    :name "Admin"
+   :admin true
    :other-names []
    :verified true})
 

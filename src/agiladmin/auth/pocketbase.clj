@@ -21,6 +21,7 @@
   {:id (:id record)
    :email (:email record)
    :name (:name record)
+   :admin (true? (:admin record))
    :other-names []
    :verified (:verified record)})
 

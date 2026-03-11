@@ -62,8 +62,7 @@
 (defn list-all
   "list all persons"
   [request config account]
-  (if-not (->> config :agiladmin :admins
-               (some #(= (:email account) %)))
+  (if-not (:admin account)
     (web/render-error-page account "Unauthorized access")
     (web/render
      account

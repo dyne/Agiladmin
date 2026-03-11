@@ -5,18 +5,19 @@
             [ring.mock.request :as mock]))
 
 (def admin-config
-  {:agiladmin {:admins ["admin@example.org"]
-               :budgets {:path "test/assets/"}}})
+  {:agiladmin {:budgets {:path "test/assets/"}}})
 
 (def user-session
   {:config admin-config
    :auth {:email "user@example.org"
-          :name "User Name"}})
+          :name "User Name"
+          :admin false}})
 
 (def admin-session
   {:config admin-config
    :auth {:email "admin@example.org"
-          :name "Admin User"}})
+          :name "Admin User"
+          :admin true}})
 
 (fact "Root route renders the bundled readme"
       (let [response (handlers/app-routes (mock/request :get "/"))]

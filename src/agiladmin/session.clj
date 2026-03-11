@@ -34,11 +34,8 @@
   (let [login (get-in request [:session :auth])]
     (cond
       (nil? login) (f/fail (str "Unauthorized access."))
-      (->> config :agiladmin :admins
-           (some #(= (:email login) %)))
-      (conj login {:admin true})
       :else
-      (conj login {:admin false}))))
+      (assoc login :admin (true? (:admin login))))))
 
 (defn- render-check-failure
   [request error]
