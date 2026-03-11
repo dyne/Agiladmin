@@ -95,6 +95,36 @@
                 :hidden (when-not (zero? idx) true)}
       content])])
 
+(defn- nav-menu
+  [links]
+  (for [{:keys [href icon label]} links]
+    [:li [:a {:class "gap-2" :href href}
+          [:span {:class icon}] label]]))
+
+(defn- navbar
+  [toggle-id links]
+  [:nav
+   {:class "navbar fixed inset-x-0 top-0 z-40 border-b border-base-300 bg-base-100/95 px-4 shadow-sm backdrop-blur md:px-6"}
+   [:div {:class "flex-1 gap-3"}
+    [:img {:src "/static/img/dyne-logo-small.png"
+           :class "h-10 w-auto rounded-md bg-base-100 p-1"}]
+    [:a {:class "btn btn-ghost text-lg normal-case"
+         :href "/"} [:span {:class "far fa-handshake"}] " Agiladmin"]]
+   [:div {:class "flex-none"}
+    [:button {:type "button"
+              :class "btn btn-ghost btn-square md:hidden"
+              :data-nav-toggle toggle-id
+              :aria-controls toggle-id
+              :aria-expanded "false"
+              :aria-label "Toggle navigation"}
+     [:span {:class "far fa-bars"}]]
+    (into [:ul {:class "menu menu-horizontal hidden items-center gap-2 px-1 md:flex"}]
+          (nav-menu links))]
+   [:div {:id toggle-id
+          :class "hidden w-full basis-full pt-3 md:hidden"}
+    (into [:ul {:class "menu rounded-box bg-base-100 p-2 shadow"}]
+          (nav-menu links))]])
+
 
 (defn render
   ([body]
@@ -177,59 +207,18 @@
     (page/include-css "/static/css/agiladmin.css")]))
 
 (def navbar-guest
-  [:nav
-   {:class "navbar fixed inset-x-0 top-0 z-40 border-b border-base-300 bg-base-100/95 px-4 shadow-sm backdrop-blur md:px-6"}
-   [:div {:class "flex-1 gap-3"}
-    [:img {:src "/static/img/dyne-logo-small.png"
-           :class "h-10 w-auto rounded-md bg-base-100 p-1"}]
-    [:a {:class "btn btn-ghost text-lg normal-case"
-         :href "/"} [:span {:class "far fa-handshake"}] " Agiladmin"]]
-   [:div {:class "flex-none"}
-    [:button {:type "button"
-              :class "btn btn-ghost btn-square md:hidden"
-              :data-nav-toggle "guest-nav"
-              :aria-controls "guest-nav"
-              :aria-expanded "false"
-              :aria-label "Toggle navigation"}
-     [:span {:class "far fa-bars"}]]
-    [:ul {:class "menu menu-horizontal hidden items-center gap-2 px-1 md:flex"}
-     [:li [:a {:class "gap-2" :href "/login"}
-           [:span {:class "far fa-address-card"}] "Login"]]]]
-   [:div {:id "guest-nav"
-          :class "hidden w-full basis-full pt-3 md:hidden"}
-    [:ul {:class "menu rounded-box bg-base-100 p-2 shadow"}
-     [:li [:a {:class "gap-2" :href "/login"}
-           [:span {:class "far fa-address-card"}] "Login"]]]]])
+  (navbar "guest-nav"
+          [{:href "/login"
+            :icon "far fa-address-card"
+            :label "Login"}]))
 
 (def navbar-account
-  [:nav {:class "navbar fixed inset-x-0 top-0 z-40 border-b border-base-300 bg-base-100/95 px-4 shadow-sm backdrop-blur md:px-6"}
-   [:div {:class "flex-1 gap-3"}
-    [:img {:src "/static/img/dyne-logo-small.png"
-           :class "h-10 w-auto rounded-md bg-base-100 p-1"}]
-    [:a {:class "btn btn-ghost text-lg normal-case"
-         :href "/"} [:span {:class "far fa-handshake"}] " Agiladmin"]]
-   [:div {:class "flex-none"}
-    [:button {:type "button"
-              :class "btn btn-ghost btn-square md:hidden"
-              :data-nav-toggle "account-nav"
-              :aria-controls "account-nav"
-              :aria-expanded "false"
-              :aria-label "Toggle navigation"}
-     [:span {:class "far fa-bars"}]]
-    [:ul {:class "menu menu-horizontal hidden items-center gap-2 px-1 md:flex"}
-     [:li [:a {:class "gap-2" :href "/persons/list"} [:span {:class "far fa-address-card"}] "Personnel"]]
-     [:li [:a {:class "gap-2" :href "/projects/list"} [:span {:class "far fa-paper-plane"}] "Projects"]]
-     [:li [:a {:class "gap-2" :href "/timesheets"} [:span {:class "far fa-plus-square"}] "Upload"]]
-     [:li [:a {:class "gap-2" :href "/reload"} [:span {:class "far fa-save"}] "Reload"]]
-     [:li [:a {:class "gap-2" :href "/config"} [:span {:class "far fa-file-code"}] "Configuration"]]]]
-   [:div {:id "account-nav"
-          :class "hidden w-full basis-full pt-3 md:hidden"}
-    [:ul {:class "menu rounded-box bg-base-100 p-2 shadow"}
-     [:li [:a {:class "gap-2" :href "/persons/list"} [:span {:class "far fa-address-card"}] "Personnel"]]
-     [:li [:a {:class "gap-2" :href "/projects/list"} [:span {:class "far fa-paper-plane"}] "Projects"]]
-     [:li [:a {:class "gap-2" :href "/timesheets"} [:span {:class "far fa-plus-square"}] "Upload"]]
-     [:li [:a {:class "gap-2" :href "/reload"} [:span {:class "far fa-save"}] "Reload"]]
-     [:li [:a {:class "gap-2" :href "/config"} [:span {:class "far fa-file-code"}] "Configuration"]]]]])
+  (navbar "account-nav"
+          [{:href "/persons/list" :icon "far fa-address-card" :label "Personnel"}
+           {:href "/projects/list" :icon "far fa-paper-plane" :label "Projects"}
+           {:href "/timesheets" :icon "far fa-plus-square" :label "Upload"}
+           {:href "/reload" :icon "far fa-save" :label "Reload"}
+           {:href "/config" :icon "far fa-file-code" :label "Configuration"}]))
 
 (defn render-footer []
   [:footer {:class "mx-auto mt-12 w-full max-w-screen-2xl border-t border-base-300 px-4 py-8 md:px-6"}
