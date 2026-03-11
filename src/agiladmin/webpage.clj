@@ -212,17 +212,17 @@
   [toggle-id links]
   [:nav
    {:class "fixed inset-x-0 top-0 z-40 border-b border-base-300 bg-base-100/90 shadow-sm backdrop-blur"}
-   [:div {:class "navbar mx-auto w-full max-w-screen-2xl px-4 md:px-6"}
-    [:div {:class "flex flex-1 items-center gap-3"}
+   [:div {:class "navbar mx-auto min-h-0 w-full max-w-screen-2xl px-4 py-2 md:px-6"}
+    [:div {:class "flex flex-1 items-center gap-2 md:gap-3"}
      [:a {:class "flex items-center gap-3 no-underline"
           :href "/"}
-      [:span {:class "flex h-11 w-11 items-center justify-center rounded-full border border-base-300 bg-base-100 shadow-sm"}
+      [:span {:class "flex h-9 w-9 items-center justify-center rounded-full border border-base-300 bg-base-100 shadow-sm md:h-10 md:w-10"}
        [:img {:src "/static/img/dyne-icon-black.svg"
-              :class "h-6 w-6"
+              :class "h-5 w-5 md:h-6 md:w-6"
               :alt "Dyne icon"}]]
       [:div {:class "leading-tight"}
-       [:div {:class "text-lg font-semibold tracking-wide"} "Agiladmin"]
-       [:div {:class "text-xs uppercase tracking-[0.3em] text-base-content/60"} "Dyne.org"]]]]
+       [:div {:class "text-base font-semibold tracking-wide md:text-lg"} "Agiladmin"]
+       [:div {:class "text-[10px] uppercase tracking-[0.25em] text-base-content/60 md:text-xs"} "Dyne.org"]]]]
     [:div {:class "flex items-center gap-2"}
      [:div {:class "hidden md:block"}
       (theme-toggle)]
@@ -255,7 +255,7 @@
                   :data-theme-dark "dim"
                   :class "min-h-screen bg-base-200 text-base-content"}
            navbar-guest
-           [:main {:class "mx-auto w-full max-w-screen-2xl px-4 pb-12 pt-24 md:px-6"} body]
+           [:main {:class "mx-auto w-full max-w-screen-2xl px-4 pb-12 pt-20 md:px-6 md:pt-24"} body]
            (render-footer)])})
   ([account body]
    {:headers {"Content-Type"
@@ -269,7 +269,7 @@
             (if (empty? account)
                     navbar-guest
                     navbar-account)
-            [:main {:class "mx-auto w-full max-w-screen-2xl px-4 pb-12 pt-24 md:px-6"} body]
+            [:main {:class "mx-auto w-full max-w-screen-2xl px-4 pb-12 pt-20 md:px-6 md:pt-24"} body]
             (render-footer)])}))
 
 
