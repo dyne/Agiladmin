@@ -74,18 +74,21 @@
                       clojure.core/sort
                       distinct)
           person-buttons (mapv (fn [person]
-                                 [:div {:class "log-person"}
+                                 [:div {:class "log-person"
+                                        :data-text-filter-item "true"
+                                        :data-text-filter-value person}
                                   (web/button "/person" person
                                               (list (hf/hidden-field "person" person)
-                                                    (hf/hidden-field "year" year)))])
+                                                    (hf/hidden-field "year" year))
+                                              "btn btn-outline w-full justify-start")])
                                people)]
       (web/render
        account
        [:div {:class "grid gap-6 lg:grid-cols-2"}
-        [:div {:class "card bg-base-100 shadow-sm"}
-         [:div {:class "card-body"}
-          [:h2 "Persons"]
-          (into [:div {:class "space-y-2"}] person-buttons)]]
+        (web/filterable-button-list "persons-list"
+                                    "Persons"
+                                    "No persons match the current filter."
+                                    person-buttons)
         [:div {:class "card bg-base-100 shadow-sm"}
          [:div {:class "card-body"}
           [:h2 "Newcomers"]
