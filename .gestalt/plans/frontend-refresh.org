@@ -1,0 +1,259 @@
+#+TITLE: Frontend Refresh
+#+SUBTITLE: Execution-ready HTMX + TailwindCSS + DaisyUI migration without functional changes
+#+DATE: 2026-03-11
+#+KEYWORDS: frontend hiccup htmx tailwind daisyui bootstrap migration
+
+* DONE [#A] Establish frontend baseline and migration map
+Effort: S
+Goal: Freeze current behavior and identify the exact shared layout, asset, route, and component surface to migrate.
+Notes: Keep this step diagnostic. Do not change behavior here. The agent executing this plan should not skip inventory work.
+
+** DONE [#A] Inventory shared frontend entry points
+Why: Bootstrap classes are spread across shared layout and view namespaces, so the migration must start from the actual rendering seams.
+Change: Audit these files first and write down the findings in the commit message or working notes: `src/agiladmin/webpage.clj`, `src/agiladmin/graphics.clj`, `src/agiladmin/handlers.clj`, `src/agiladmin/view_auth.clj`, `src/agiladmin/view_person.clj`, `src/agiladmin/view_project.clj`, `src/agiladmin/view_timesheet.clj`, `src/agiladmin/view_reload.clj`, `resources/public/static/css/*`, `resources/public/static/js/*`, `resources/gantt-loader.js`.
+Tests: No automated tests. Record the inventory in implementation notes.
+Done when: We have an explicit list of shared layout functions, reusable helpers, third-party assets, Bootstrap patterns, inline script islands, and route-backed screens to migrate.
+
+** DONE [#A] Define parity guardrails per screen
+Why: "No functionality change" needs a concrete meaning before touching markup or JS.
+Change: Write the parity checklist explicitly for these routes and screens: `/`, `/login`, `/signup`, `/logout`, `/persons/list`, `POST /person`, `/projects/list`, `POST /project`, `POST /projects/edit`, `/timesheets`, `POST /timesheets/upload`, `POST /timesheets/cancel`, `POST /timesheets/submit`, `/timesheets/download/:path`, `/reload`, `/config`, `/config/edit`. For each route record: visible sections, forms/buttons, tables, alerts, downloads, redirects, and any JS widget usage.
+Tests: No new tests. Produce a manual verification checklist from the route list above.
+Done when: Every route above has an explicit manual verification checklist with expected visible behavior and no route is left implicit.
+
+* DONE [#A] Replace Bootstrap with a minimal TailwindCSS + DaisyUI asset pipeline
+Effort: M
+Goal: Serve TailwindCSS and DaisyUI using the `nord` theme while keeping the current Ring static asset model simple.
+Notes: Prefer the smallest viable toolchain. Do not introduce SPA tooling, bundlers, or a frontend framework. The default target is generated CSS under `resources/public/static/css/`.
+
+** DONE [#A] Add minimal Tailwind build inputs and output target
+Why: DaisyUI depends on Tailwind, and the repo currently serves static CSS files directly without a CSS build step.
+Change: Add the minimum files needed to build CSS. Preferred shape:
+- `package.json` with only `tailwindcss`, `@tailwindcss/cli` if needed, and `daisyui` unless a simpler CLI path is clearly better.
+- `tailwind.config.js` or `tailwind.config.cjs`.
+- one Tailwind input file such as `resources/tailwind.css`.
+- one generated output file such as `resources/public/static/css/app.css`.
+  Keep `resources/public/static/css/agiladmin.css` only for app-specific overrides if needed; do not hand-edit generated CSS.
+Tests: Run the CSS build command once. Preferred verification command family:
+- `npm install`
+- `npx tailwindcss -i ./resources/tailwind.css -o ./resources/public/static/css/app.css`
+  If the repo chooses npm scripts instead, document the exact script name in the code and in `AGENTS.md`.
+Done when: A documented command generates the CSS into the served static path and no runtime code depends on Node beyond building assets.
+
+** DONE [#A] Configure DaisyUI with the `nord` theme and preserve third-party CSS islands
+Why: DaisyUI should replace Bootstrap components, but DHTMLX Gantt, diff formatters, highlight styles, and Font Awesome still need their own CSS left intact.
+Change: Configure DaisyUI with `themes: ["nord"]` and apply `data-theme="nord"` at the `<html>` or `<body>` shell level in `src/agiladmin/webpage.clj`. Keep these vendor assets unless the app no longer uses them: `dhtmlxgantt.css`, `json-html.css`, `highlight-tomorrow.css`, formatter CSS, Font Awesome CSS, and app-specific CSS. Remove only Bootstrap assets from `render-head` once all emitted Bootstrap classes are gone.
+Tests: Rebuild CSS and open the rendered head markup through tests or manual inspection to confirm the stylesheet/script list is valid.
+Done when: `render-head` can load Tailwind/DaisyUI plus the remaining vendor CSS without Bootstrap CSS/JS and without broken static asset paths.
+
+* DONE [#A] Migrate shared layout and reusable components to DaisyUI/Tailwind
+Effort: M
+Goal: Convert the common shell first so individual pages inherit the new styling system with minimal duplication.
+Notes: Start from helpers in `agiladmin.webpage` and `agiladmin.graphics`. Preserve route structure, rendered data, and button/form submission behavior.
+
+** DONE [#A] Rework the global shell, navbar, alerts, and form buttons
+Why: `render-head`, navbars, alerts, and button helpers currently centralize a large part of the Bootstrap contract.
+Change: Edit `src/agiladmin/webpage.clj` only in this slice. Replace these patterns with DaisyUI/Tailwind equivalents:
+- `navbar*` -> DaisyUI `navbar`, `menu`, responsive drawer/dropdown pattern if needed.
+- `btn`, `btn-primary`, `btn-default`, `btn-info`, `btn-danger`, `btn-success`, `btn-lg`, `btn-sm` -> DaisyUI `btn` variants plus Tailwind sizing utilities.
+- `alert alert-danger|info` -> DaisyUI `alert` with matching semantic color.
+- `container-fluid`, `container`, `row`, `row-fluid`, `col-*`, `pull-right` -> Tailwind layout utilities.
+- `sr-only` -> Tailwind screen-reader utility.
+  Keep helper names stable unless there is a strong reason not to rename them.
+Tests: Run:
+- `XDG_CONFIG_HOME=/tmp CLJ_CONFIG=/tmp/clojure clojure -M:test`
+  If that is too broad during development, at minimum run the touched shared-helper tests:
+- `test/agiladmin/webpage_test.clj`
+- `test/agiladmin/handlers_test.clj`
+Done when: `src/agiladmin/webpage.clj` emits no Bootstrap classes, the app shell still renders the same links/forms, and helper-focused tests pass.
+
+** DONE [#A] Rework generic table rendering with DaisyUI table primitives
+Why: Generic dataset tables are reused across multiple screens, so this is the highest leverage component substitution after the shell.
+Change: Edit `src/agiladmin/graphics.clj` to replace generic table classes with DaisyUI/Tailwind classes. Preserve:
+- the outer `<table>` element,
+- `sortable` compatibility for `sorttable.js`,
+- existing columns and cell values,
+- the progress cell markup and semantics.
+  Recommended mapping:
+- `table` -> `table table-zebra`
+- wrap wide tables with a Tailwind overflow container in callers only if needed; do not silently change table data structure.
+Tests: Run:
+- `test/agiladmin/graphics_test.clj`
+  Also rerun any failing view tests that assert on table markup.
+Done when: Shared table helpers no longer emit Bootstrap table classes and existing table tests pass with only intentional markup expectation updates.
+
+* DONE [#A] Migrate screen-level views to visual parity
+Effort: L
+Goal: Replace remaining Bootstrap classes page by page without changing routes, forms, server behavior, or domain logic.
+Notes: Work screen by screen. Keep one view family per commit. Do not mix HTMX introduction into this L1.
+
+** DONE [#A] Migrate auth and navigation-oriented screens
+Why: Login and top-level navigation are low-complexity screens that validate the shared shell decisions early.
+Change: Edit the smallest set of files for auth/navigation first:
+- `src/agiladmin/view_auth.clj`
+- any simple shell entry points in `src/agiladmin/webpage.clj`
+  Preserve all field names and form actions. Do not change auth logic or session logic.
+Tests: Run:
+- `test/agiladmin/view_auth_test.clj`
+- `test/agiladmin/handlers_test.clj`
+  Manual checks:
+- `/login` renders the same fields and error area.
+- `/signup` renders the same fields and validation feedback.
+- `/logout` route behavior is unchanged.
+Done when: Auth/navigation pages are free of Bootstrap classes, look consistent under `nord`, and the tests above pass.
+
+** DONE [#A] Migrate person and project detail screens
+Why: These screens combine tables, action buttons, summaries, and the Gantt area, so they cover most remaining component patterns.
+Change: Edit:
+- `src/agiladmin/view_person.clj`
+- `src/agiladmin/view_project.clj`
+  Replace Bootstrap grid/layout/button/table wrappers with DaisyUI/Tailwind. Keep all route parameters, hidden fields, button actions, and data rendering unchanged. Treat DHTMLX Gantt as a JS island:
+- keep `resources/gantt-loader.js` and `resources/public/static/js/dhtmlxgantt*.js` behavior unchanged,
+- only change the surrounding layout classes unless a CSS conflict must be isolated.
+Tests: Run:
+- `test/agiladmin/view_person_test.clj`
+- `test/agiladmin/view_project_test.clj`
+- `test/agiladmin/graphics_test.clj`
+  Manual checks:
+- `/persons/list` admin and non-admin flows still behave the same.
+- person detail renders all tables and action buttons.
+- project detail renders all tables and the Gantt area.
+Done when: Person and project views emit no Bootstrap classes and all route/test behavior remains intact.
+
+** DONE [#A] Migrate timesheet and admin/reload screens
+Why: The timesheet flow is the highest-risk UI because it combines uploads, diffs, alerts, and commit actions.
+Change: Edit:
+- `src/agiladmin/view_timesheet.clj`
+- `src/agiladmin/view_reload.clj`
+  Preserve upload form names, hidden fields, file handling, diff output containers, submit/cancel forms, and commit messaging. Do not refactor Git or filesystem logic in this UI pass.
+Tests: Run:
+- `test/agiladmin/view_timesheet_test.clj`
+- `test/agiladmin/view_reload_test.clj`
+- `test/agiladmin/handlers_test.clj`
+  Manual checks:
+- `/timesheets` upload form renders.
+- upload failure and success feedback still render.
+- diff output area still appears.
+- cancel and submit still trigger the same server actions.
+- `/reload` still explains repository issues correctly.
+Done when: Timesheet and reload/admin views emit no Bootstrap classes and the operational flow remains unchanged.
+
+* DONE [#B] Introduce HTMX as progressive enhancement around existing routes
+Effort: M
+Goal: Start using HTMX where it reduces full-page reload friction without forcing a route or domain rewrite.
+Notes: Prefer partial responses around existing screens and forms. Do not rewrite complex JS widgets into HTMX targets. Keep normal full-page behavior working for non-HTMX requests.
+
+** DONE [#B] Add HTMX to the shared layout and define partial-render seams
+Why: HTMX is easiest to adopt once there are stable component boundaries in the shared shell and views.
+Change: Add HTMX to `src/agiladmin/webpage.clj` via script include and define a minimal convention for detecting HTMX requests, preferably from the `HX-Request` header in handlers or helper functions. Create fragment seams only where the existing route can already compute the same content. Preferred first seam candidates:
+- shared alert/feedback block after POST actions,
+- timesheet upload result pane on `POST /timesheets/upload`,
+- project/person local content region only if the same route can render both full page and inner fragment cleanly.
+  Avoid creating new domain endpoints unless a full-page route cannot practically serve a fragment.
+Tests: Update tests only where a route gains fragment behavior. Keep full-page response tests intact.
+Done when: At least one existing route can return a full page for normal requests and a fragment for HTMX requests without duplicating business logic.
+
+** DONE [#B] Convert low-risk interactions first
+Why: HTMX should prove itself on simple postbacks before touching complex operational flows.
+Change: Implement HTMX in this order:
+1. a low-risk feedback region on auth or reload pages if convenient,
+2. `POST /timesheets/upload` returning the upload result fragment into a target container,
+3. one additional low-risk interaction only if the first two are clean.
+  Use `hx-post`, `hx-target`, and `hx-swap="innerHTML"` by default. Do not add custom JS unless HTMX alone cannot express the interaction.
+Tests: Run the specific touched tests plus `test/agiladmin/handlers_test.clj`. Manually verify that disabling HTMX still leaves plain full-page form submission working.
+Done when: At least one real route-backed form uses HTMX successfully and the fallback full-page path still works.
+
+** DONE [#B] Evaluate whether the timesheet flow benefits from HTMX
+Why: Timesheet upload/diff is the main place where partial page updates may help, but it is also the highest-risk UI path.
+Change: Evaluate only these timesheet HTMX candidates:
+- upload result area after `POST /timesheets/upload`,
+- cancel/submit feedback area for `POST /timesheets/cancel` and `POST /timesheets/submit`.
+  Do not convert file transfer/download or Git-backed commit internals. If the markup becomes too tangled, keep timesheet submit/cancel as full-page and record that decision in the commit message and final documentation.
+Tests: Run `test/agiladmin/view_timesheet_test.clj` and `test/agiladmin/handlers_test.clj` if this slice changes code.
+Done when: The plan has either a small working HTMX timesheet enhancement or an explicit documented decision to keep the timesheet flow full-page.
+
+* DONE [#A] Verify parity, remove dead Bootstrap usage, and document the new frontend conventions
+Effort: M
+Goal: Finish with a clean frontend baseline and a short maintainer guide for future changes.
+Notes: This is the cleanup and confidence pass. Do not start it before all migrations above are done.
+
+** DONE [#A] Remove residual Bootstrap dependencies and dead classes
+Why: Leaving Bootstrap assets or orphan class names behind will create confusing styling conflicts and unclear ownership.
+Change: Remove Bootstrap JS/CSS includes from `src/agiladmin/webpage.clj`, search the repo for residual Bootstrap classes, and delete or replace them. Use `rg` to confirm removal of these patterns at minimum: `bootstrap`, `btn-`, `navbar-`, `container-fluid`, `row-fluid`, `col-md-`, `col-lg-`, `pull-right`, `form-control`, `alert-`.
+Tests: Run the full suite:
+- `XDG_CONFIG_HOME=/tmp CLJ_CONFIG=/tmp/clojure clojure -M:test`
+  If that fails because dependencies need writable caches, use the repo-approved command form from the environment instructions.
+Done when: No active application view depends on Bootstrap assets or Bootstrap class conventions and the full suite passes.
+
+** DONE [#A] Document the frontend architecture and reviewer checklist
+Why: Future work should follow the new HTMX + Hiccup + Tailwind/DaisyUI conventions instead of drifting back to ad hoc styling.
+Change: Update `AGENTS.md` if useful and add a short maintainer note covering:
+- CSS build command,
+- where the Tailwind input file lives,
+- where generated CSS is written,
+- that DaisyUI uses the `nord` theme,
+- HTMX conventions for full-page vs fragment responses,
+- known JS islands that stay outside HTMX, especially DHTMLX Gantt.
+  End the work with a brief reviewer summary listing:
+- migrated screen groups,
+- HTMX-enabled interactions,
+- any intentionally non-migrated exceptions,
+- the commands used for verification.
+Tests: No automated tests. Confirm the documentation matches the implemented files and commands.
+Done when: Another agent can build CSS, understand the frontend boundaries, and continue future frontend work without rediscovering decisions.
+
+* DONE [#A] Use this exact component mapping while migrating
+Effort: S
+Goal: Remove ambiguity for weaker agents by fixing the default Bootstrap replacement choices.
+Notes: Only deviate from this mapping if a specific screen proves the mapping insufficient.
+
+** DONE [#A] Apply the default Bootstrap to DaisyUI/Tailwind mapping
+Why: A weaker agent should not improvise component substitutions across the codebase.
+Change: Use this mapping as the default:
+- `navbar navbar-default navbar-fixed-top` -> DaisyUI `navbar` plus Tailwind sticky/top utilities if fixed positioning is still needed.
+- `nav navbar-nav` -> DaisyUI `menu menu-horizontal` on wide screens and stacked menu/dropdown on narrow screens.
+- `btn` -> `btn`
+- `btn-default` -> `btn-ghost`
+- `btn-primary` -> `btn-primary`
+- `btn-info` -> `btn-info`
+- `btn-danger` -> `btn-error`
+- `btn-success` -> `btn-success`
+- `btn-lg` -> `btn-lg`
+- `btn-sm` -> `btn-sm`
+- `btn-group` -> group wrapper using DaisyUI join classes or simple flex gap utilities
+- `alert alert-danger` -> `alert alert-error`
+- `alert alert-info` -> `alert alert-info`
+- `table` -> `table table-zebra`
+- `container-fluid` -> `w-full px-4 md:px-6`
+- `container` -> `mx-auto max-w-screen-xl px-4`
+- `row` and `row-fluid` -> `flex flex-wrap`
+- `col-*` -> width utilities such as `w-full`, `lg:w-4/12`, `md:w-5/12`
+- `pull-right` -> `ml-auto`
+- `sr-only` -> `sr-only`
+Tests: No separate tests. Use this mapping in all migration commits unless a commit message explains a deviation.
+Done when: All migrated views follow one consistent component mapping and no major screen invents a separate design system.
+
+* DONE [#A] Execute the work in this exact order
+Effort: S
+Goal: Prevent low-capability agents from jumping between concerns.
+Notes: Follow this order strictly.
+
+** DONE [#A] Follow the ordered execution checklist
+Why: The migration is safer if layout/tooling changes land before HTMX and before final cleanup.
+Change: Execute in this order:
+1. inventory and route parity checklist,
+2. Tailwind/DaisyUI build files,
+3. `webpage.clj` shared shell,
+4. `graphics.clj` shared tables,
+5. `view_auth.clj`,
+6. `view_person.clj`,
+7. `view_project.clj`,
+8. `view_timesheet.clj`,
+9. `view_reload.clj`,
+10. HTMX shared support,
+11. first HTMX route,
+12. optional second HTMX route,
+13. Bootstrap removal search-and-destroy pass,
+14. full test suite,
+15. documentation update.
+Tests: Run touched tests after each code slice. Run the full suite only at the end of L1 groups that affect shared behavior and again after final cleanup.
+Done when: The work history and commits follow the ordered checklist above rather than mixing unrelated concerns.

@@ -64,6 +64,11 @@
   - alias: `clj -M:test`
   - Midje runner namespace: `test/agiladmin/test_runner.clj`
 - In this environment, Clojure CLI commands need their config/cache paths redirected into writable locations before dependency resolution.
+- Frontend assets now use a minimal Node build:
+  - install once with `npm install`
+  - build CSS and sync the local HTMX asset with `npm run build:frontend`
+  - Tailwind input lives at `resources/tailwind.css`
+  - generated stylesheet is `resources/public/static/css/app.css`
 
 ## Testing Reality
 - Existing tests are fixture-heavy and narrow.
@@ -100,6 +105,10 @@
 - When changing config handling, verify both global config loading and per-project YAML loading.
 - Be conservative around `view_timesheet/commit`; it mutates the budgets repo and pushes over SSH.
 - Avoid “cleanup” changes that rename columns, normalize casing differently, or alter dataset shapes unless you also update all dependent views/tests.
+- Frontend styling uses TailwindCSS + DaisyUI with the `nord` theme; shared layout helpers live in `src/agiladmin/webpage.clj`.
+- HTMX is loaded locally from `resources/public/static/js/htmx.min.js` and is intended for progressive enhancement only; keep full-page fallback behavior working.
+- `resources/public/static/js/app.js` replaces the old Bootstrap JS for navbar toggles and tab switching.
+- DHTMLX Gantt remains a JS island. Do not rewrite it into HTMX; only change the surrounding shell unless the task explicitly calls for deeper work.
 
 ## Useful Files
 - [`README.md`](/C:/Users/denis/devel/planb-agiladmin/README.md)
