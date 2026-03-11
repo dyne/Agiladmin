@@ -29,7 +29,7 @@
 
 (defn- refresh-auth-record
   [config token]
-  (-> (request :get
+  (-> (request :post
                (endpoint (:base-url config)
                          (auth-collection-path config "/auth-refresh"))
                {:headers {"Authorization" (str "Bearer " token)}})
