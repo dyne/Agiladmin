@@ -219,42 +219,11 @@
 
 (defonce app-state (atom nil))
 
-(def ^:private reloadable-namespaces
-  '[agiladmin.auth.core
-    agiladmin.auth.dev
-    agiladmin.auth.pocketbase
-    agiladmin.config
-    agiladmin.core
-    agiladmin.graphics
-    agiladmin.ring
-    agiladmin.session
-    agiladmin.tabular
-    agiladmin.utils
-    agiladmin.view-auth
-    agiladmin.view-person
-    agiladmin.view-project
-    agiladmin.view-reload
-    agiladmin.view-timesheet
-    agiladmin.webpage])
-
-(defn- dev-reload-enabled?
-  []
-  (#{"1" "true" "TRUE" "yes" "YES"} (System/getenv "AGILADMIN_DEV_RELOAD")))
-
-(defn- reload-app-code!
-  []
-  (doseq [ns-sym reloadable-namespaces]
-    (require ns-sym :reload)))
-
 (defn init-app! []
   (let [handler (make-app)]
     (reset! app-state handler)
     handler))
 
 (defn app [request]
-  (let [handler (if (dev-reload-enabled?)
-                  (do
-                    (reload-app-code!)
-                    (init-app!))
-                  (or @app-state (init-app!)))]
+  (let [handler (or @app-state (init-app!))]
     (handler request)))
