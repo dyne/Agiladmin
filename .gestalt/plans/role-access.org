@@ -1,0 +1,116 @@
+#+TITLE: Role-based route access
+#+SUBTITLE: Enforce access by role at routing boundaries with minimal view fallout
+#+DATE: 2026-03-12
+#+KEYWORDS: auth authorization roles routing personnel projects upload
+
+* DONE [#A] Define the authorization matrix and the enforcement seam
+Effort: S
+Goal: Freeze the exact role-to-route policy and decide one routing-level mechanism that all protected endpoints must use.
+Notes: Keep this slice focused on policy and entry-point design. The main constraint is that denied access must happen before route handlers execute view or domain work. Do not leave policy implicit in prose only: write the exact route matrix in code comments or implementation notes before editing handlers.
+
+** DONE [#A] Map every existing protected route to allowed roles
+Why: The current routes mostly rely on generic login checks, so the exact authorization surface must be enumerated before changing behavior.
+Change: Audit the routes in `src/agiladmin/handlers.clj` and classify every route explicitly. Use this matrix as the baseline and copy it into implementation notes so it cannot drift:
+- Public: `GET /`, `GET /login`, `POST /login`, `GET /logout`, `GET /signup`, `POST /signup`, activation routes.
+- Admin only: `GET /reload`, `GET /config`, `GET /config/edit`, `POST /config/edit`, any future operational/configuration route.
+- Admin and manager: `GET /projects/list`, `POST /project`.
+- Admin only: `POST /projects/edit`.
+- Any authenticated role: `GET /timesheets`, `POST /timesheets/upload`, `POST /timesheets/cancel`, `POST /timesheets/submit`, `GET /timesheets/download/:path`, `GET /persons/list`, `POST /person`, `POST /persons/spreadsheet`, `POST /`.
+- Special scope rules on top of role access:
+  - admin may target any person and sees full project/person data including costs.
+  - manager may access only own person pages from personnel routes; may list project entry points and open each project through the normal project view route; must never see or access project edit entry points; must never receive cost data or trigger cost calculation.
+  - any other authenticated role may access only own person pages and upload/timesheet routes; project routes must be denied.
+Document the concrete deny behavior expected for each route family: render the existing unauthorized response and do not redirect into an allowed route unless the current route already does that intentionally.
+Tests: Add or update route-level tests that express the role matrix for each protected endpoint, including explicit deny cases.
+Done when: There is a written route matrix covering all protected endpoints and no protected route remains on the generic "logged in" rule by accident.
+
+** DONE [#A] Introduce a dedicated authorization layer in the session/routing seam
+Why: Repeating role checks inline in route bodies will drift quickly and makes it easy to leave a route protected only in the view.
+Change: Add minimal authorization helpers in `src/agiladmin/session.clj` that build on the existing normalized roles and can enforce policies before invoking route handlers. Prefer a very small fixed set of route-facing guards rather than open-ended predicates:
+- one helper for authenticated-only routes,
+- one helper for admin-only routes,
+- one helper for manager-or-admin routes,
+- one helper that resolves the effective person target for personnel routes, returning the authenticated person for non-admin users regardless of submitted params,
+- one helper or capability map for `{:can-view-costs? ... :can-access-projects? ... :person-scope ...}` that handlers can pass downward.
+Keep the response behavior consistent with the existing unauthorized rendering flow. Do not create a second unauthorized page style.
+Tests: Add focused tests for the new session authorization helpers, covering accepted and rejected roles and preserving current behavior for unauthenticated requests.
+Done when: Route definitions can express role requirements through one shared guard mechanism and no route needs to hand-roll authorization logic.
+
+* DONE [#A] Enforce own-scope access for personnel and projects
+Effort: M
+Goal: Restrict non-admin users to their own data while preserving existing admin behavior.
+Notes: This slice should keep the current route structure if possible. Prefer parameter validation and account-derived lookup at the route boundary over deeper view branching. Challenge any temptation to widen permissions just because a view already tolerates it. Routing decisions should produce one of three outcomes only: allow as requested, allow with account-scoped target substitution for own-person access, or deny before the handler runs.
+
+** DONE [#A] Route non-admin personnel access only to the authenticated person
+Why: The current `/persons/list` route already redirects non-admin users to their own page, but POST access to person detail still appears to rely on generic login checks.
+Change: Protect the personnel routes so non-admin users can only reach their own person view, regardless of submitted parameters. For admin keep current unrestricted personnel access. For manager and other authenticated roles, derive the allowed person identity from the authenticated account at the route boundary and pass that effective identity into the view call. Be explicit per route:
+- `GET /persons/list`: admin keeps the listing; every non-admin gets only own person page.
+- `POST /person`: admin may request any person; every non-admin must be forced to own identity even if another person is submitted.
+- `POST /persons/spreadsheet`: admin may request any valid spreadsheet export already allowed today; every non-admin must be limited to own person context or denied if the route semantics cannot safely be scoped.
+If the route uses multiple parameters to identify a person or year, list them and decide which ones are account-derived and which ones remain user-provided.
+Tests: Add route tests for `/persons/list` and `POST /person` showing admin access to arbitrary people, manager access only to self, and deny behavior for authenticated non-admin users targeting another person.
+Done when: No non-admin route path can render another person's personnel page through crafted parameters or direct POSTs.
+
+** DONE [#A] Define and enforce manager project scope separately from general users
+Why: The request gives managers more project access than other authenticated users, so project routing needs an explicit branch instead of relying on the existing one-size-fits-all login check.
+Change: Split project routing into two clearly separate policies:
+- `GET /projects/list` and `POST /project`: admin and manager only.
+- `POST /projects/edit`: admin only.
+The policy is explicit:
+- admin may list projects, open any project, and use project edit entry points with full data.
+- manager may list projects entry points and open each project through `POST /project`, but must never see links/forms for `POST /projects/edit` and must be denied if that route is called directly.
+- any other authenticated role must be denied on all project routes.
+If the current project page mixes read-only navigation controls with edit controls, separate them so manager-visible markup contains only the read-only navigation path and admin-only markup contains the edit path.
+Tests: Add route tests proving admin access, manager access only on list/detail routes, manager denial on `/projects/edit`, and denial for authenticated non-manager roles on all project routes.
+Done when: Project endpoints are inaccessible to role `*`, managers reach only list/detail project surfaces, and `/projects/edit` is neither visible nor reachable for managers.
+
+* DONE [#A] Remove cost visibility and cost computation from manager project/person screens
+Effort: M
+Goal: Make manager-visible screens avoid exposing cost data and avoid doing unnecessary cost calculations.
+Notes: Hiding the column is not enough; the plan must cut off the expensive or sensitive calculation path as early as the current design allows. Prefer a small explicit "cost visibility" capability flowing into the relevant use-cases/views over ad hoc conditionals in templates. If a single existing function computes both hours and costs together, introduce the smallest viable split or flag rather than duplicating the full pipeline.
+
+** DONE [#A] Trace where cost data is computed for personnel and project screens
+Why: The request explicitly asks to avoid calculation, so implementation needs the actual computation seam, not just a rendering tweak.
+Change: Inspect the person/project view entry points and the underlying core functions they call to identify where cost columns or aggregates are added. Write down the exact functions, datasets, or transformations responsible for:
+- project cost columns,
+- person cost columns,
+- project/person totals derived from costs.
+Decide the minimal capability flag or alternate code path that preserves existing dataset shapes for admins while skipping cost enrichment for managers. Prefer changing one upstream data-preparation seam over sprinkling `dissoc` or column filtering across multiple views.
+Tests: Add or update focused tests around the affected view/core functions to prove that manager-visible responses omit cost values and do not invoke the cost-enrichment path.
+Done when: The exact code seam for skipping cost work is identified and covered by tests before the UI/output changes are applied.
+
+** DONE [#A] Render manager-safe project and personnel outputs from the same routes
+Why: Managers still need access to project and own-person pages, so the route must return a safe variant instead of a blanket denial.
+Change: Extend the relevant person/project use-cases and views so admins keep the full output, managers receive a variant without cost columns or totals, and general authenticated users only retain their own person view plus upload access. Keep this tied to authorization/capability data passed from the route layer rather than inferring it deep in the templates. Be prescriptive:
+- do not render a cost column header for managers,
+- do not render cost totals, summaries, or any derived monetary aggregates for managers,
+- do not compute cost-only intermediate data for managers just to discard it later,
+- do not render project edit buttons, forms, or links for managers,
+- keep admin markup and data unchanged unless required by the new capability plumbing.
+Tests: Update the relevant person/project rendering tests to assert that admin output still contains cost data while manager output omits it.
+Done when: Manager-accessible screens expose no cost field, no cost-derived totals, and no unnecessary cost computation while admin screens remain unchanged.
+
+* DONE [#A] Lock down admin-only operational routes and verify the whole matrix
+Effort: S
+Goal: Finish by closing privileged operational endpoints and proving the routing contract end-to-end.
+Notes: This is the confidence slice. Keep it narrow: no unrelated refactors, no new dependencies, no policy hidden in views.
+
+** DONE [#A] Restrict reload and configuration endpoints to admins only
+Why: The request explicitly excludes managers and general users from reload and configuration, and these routes are operationally sensitive.
+Change: Apply admin-only guards to `/reload`, `/config`, `/config/edit`, and any related POSTs so the denial happens before any operational or configuration view logic runs. Keep public auth routes unchanged. Review the handler file for any other route that reveals operational state or configuration details and classify it now rather than leaving it on the generic authenticated guard.
+Tests: Add route tests for each admin-only operational endpoint covering admin success and denial for manager and general authenticated roles.
+Done when: Non-admin users cannot reach reload or configuration endpoints by direct URL or POST.
+
+** DONE [#A] Prove the policy with route-focused regression coverage
+Why: The main requirement is routing-level denial, so the final confidence check must assert routing behavior instead of only view differences.
+Change: Consolidate the authorization regression tests around the protected routes, including success and deny cases for unauthenticated users, admin, manager, and a generic authenticated non-manager role. Prefer route/handler tests that exercise the actual Compojure entry points over isolated predicate tests alone. Include at least these concrete assertions:
+- admin can reach every protected route,
+- manager is denied on reload/config routes,
+- manager can list projects and open project routes,
+- manager is denied on `/projects/edit` and the manager-rendered project page does not expose that entry point,
+- manager gets own person route only,
+- generic authenticated user is denied on all project routes,
+- generic authenticated user still gets own person and timesheet/upload routes,
+- forged person parameters never escape own-scope restrictions for non-admin users.
+Tests: Run the touched authorization and handler tests first; when the L1s above are complete, run the full test suite as required by the repository workflow.
+Done when: The route-level test suite demonstrates the full matrix and catches any future regression where a route slips back to generic login-only protection.
