@@ -206,6 +206,22 @@ proceed to validation."]
       (log/error [:p "Error in git/load-repo: " ex])
       nil)))
 
+(defn- archive-timesheet!
+  [gitrepo path dst keypath req]
+  (let [base-path (fs/base-name dst)]
+    (io/copy (io/file path) (io/file dst))
+    (io/delete-file path)
+    (git/git-add gitrepo base-path)
+    (git/git-status gitrepo)
+    (git/git-commit
+     gitrepo
+     (str "Updated timesheet " base-path)
+     {:name (get-in req [:session :auth :name])
+      :email (get-in req [:session :auth :email])})
+    (git/with-identity {:name keypath :exclusive true}
+      (git/git-push gitrepo))
+    base-path))
+
 (defn commit [req conf acct]
   (let [path (s/param req :path)]
     (if (.exists (io/file path))
@@ -215,19 +231,8 @@ proceed to validation."]
           (render-commit-message
            (str "Timesheet submit is unavailable until the budgets directory exists: " repo))
           (if-let [gitrepo (safe-load-repo repo)]
-            (let [base-path (fs/base-name dst)
-                  keypath (conf/q conf [:agiladmin :budgets :ssh-key])]
-              (io/copy (io/file path) (io/file dst))
-              (io/delete-file path)
-              (git/git-add gitrepo base-path)
-              (git/git-status gitrepo)
-              (git/git-commit
-               gitrepo
-               (str "Updated timesheet " base-path)
-               {:name (get-in req [:session :auth :name])
-                :email (get-in req [:session :auth :email])})
-              (git/with-identity {:name keypath :exclusive true}
-                (git/git-push gitrepo))
+            (let [keypath (conf/q conf [:agiladmin :budgets :ssh-key])
+                  base-path (archive-timesheet! gitrepo path dst keypath req)]
               (web/render
                [:div {:class "container-fluid"}
                 [:h1 dst]

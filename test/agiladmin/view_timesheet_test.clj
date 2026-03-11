@@ -96,3 +96,40 @@
                         {:agiladmin {:budgets {:path "budgets/"}}}
                         {:email "admin"})]
           (:body response) => (contains "Where is this file gone?! /tmp/upload.xlsx"))))
+
+(fact "Timesheet submit archives the upload and renders the success page"
+      (let [calls (atom [])]
+        (with-redefs [clojure.java.io/file
+                      (fn [path]
+                        (proxy [java.io.File] [path]
+                          (exists [] true)
+                          (isDirectory [] (= path "budgets/"))))
+                      agiladmin.view-timesheet/safe-load-repo
+                      (fn [_] :gitrepo)
+                      agiladmin.view-timesheet/archive-timesheet!
+                      (fn [gitrepo path dst keypath req]
+                        (swap! calls conj [gitrepo path dst keypath
+                                           (get-in req [:session :auth])])
+                        "upload.xlsx")
+                      agiladmin.webpage/render-git-log
+                      (fn [_] [:div "git log"])
+                      agiladmin.utils/timesheet-to-name
+                      (fn [_] "Upload User")
+                      agiladmin.utils/now
+                      (fn [] {:year 2026})]
+          (let [response (view-timesheet/commit
+                          {:params {:path "/tmp/upload.xlsx"}
+                           :session {:auth {:name "Admin User"
+                                            :email "admin@example.org"}}}
+                          {:agiladmin {:budgets {:path "budgets/"
+                                                 :ssh-key "id_rsa"}}}
+                          {:email "admin@example.org"})]
+            @calls => [[:gitrepo
+                        "/tmp/upload.xlsx"
+                        "budgets/upload.xlsx"
+                        "id_rsa"
+                        {:name "Admin User"
+                         :email "admin@example.org"}]]
+            (:body response) => (contains "Timesheet archived: upload.xlsx")
+            (:body response) => (contains "Go back to Upload User")
+            (:body response) => (contains "git log")))))
