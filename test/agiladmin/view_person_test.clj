@@ -23,6 +23,8 @@
           (:body response) => (contains "/static/img/dyne-icon-black.svg")
           (:body response) => (contains "data-theme-toggle=\"true\"")
           (:body response) => (contains "/static/img/dyne-logotype-black.svg")
+          (:body response) => (contains "data-theme-logo=\"true\"")
+          (:body response) => (contains "data-theme-logo-dark=\"/static/img/dyne-logotype-white.svg\"")
           (:body response) =not=> (contains "For enquiries please contact")
           (:body response) =not=> (contains "Newcomers"))))
 

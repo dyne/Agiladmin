@@ -107,6 +107,9 @@
       return;
     }
 
+    var lightTheme = body.getAttribute("data-theme-light") || "nord";
+    var darkTheme = body.getAttribute("data-theme-dark") || "dim";
+
     body.setAttribute("data-theme", theme);
     try {
       window.localStorage.setItem("agiladmin-theme", theme);
@@ -117,8 +120,19 @@
     Array.prototype.slice
       .call(document.querySelectorAll("[data-theme-toggle]"))
       .forEach(function (toggle) {
-        var darkTheme = body.getAttribute("data-theme-dark") || "dim";
         toggle.checked = theme === darkTheme;
+      });
+
+    Array.prototype.slice
+      .call(document.querySelectorAll("[data-theme-logo]"))
+      .forEach(function (logo) {
+        var src =
+          theme === darkTheme
+            ? logo.getAttribute("data-theme-logo-dark")
+            : logo.getAttribute("data-theme-logo-light");
+        if (src) {
+          logo.setAttribute("src", src);
+        }
       });
   }
 
