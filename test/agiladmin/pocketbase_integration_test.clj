@@ -1,5 +1,6 @@
 (ns agiladmin.pocketbase-integration-test
-  (:require [agiladmin.auth.pocketbase :as pocketbase]
+  (:require [agiladmin.auth.core :as auth]
+            [agiladmin.auth.pocketbase :as pocketbase]
             [agiladmin.view-auth :as view-auth]
             [clj-http.client :as http]
             [clojure.string :as str]
@@ -110,6 +111,7 @@
               password (or (System/getenv "AGILADMIN_PB_IT_USER_PASSWORD")
                            "agiladmin-it-secret")
               name "Agiladmin Integration"
+              previous-backend @auth/backend
               _ (upsert-user! config {:email email
                                       :password password
                                       :name name
@@ -120,10 +122,14 @@
                                       :name name
                                       :admin true})
               admin-user (pocketbase/sign-in config email password {})
-              login-response (with-redefs [agiladmin.view-auth/config {:agiladmin {:pocketbase config}}]
-                               (view-auth/login-post {:params {:email email
-                                                               :password password}
-                                                      :remote-addr "127.0.0.1"}))]
-          (:admin non-admin) => false
-          (:admin admin-user) => true
-          (get-in login-response [:session :auth :admin]) => true)))
+              _ (auth/init! (pocketbase/backend config))]
+          (try
+            (let [login-response (with-redefs [agiladmin.view-auth/config {:agiladmin {:pocketbase config}}]
+                                   (view-auth/login-post {:params {:email email
+                                                                   :password password}
+                                                          :remote-addr "127.0.0.1"}))]
+              (:admin non-admin) => false
+              (:admin admin-user) => true
+              (get-in login-response [:session :auth :admin]) => true)
+            (finally
+              (auth/init! previous-backend))))))
