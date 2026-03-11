@@ -11,3 +11,4 @@ id_rsa*
 agiladmin.yaml
 budgets/
 pb_data/
+node_modules/
