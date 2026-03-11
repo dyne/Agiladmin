@@ -3,6 +3,13 @@
 
 (defonce backend (atom nil))
 
+(defn- invoke-backend
+  [f & args]
+  (try
+    (apply f args)
+    (catch Throwable t
+      (f/fail (.getMessage t)))))
+
 (defn init!
   [auth-backend]
   (reset! backend auth-backend))
@@ -18,35 +25,35 @@
   (f/attempt-all
    [auth-backend (backend!)]
    (if-let [healthy-fn (:healthy? auth-backend)]
-     (healthy-fn)
+     (invoke-backend healthy-fn)
      true)))
 
 (defn sign-in
   [username password options]
   (f/attempt-all
    [auth-backend (backend!)]
-   ((:sign-in auth-backend) username password options)))
+   (invoke-backend (:sign-in auth-backend) username password options)))
 
 (defn sign-up
   [name email password options other-names]
   (f/attempt-all
    [auth-backend (backend!)]
-   ((:sign-up auth-backend) name email password options other-names)))
+   (invoke-backend (:sign-up auth-backend) name email password options other-names)))
 
 (defn confirm-verification
   [email token]
   (f/attempt-all
    [auth-backend (backend!)]
-   ((:confirm-verification auth-backend) email token)))
+   (invoke-backend (:confirm-verification auth-backend) email token)))
 
 (defn request-verification
   [email]
   (f/attempt-all
    [auth-backend (backend!)]
-   ((:request-verification auth-backend) email)))
+   (invoke-backend (:request-verification auth-backend) email)))
 
 (defn list-pending-users
   []
   (f/attempt-all
    [auth-backend (backend!)]
-   ((:list-pending-users auth-backend))))
+   (invoke-backend (:list-pending-users auth-backend))))
