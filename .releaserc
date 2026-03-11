@@ -1,0 +1,40 @@
+{
+    "branches": [
+        "master"
+    ],
+    "plugins": [
+        [
+            "@semantic-release/commit-analyzer",
+            {
+                "preset": "conventionalcommits"
+            }
+        ],
+        [
+            "@semantic-release/release-notes-generator",
+            {
+                "preset": "conventionalcommits"
+            }
+        ],
+        [
+            "@semantic-release/exec",
+            {
+                "prepareCmd": "make build CLOJURE=clojure AGILADMIN_VERSION=${nextRelease.version} && sha256sum target/${nextRelease.version}-standalone.jar > target/${nextRelease.version}-standalone.jar.sha256"
+            }
+        ],
+        [
+            "@semantic-release/github",
+            {
+                "assets": [
+                    {
+                        "path": "target/${nextRelease.version}-standalone.jar",
+                        "label": "Agiladmin standalone jar"
+                    },
+                    {
+                        "path": "target/${nextRelease.version}-standalone.jar.sha256",
+                        "label": "SHA-256 checksum"
+                    }
+                ]
+            }
+        ]
+    ]
+}
