@@ -43,6 +43,66 @@
 (declare render-fragment)
 (declare filterable-button-list)
 
+(defn- heroicon
+  [name extra-class]
+  (let [base-props {:xmlns "http://www.w3.org/2000/svg"
+                    :fill "none"
+                    :viewBox "0 0 24 24"
+                    :stroke "currentColor"
+                    :stroke-width "1.5"
+                    :class (str "h-5 w-5 shrink-0 " extra-class)
+                    :aria-hidden "true"}]
+    (case name
+      :user-circle
+      [:svg base-props
+       [:path {:stroke-linecap "round"
+               :stroke-linejoin "round"
+               :d "M17.982 18.725A7.488 7.488 0 0 0 12 15.75a7.488 7.488 0 0 0-5.982 2.975m11.963 0a9 9 0 1 0-11.963 0m11.963 0A8.966 8.966 0 0 1 12 21a8.966 8.966 0 0 1-5.982-2.275M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"}]]
+      :paper-airplane
+      [:svg base-props
+       [:path {:stroke-linecap "round"
+               :stroke-linejoin "round"
+               :d "M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5"}]]
+      :plus
+      [:svg base-props
+       [:path {:stroke-linecap "round"
+               :stroke-linejoin "round"
+               :d "M12 4.5v15m7.5-7.5h-15"}]]
+      :arrow-path
+      [:svg base-props
+       [:path {:stroke-linecap "round"
+               :stroke-linejoin "round"
+               :d "M16.023 9.348h4.992V4.356m-4.992 4.992a9 9 0 0 0-15.591 2.129m15.591-2.129A8.966 8.966 0 0 0 12 6c-2.042 0-3.926.68-5.432 1.824m0 0V3.75M7.5 7.824H2.508m0 0a9 9 0 0 0 15.59 2.128m-15.59-2.128A8.966 8.966 0 0 1 12 18c2.042 0 3.926-.68 5.432-1.824m0 0v4.074m0-4.074h4.992"}]]
+      :document-text
+      [:svg base-props
+       [:path {:stroke-linecap "round"
+               :stroke-linejoin "round"
+               :d "M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5A3.375 3.375 0 0 0 10.125 2.25H6.75A2.25 2.25 0 0 0 4.5 4.5v15A2.25 2.25 0 0 0 6.75 21.75h10.5a2.25 2.25 0 0 0 2.25-2.25V14.25Z"}]
+       [:path {:stroke-linecap "round"
+               :stroke-linejoin "round"
+               :d "M8.25 12h7.5m-7.5 3h4.5"}]]
+      :bars-3
+      [:svg base-props
+       [:path {:stroke-linecap "round"
+               :stroke-linejoin "round"
+               :d "M3.75 6.75h16.5m-16.5 5.25h16.5m-16.5 5.25h16.5"}]]
+      :moon
+      [:svg base-props
+       [:path {:stroke-linecap "round"
+               :stroke-linejoin "round"
+               :d "M21.752 15.002A9.718 9.718 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 1 0 21.752 15.002Z"}]]
+      :sun
+      [:svg base-props
+       [:path {:stroke-linecap "round"
+               :stroke-linejoin "round"
+               :d "M12 3v1.5m0 15V21m9-9h-1.5M4.5 12H3m15.364 6.364-1.06-1.06M6.697 6.697 5.636 5.636m12.728 0-1.06 1.06M6.697 17.303l-1.06 1.06M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"}]]
+      :face-frown
+      [:svg base-props
+       [:path {:stroke-linecap "round"
+               :stroke-linejoin "round"
+               :d "M15.182 15.182a4.5 4.5 0 0 0-6.364 0m6.364 0A9 9 0 1 0 8.818 8.818a9 9 0 0 0 6.364 6.364ZM9.75 9.75h.008v.008H9.75V9.75Zm4.5 0h.008v.008h-.008V9.75Z"}]]
+      [:svg base-props])))
+
 (defn button
   ([url text] (button url text [:p]))
 
@@ -135,7 +195,7 @@
   [links]
   (for [{:keys [href icon label]} links]
     [:li [:a {:class "gap-2" :href href}
-          [:span {:class icon}] label]]))
+          (heroicon icon "") label]]))
 
 (defn- theme-toggle
   []
@@ -145,8 +205,8 @@
    [:input {:type "checkbox"
             :data-theme-toggle "true"
             :aria-label "Toggle dark mode"}]
-   [:span {:class "swap-off text-lg"} [:span {:class "far fa-moon"}]]
-   [:span {:class "swap-on text-lg"} [:span {:class "far fa-sun"}]]])
+   [:span {:class "swap-off"} (heroicon :moon "")]
+   [:span {:class "swap-on"} (heroicon :sun "")]])
 
 (defn- navbar
   [toggle-id links]
@@ -172,7 +232,7 @@
               :aria-controls toggle-id
               :aria-expanded "false"
               :aria-label "Toggle navigation"}
-     [:span {:class "far fa-bars"}]]
+     (heroicon :bars-3 "")]
      (into [:ul {:class "menu menu-horizontal hidden items-center gap-2 px-1 md:flex"}]
            (nav-menu links))]]
    [:div {:id toggle-id
@@ -217,7 +277,7 @@
   "render an error message without ending the page"
   [err]
   [:div {:class "alert alert-error shadow-sm" :role "alert"}
-   [:span {:class "far fa-meh text-lg" :aria-hidden "true"}]
+   (heroicon :face-frown "")
    [:span {:class "sr-only"} "Error:"]
    [:span err]])
 
@@ -264,23 +324,21 @@
     (page/include-css "/static/css/highlight-tomorrow.css")
     (page/include-css "/static/css/formatters-styles/html.css")
     (page/include-css "/static/css/formatters-styles/annotated.css")
-    (page/include-css "/static/css/fa-regular.min.css")
-    (page/include-css "/static/css/fontawesome.min.css")
     (page/include-css "/static/css/agiladmin.css")]))
 
 (def navbar-guest
   (navbar "guest-nav"
           [{:href "/login"
-            :icon "far fa-address-card"
+            :icon :user-circle
             :label "Login"}]))
 
 (def navbar-account
   (navbar "account-nav"
-          [{:href "/persons/list" :icon "far fa-address-card" :label "Personnel"}
-           {:href "/projects/list" :icon "far fa-paper-plane" :label "Projects"}
-           {:href "/timesheets" :icon "far fa-plus-square" :label "Upload"}
-           {:href "/reload" :icon "far fa-save" :label "Reload"}
-           {:href "/config" :icon "far fa-file-code" :label "Configuration"}]))
+          [{:href "/persons/list" :icon :user-circle :label "Personnel"}
+           {:href "/projects/list" :icon :paper-airplane :label "Projects"}
+           {:href "/timesheets" :icon :plus :label "Upload"}
+           {:href "/reload" :icon :arrow-path :label "Reload"}
+           {:href "/config" :icon :document-text :label "Configuration"}]))
 
 (defn render-footer []
   [:footer {:class "mt-16 border-t border-base-300 bg-base-100/80"}
