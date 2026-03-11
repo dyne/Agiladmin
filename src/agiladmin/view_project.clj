@@ -25,6 +25,7 @@
    [clj-time.format :as tf]
    [clj-time.core :as t]
    [agiladmin.core :refer :all]
+   [agiladmin.tabular :as tab]
    [agiladmin.utils :as util]
    [agiladmin.graphics :refer :all]
    [agiladmin.webpage :as web]
@@ -33,8 +34,7 @@
    [failjure.core :as f]
    [taoensso.timbre :as log :refer [debug]]
    [cheshire.core :as chesh :refer [generate-string]]
-   [hiccup.form :as hf]
-   [incanter.core :refer [with-data $ $where $order sel sum to-dataset conj-rows]]))
+   [hiccup.form :as hf]))
 
 (defn list-all
   "list all projects"
@@ -101,8 +101,10 @@
         (let [today (util/now)
               gantt-tasks (map (fn [task]
                                  (conj task {:progress
-                                             (with-data task-details
-                                               ($ :progress ($where {:task (:id task)})))}))
+                                             (some-> (tab/filter-by task-details {:task (:id task)})
+                                                     :rows
+                                                     first
+                                                     :progress)}))
                                (:tasks conf))]
           [:script {:type "text/javascript"}
            (str "\nvar today = new Date("
@@ -126,8 +128,8 @@ gantt.parse(tasks);
                 (let [lastm (:duration conf)
                       currm (current-proj-month conf)]
                   (str currm " / " lastm)))]
-      (let [billed (-> ($ :cost project-hours) util/wrap sum util/round)
-            hours (-> ($ :hours project-hours) util/wrap sum util/round)
+      (let [billed (-> (tab/sum-col project-hours :cost) util/round)
+            hours (-> (tab/sum-col project-hours :hours) util/round)
             tasks (:tasks conf)]
         (-> [{:total "Current"
               :cost billed
@@ -137,25 +139,34 @@ gantt.parse(tasks);
                        (util/round (/ billed hours)))}]
             (concat
              (if (empty? tasks) []
-                 (let [max_hours (-> (map #(* (get % :pm) 150) tasks) util/wrap sum)
+                 (let [max_hours (reduce + 0 (map #(* (get % :pm) 150) tasks))
                        max_cost (* (:cph conf) max_hours)]
                    [{:total "Progress"
                      :cost (util/percentage billed max_cost)
                      :pm (util/percentage hours max_hours)
                      :CPH "⇧ ⇩"}
-                    {:total "Total"
+                   {:total "Total"
                      :cost max_cost
                      :pm (/ max_hours 150)
                      :CPH (:cph conf)}])))
-            to-dataset to-table))]
+            tab/dataset to-table))]
       [:h2 "Overview of tasks"]
-      (->> (conj-rows
-          (-> task-details
-            (sel :cols [:task :pm :h-left :start :end :progress :description]))
-          (-> empty-tasks
-            (sel :cols [:id :pm :null   :start_date :end_date :null :text]))
-        ) ($order :task :asc) to-table
-      )]
+      (let [overview-cols [:task :pm :h-left :start :end :progress :description]
+            used-tasks (tab/select-cols task-details overview-cols)
+            unused-tasks
+            (tab/dataset overview-cols
+                         (map (fn [row]
+                                {:task (:id row)
+                                 :pm (:pm row)
+                                 :h-left nil
+                                 :start (:start_date row)
+                                 :end (:end_date row)
+                                 :progress nil
+                                 :description (:text row)})
+                              (:rows empty-tasks)))]
+        (-> (tab/append-rows overview-cols used-tasks unused-tasks)
+            (tab/order-by-col :task :asc)
+            to-table))]
      [:div {:class "row-fluid"}
       [:h1 "Details "[:small "(switch views using tabs below)"]]
       [:div {:class "container"}
@@ -174,16 +185,16 @@ gantt.parse(tasks);
          [:h2 "Totals grouped per person and per task"]
          (-> (map-col project-hours :tag #(if (= "VOL" %) "VOL" ""))
              (aggr [:hours :cost] [:name :tag :task])
-             (sel :cols [:name :tag :task :hours :cost]) to-table)]
+             (tab/select-cols [:name :tag :task :hours :cost]) to-table)]
         [:div {:class "tab-pane fade" :id "task-totals"}
          [:h2 "Totals per task"]
          (-> task-details
-             (sel :cols [:task :hours :tot-hours :pm :progress :description]) to-table)]
+             (tab/select-cols [:task :hours :tot-hours :pm :progress :description]) to-table)]
         [:div {:class "tab-pane fade" :id "person-totals"}
          [:h2 "Totals per person"]
          (-> (map-col project-hours :tag #(if (= "VOL" %) "VOL" "")) ;; list only voluntary tags
              (aggr [:hours :cost] [:name :tag])
-             (sel :cols [:name :tag :hours :cost]) to-table)]
+             (tab/select-cols [:name :tag :hours :cost]) to-table)]
         [:div {:class "tab-pane fade" :id "monthly-details"}
          [:h2 "Detail of monthly hours used per person on each task"]
          (-> project-hours (sort :month :desc) to-table)]]
@@ -204,11 +215,11 @@ gantt.parse(tasks);
                        [:h1 (str projname " fixed costs overview")]
                        [:h2 "Yearly totals"]
                        (-> (aggr project-hours [:hours :cost] [:year :tag])
-                           (sel :cols [:year :tag :hours :cost])
+                           (tab/select-cols [:year :tag :hours :cost])
                            (sort :year :desc) to-table)
                        [:h2 "Personnel totals"]
                        (-> (aggr project-hours [:hours :cost] [:name :tag])
-                           (sel :cols [:name :tag :hours :cost])
+                           (tab/select-cols [:name :tag :hours :cost])
                            (sort :year :desc) to-table)
                        ])))
 
@@ -225,11 +236,11 @@ gantt.parse(tasks);
                        [:h1 (str projname " fixed costs overview")]
                        [:h2 "Yearly totals"]
                        (-> (aggr project-hours [:hours :cost] [:year :tag])
-                           (sel :cols [:year :tag :hours :cost])
+                           (tab/select-cols [:year :tag :hours :cost])
                            (sort :year :desc) to-table)
                        [:h2 "Personnel totals"]
                        (-> (aggr project-hours [:hours :cost] [:name :tag])
-                           (sel :cols [:name :tag :hours :cost])
+                           (tab/select-cols [:name :tag :hours :cost])
                            (sort :year :desc) to-table)
                        ])))
 
