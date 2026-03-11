@@ -137,16 +137,35 @@
     [:li [:a {:class "gap-2" :href href}
           [:span {:class icon}] label]]))
 
+(defn- theme-toggle
+  []
+  [:label {:class "swap swap-rotate btn btn-ghost btn-circle"
+           :aria-label "Toggle dark mode"
+           :title "Toggle dark mode"}
+   [:input {:type "checkbox"
+            :data-theme-toggle "true"
+            :aria-label "Toggle dark mode"}]
+   [:span {:class "swap-off text-lg"} [:span {:class "far fa-moon"}]]
+   [:span {:class "swap-on text-lg"} [:span {:class "far fa-sun"}]]])
+
 (defn- navbar
   [toggle-id links]
   [:nav
-   {:class "navbar fixed inset-x-0 top-0 z-40 border-b border-base-300 bg-base-100/95 px-4 shadow-sm backdrop-blur md:px-6"}
-   [:div {:class "flex-1 gap-3"}
-    [:img {:src "/static/img/dyne-logo-small.png"
-           :class "h-10 w-auto rounded-md bg-base-100 p-1"}]
-    [:a {:class "btn btn-ghost text-lg normal-case"
-         :href "/"} [:span {:class "far fa-handshake"}] " Agiladmin"]]
-   [:div {:class "flex-none"}
+   {:class "fixed inset-x-0 top-0 z-40 border-b border-base-300 bg-base-100/90 shadow-sm backdrop-blur"}
+   [:div {:class "navbar mx-auto w-full max-w-screen-2xl px-4 md:px-6"}
+    [:div {:class "flex flex-1 items-center gap-3"}
+     [:a {:class "flex items-center gap-3 no-underline"
+          :href "/"}
+      [:span {:class "flex h-11 w-11 items-center justify-center rounded-full border border-base-300 bg-base-100 shadow-sm"}
+       [:img {:src "/static/img/dyne-icon-black.svg"
+              :class "h-6 w-6"
+              :alt "Dyne icon"}]]
+      [:div {:class "leading-tight"}
+       [:div {:class "text-lg font-semibold tracking-wide"} "Agiladmin"]
+       [:div {:class "text-xs uppercase tracking-[0.3em] text-base-content/60"} "Dyne.org"]]]]
+    [:div {:class "flex items-center gap-2"}
+     [:div {:class "hidden md:block"}
+      (theme-toggle)]
     [:button {:type "button"
               :class "btn btn-ghost btn-square md:hidden"
               :data-nav-toggle toggle-id
@@ -154,12 +173,15 @@
               :aria-expanded "false"
               :aria-label "Toggle navigation"}
      [:span {:class "far fa-bars"}]]
-    (into [:ul {:class "menu menu-horizontal hidden items-center gap-2 px-1 md:flex"}]
-          (nav-menu links))]
+     (into [:ul {:class "menu menu-horizontal hidden items-center gap-2 px-1 md:flex"}]
+           (nav-menu links))]]
    [:div {:id toggle-id
-          :class "hidden w-full basis-full pt-3 md:hidden"}
-    (into [:ul {:class "menu rounded-box bg-base-100 p-2 shadow"}]
-          (nav-menu links))]])
+          :class "mx-auto hidden w-full max-w-screen-2xl px-4 pb-4 md:hidden"}
+    [:div {:class "rounded-box border border-base-300 bg-base-100 p-3 shadow-sm"}
+     [:div {:class "mb-3 flex justify-end"}
+      (theme-toggle)]
+     (into [:ul {:class "menu gap-1"}]
+           (nav-menu links))]]])
 
 
 (defn render
@@ -169,6 +191,8 @@
    :body (page/html5
           (render-head)
           [:body {:data-theme "nord"
+                  :data-theme-light "nord"
+                  :data-theme-dark "dim"
                   :class "min-h-screen bg-base-200 text-base-content"}
            navbar-guest
            [:main {:class "mx-auto w-full max-w-screen-2xl px-4 pb-12 pt-24 md:px-6"} body]
@@ -179,6 +203,8 @@
     :body (page/html5
            (render-head)
            [:body {:data-theme "nord"
+                   :data-theme-light "nord"
+                   :data-theme-dark "dim"
                    :class "min-h-screen bg-base-200 text-base-content"}
             (if (empty? account)
                     navbar-guest
@@ -257,19 +283,21 @@
            {:href "/config" :icon "far fa-file-code" :label "Configuration"}]))
 
 (defn render-footer []
-  [:footer {:class "mx-auto mt-12 w-full max-w-screen-2xl border-t border-base-300 px-4 py-8 md:px-6"}
-   [:div {:class "grid gap-6 md:grid-cols-3 md:items-end"}
-    [:div {:class "footer"}
-     [:img {:src "/static/img/AGPLv3.png" :class "h-auto max-w-40"
+  [:footer {:class "mt-16 border-t border-base-300 bg-base-100/80"}
+   [:div {:class "mx-auto flex w-full max-w-screen-2xl flex-col gap-6 px-4 py-8 md:flex-row md:items-center md:justify-between md:px-6"}
+    [:a {:href "https://www.dyne.org"
+         :class "inline-flex items-center"}
+     [:picture
+      [:source {:srcset "/static/img/dyne-logotype-white.svg"
+                :media "(prefers-color-scheme: dark)"}]
+      [:img {:src "/static/img/dyne-logotype-black.svg"
+             :class "h-10 w-auto"
+             :alt "Dyne.org"}]]]
+    [:div {:class "flex items-center gap-4 self-start md:self-auto"}
+     [:img {:src "/static/img/AGPLv3.png"
+            :class "h-auto max-w-32 opacity-80"
             :alt "Affero GPLv3 License"
-            :title "Affero GPLv3 License"}]]
-    [:div {:class "footer"}
-    [:a {:href "https://www.dyne.org"}
-     [:img {:src "/static/img/swbydyne.png"
-            :alt   "Software by Dyne.org"
-            :title "Software by Dyne.org"}]]]
-    [:div {:class "footer text-sm text-base-content/70"}
-     "For enquiries please contact Manuela Annibali &lt;manuela@dyne.org&gt;"]]])
+            :title "Affero GPLv3 License"}]]]])
 
 ;; highlight functions do no conversion, take the format they highlight
 ;; render functions take edn and convert to the highlight format
