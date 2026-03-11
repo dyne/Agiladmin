@@ -37,10 +37,12 @@
   (f/attempt-all
    [acct (s/check-account @ring/config request)]
    (web/render acct
-               [:div
-                [:h1 (str "Already logged in with account: "
-                          (:email acct))]
-                [:h2 [:a {:href "/logout"} "Logout"]]])
+               [:div {:class "card mx-auto max-w-xl bg-base-100 shadow-xl"}
+                [:div {:class "card-body gap-4"}
+                 [:h1 {:class "card-title text-3xl"}
+                  (str "Already logged in with account: " (:email acct))]
+                 [:div {:class "card-actions"}
+                  [:a {:class "btn btn-primary" :href "/logout"} "Logout"]]]])
    (f/when-failed [e]
      (web/render web/login-form))))
 
@@ -56,8 +58,9 @@
      (conj session
            (web/render
             logged
-            [:div
-             [:h1 "Logged in: " username]])))
+            [:div {:class "card mx-auto max-w-xl bg-base-100 shadow-xl"}
+             [:div {:class "card-body"}
+              [:h1 {:class "card-title text-3xl"} "Logged in: " username]]])))
    (f/when-failed [e]
      (web/render-error-page
       (str "Login failed: " (f/message e))))))
@@ -79,20 +82,21 @@
     (if (= password repeat-password)
       (f/try*
        (f/if-let-ok?
-           [signup (auth/sign-up name
-                                 email
-                                 password
-                                 {}
-                                 [])]
+         [signup (auth/sign-up name
+                               email
+                               password
+                               {}
+                               [])]
          (f/if-let-failed?
-             [verification (auth/request-verification email)]
+           [verification (auth/request-verification email)]
            (web/render-error
             (str "Failure requesting verification: "
                  (f/message verification)))
-           [:div
-            [:h2 (str "Account created: "
-                      name " &lt;" email "&gt;")]
-            [:h3 "Account pending activation. Check your email for the verification link."]])
+           [:div {:class "card mx-auto max-w-xl bg-base-100 shadow-xl"}
+            [:div {:class "card-body"}
+             [:h2 (str "Account created: "
+                       name " &lt;" email "&gt;")]
+             [:h3 "Account pending activation. Check your email for the verification link."]]])
          (web/render-error
           (str "Failure creating account: "
                (f/message signup)))))
@@ -107,12 +111,15 @@
    (activate request nil token))
   ([request email token]
    (web/render
-    [:div
-     (f/if-let-failed?
-         [act (auth/confirm-verification email token)]
-       (web/render-error
-        [:div
-         [:h1 "Failure activating account"]
-         [:h2 (f/message act)]
-         [:p (str "Token: " token)]])
-       [:h1 (str "Account activated" (when email (str " - " email)))])])))
+     [:div
+      [:div {:class "card mx-auto max-w-xl bg-base-100 shadow-xl"}
+       [:div {:class "card-body"}
+        (f/if-let-failed?
+          [act (auth/confirm-verification email token)]
+          (web/render-error
+           [:div
+            [:h1 "Failure activating account"]
+            [:h2 (f/message act)]
+            [:p (str "Token: " token)]])
+          [:h1 {:class "card-title text-3xl"}
+           (str "Account activated" (when email (str " - " email)))])]]])))

@@ -41,10 +41,10 @@
   [request config account]
   (web/render
    account
-   [:div {:class "projects"}
+   [:div {:class "space-y-4"}
     [:h2 "Projects"]
     (for [pj (conf/project-names config)]
-     [:div {:class "row log-project"}
+     [:div {:class "log-project"}
       (web/button "/project" pj
                   (hf/hidden-field "project" pj))])]))
 
@@ -57,7 +57,7 @@
      ;; TODO: then edit the configuration
      (web/render
       account
-      [:div
+      [:div {:class "space-y-4"}
        [:h1 (str projname ": apply project configuration")]
        ;; TODO: validate
        (web/highlight-yaml config)])
@@ -65,7 +65,8 @@
      (web/render
       account
       [:form {:action "/projects/edit"
-              :method "post"}
+              :method "post"
+              :class "space-y-4"}
        [:h1 (str "Project " projname ": edit configuration")]
        (web/edit-edn project-conf)
        [:input {:type "hidden" :name "project" :value projname}]]))
@@ -88,16 +89,17 @@
     ]
    (web/render
     account
-    [:div {:style "container-fluid"}
+    [:div {:class "space-y-6"}
      (if-not (empty? (:tasks conf))
-       [:div {:style "container-fluid"}
-        [:h1 projname
-         [:button {:class "pull-right btn btn-info"
+       [:div {:class "space-y-4"}
+        [:div {:class "flex flex-wrap items-center gap-3"}
+         [:h1 {:class "text-4xl font-semibold"} projname]
+         [:button {:class "btn btn-info ml-auto"
                    :onclick "toggleMode(this)"} "Scale to Fit"]]
 
         ;; GANTT chart
-        [:div {:class "row-fluid"
-               :style "width:100%; min-height:20em; position: relative;" :id "gantt"}]
+        [:div {:class "rounded-box border border-base-300 bg-base-100 p-2 shadow-sm"}
+         [:div {:class "w-full min-h-80" :style "position: relative;" :id "gantt"}]]
         (let [today (util/now)
               gantt-tasks (map (fn [task]
                                  (conj task {:progress
@@ -117,13 +119,12 @@ gantt.init('gantt');
 gantt.parse(tasks);
 ")])]
        ;; else
-       [:h1 projname])
+       [:h1 {:class "text-4xl font-semibold"} projname])
      (web/button "/projects/edit" "Edit project configuration"
                   (hf/hidden-field "project" projname)
-                  "btn-primary btn-lg edit-project")
-     [:div {:class "row-fluid"}
-
-     [:div {:class "container-fluid"}
+                  "btn btn-primary btn-lg edit-project")
+     [:div {:class "grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"}
+      [:div {:class "space-y-6"}
       [:h1 (str "Totals - M "
                 (let [lastm (:duration conf)
                       currm (current-proj-month conf)]
@@ -151,54 +152,56 @@ gantt.parse(tasks);
                      :CPH (:cph conf)}])))
             tab/dataset to-table))]
       [:h2 "Overview of tasks"]
-      (let [overview-cols [:task :pm :h-left :start :end :progress :description]
-            used-tasks (tab/select-cols task-details overview-cols)
-            unused-tasks
-            (tab/dataset overview-cols
-                         (map (fn [row]
-                                {:task (:id row)
-                                 :pm (:pm row)
-                                 :h-left nil
-                                 :start (:start_date row)
-                                 :end (:end_date row)
-                                 :progress nil
-                                 :description (:text row)})
-                              (:rows empty-tasks)))]
-        (-> (tab/append-rows overview-cols used-tasks unused-tasks)
-            (tab/order-by-col :task :asc)
-            to-table))]
-     [:div {:class "row-fluid"}
-      [:h1 "Details "[:small "(switch views using tabs below)"]]
-      [:div {:class "container"}
-       [:ul {:class "nav nav-pills"}
-        [:li {:class "active"}
-         [:a {:href "#task-sum-hours" :data-toggle "pill" }
-          "Task/Person totals"]]
-        [:li [:a {:href "#task-totals" :data-toggle "pill" }
-              "Task totals"]]
-        [:li [:a {:href "#person-totals" :data-toggle "pill" }
-              "Person totals"]]
-        [:li [:a {:href "#monthly-details" :data-toggle "pill" }
-              "Monthly details"]]]
-       [:div {:class "tab-content clearfix"}
-        [:div {:class "tab-pane fade in active" :id "task-sum-hours"}
-         [:h2 "Totals grouped per person and per task"]
-         (-> (map-col project-hours :tag #(if (= "VOL" %) "VOL" ""))
-             (aggr [:hours :cost] [:name :tag :task])
-             (tab/select-cols [:name :tag :task :hours :cost]) to-table)]
-        [:div {:class "tab-pane fade" :id "task-totals"}
-         [:h2 "Totals per task"]
-         (-> task-details
-             (tab/select-cols [:task :hours :tot-hours :pm :progress :description]) to-table)]
-        [:div {:class "tab-pane fade" :id "person-totals"}
-         [:h2 "Totals per person"]
-         (-> (map-col project-hours :tag #(if (= "VOL" %) "VOL" "")) ;; list only voluntary tags
-             (aggr [:hours :cost] [:name :tag])
-             (tab/select-cols [:name :tag :hours :cost]) to-table)]
-        [:div {:class "tab-pane fade" :id "monthly-details"}
-         [:h2 "Detail of monthly hours used per person on each task"]
-         (-> project-hours (sort :month :desc) to-table)]]
-       ]]])
+      [:div {:class "overflow-x-auto"}
+       (let [overview-cols [:task :pm :h-left :start :end :progress :description]
+             used-tasks (tab/select-cols task-details overview-cols)
+             unused-tasks
+             (tab/dataset overview-cols
+                          (map (fn [row]
+                                 {:task (:id row)
+                                  :pm (:pm row)
+                                  :h-left nil
+                                  :start (:start_date row)
+                                  :end (:end_date row)
+                                  :progress nil
+                                  :description (:text row)})
+                               (:rows empty-tasks)))]
+         (-> (tab/append-rows overview-cols used-tasks unused-tasks)
+             (tab/order-by-col :task :asc)
+             to-table))]]
+      [:div {:class "space-y-4"}
+       [:h1 "Details " [:small "(switch views using tabs below)"]]
+       (web/tabs
+        (str "project-details-" projname)
+        [{:id "task-sum-hours"
+          :title "Task/Person totals"
+          :content [:div {:class "space-y-3"}
+                    [:h2 "Totals grouped per person and per task"]
+                    [:div {:class "overflow-x-auto"}
+                     (-> (map-col project-hours :tag #(if (= "VOL" %) "VOL" ""))
+                         (aggr [:hours :cost] [:name :tag :task])
+                         (tab/select-cols [:name :tag :task :hours :cost]) to-table)]]}
+         {:id "task-totals"
+          :title "Task totals"
+          :content [:div {:class "space-y-3"}
+                    [:h2 "Totals per task"]
+                    [:div {:class "overflow-x-auto"}
+                     (-> task-details
+                         (tab/select-cols [:task :hours :tot-hours :pm :progress :description]) to-table)]]}
+         {:id "person-totals"
+          :title "Person totals"
+          :content [:div {:class "space-y-3"}
+                    [:h2 "Totals per person"]
+                    [:div {:class "overflow-x-auto"}
+                     (-> (map-col project-hours :tag #(if (= "VOL" %) "VOL" ""))
+                         (aggr [:hours :cost] [:name :tag])
+                         (tab/select-cols [:name :tag :hours :cost]) to-table)]]}
+         {:id "monthly-details"
+          :title "Monthly details"
+          :content [:div {:class "space-y-3"}
+                    [:h2 "Detail of monthly hours used per person on each task"]
+                    [:div {:class "overflow-x-auto"}
+                     (-> project-hours (sort :month :desc) to-table)]]}])]])
    (f/when-failed [e]
      (web/render account (web/render-error (f/message e))))))
 
