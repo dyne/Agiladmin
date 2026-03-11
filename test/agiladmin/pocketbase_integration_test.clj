@@ -54,13 +54,22 @@
 
 (defn- superuser-token
   [config]
-  (-> (request :post
-               (str (:base-url config) "/api/collections/_superusers/auth-with-password")
-               {:content-type :json
-                :form-params {:identity (:superuser-email config)
-                              :password (:superuser-password config)}})
-      ensure-success
-      :token))
+  (let [response (request :post
+                          (str (:base-url config) "/api/collections/_superusers/auth-with-password")
+                          {:content-type :json
+                           :form-params {:identity (:superuser-email config)
+                                         :password (:superuser-password config)}})]
+    (-> (try
+          (ensure-success response)
+          (catch Exception e
+            (throw (ex-info
+                    (str "PocketBase superuser authentication failed. "
+                         "Set AGILADMIN_PB_SUPERUSER_EMAIL and "
+                         "AGILADMIN_PB_SUPERUSER_PASSWORD for your local instance.")
+                    {:config (select-keys config [:base-url :users-collection :superuser-email])
+                     :response (:response (ex-data e))}
+                    e))))
+        :token)))
 
 (defn- auth-header
   [token]
@@ -105,34 +114,43 @@
                     :form-params payload})
           ensure-success))))
 
+(defn- login-refreshes-admin?
+  []
+  (let [config (pb-config)
+        email (or (System/getenv "AGILADMIN_PB_IT_USER_EMAIL")
+                  "agiladmin-it@example.org")
+        password (or (System/getenv "AGILADMIN_PB_IT_USER_PASSWORD")
+                     "agiladmin-it-secret")
+        name "Agiladmin Integration"
+        previous-backend @auth/backend]
+    (try
+      (upsert-user! config {:email email
+                            :password password
+                            :name name
+                            :admin false})
+      (let [non-admin (pocketbase/sign-in config email password {})]
+        (when-not (false? (:admin non-admin))
+          (throw (ex-info "Expected first login to return admin=false."
+                          {:user non-admin}))))
+      (upsert-user! config {:email email
+                            :password password
+                            :name name
+                            :admin true})
+      (let [admin-user (pocketbase/sign-in config email password {})]
+        (when-not (true? (:admin admin-user))
+          (throw (ex-info "Expected second login to return admin=true."
+                          {:user admin-user}))))
+      (auth/init! (pocketbase/backend config))
+      (let [login-response (with-redefs [agiladmin.view-auth/config {:agiladmin {:pocketbase config}}]
+                             (view-auth/login-post {:params {:email email
+                                                             :password password}
+                                                    :remote-addr "127.0.0.1"}))]
+        (true? (get-in login-response [:session :auth :admin])))
+      (finally
+        (auth/init! previous-backend)))))
+
 (fact "Live PocketBase login refreshes the admin flag into the session"
       (if-not (enabled?)
-        true => true
-        (let [config (pb-config)
-              email (or (System/getenv "AGILADMIN_PB_IT_USER_EMAIL")
-                        "agiladmin-it@example.org")
-              password (or (System/getenv "AGILADMIN_PB_IT_USER_PASSWORD")
-                           "agiladmin-it-secret")
-              name "Agiladmin Integration"
-              previous-backend @auth/backend
-              _ (upsert-user! config {:email email
-                                      :password password
-                                      :name name
-                                      :admin false})
-              non-admin (pocketbase/sign-in config email password {})
-              _ (upsert-user! config {:email email
-                                      :password password
-                                      :name name
-                                      :admin true})
-              admin-user (pocketbase/sign-in config email password {})
-              _ (auth/init! (pocketbase/backend config))]
-          (try
-            (let [login-response (with-redefs [agiladmin.view-auth/config {:agiladmin {:pocketbase config}}]
-                                   (view-auth/login-post {:params {:email email
-                                                                   :password password}
-                                                          :remote-addr "127.0.0.1"}))]
-              (:admin non-admin) => false
-              (:admin admin-user) => true
-              (get-in login-response [:session :auth :admin]) => true)
-            (finally
-              (auth/init! previous-backend))))))
+        true
+        (login-refreshes-admin?))
+      => true)
