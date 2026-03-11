@@ -185,3 +185,13 @@
                                :session admin-session))]
           (:status response) => 200
           (:body response) => (contains "Operation canceled"))))
+
+(fact "Dev reload mode rebuilds the app handler on each request"
+      (with-redefs [agiladmin.handlers/dev-reload-enabled? (fn [] true)
+                    agiladmin.handlers/reload-app-code! (fn [] true)
+                    agiladmin.handlers/init-app! (fn []
+                                                  (fn [_]
+                                                    {:status 200
+                                                     :body "reloaded"}))]
+        (handlers/app {}) => {:status 200
+                              :body "reloaded"}))
