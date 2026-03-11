@@ -1,5 +1,6 @@
 (ns agiladmin.handlers-test
   (:require [agiladmin.handlers :as handlers]
+            [failjure.core]
             [midje.sweet :refer :all]
             [ring.mock.request :as mock]))
 
@@ -135,6 +136,20 @@
                         {:email "admin@example.org"
                          :name "Admin User"
                          :admin true}]]))))
+
+(fact "Project route keeps the authenticated shell when project loading fails"
+      (with-redefs [agiladmin.config/load-project
+                    (fn [_ _]
+                      (failjure.core/fail
+                       "Project configuration file is missing, empty, or invalid YAML: budgets/CODE.yaml"))]
+        (let [response (handlers/app-routes
+                        (assoc (mock/request :post "/project")
+                               :params {:project "CODE"}
+                               :session admin-session))]
+          (:status response) => 200
+          (:body response) => (contains "Project configuration file is missing, empty, or invalid YAML: budgets/CODE.yaml")
+          (:body response) => (contains "Personnel")
+          (:body response) =not=> (contains "Login into Agiladmin"))))
 
 (fact "Timesheet download returns the spreadsheet file when present"
       (with-redefs [clojure.java.io/as-file
