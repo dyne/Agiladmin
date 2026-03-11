@@ -28,14 +28,13 @@
    :verified (:verified record)})
 
 (defn- fetch-user-record
-  [config user-id]
-  (let [token (superuser-token config)]
-    (-> (request :get
-                 (endpoint (:base-url config)
-                           (str (auth-collection-path config "/records/")
-                                user-id))
-                 {:headers {"Authorization" (str "Bearer " token)}})
-        ensure-success)))
+  [config token user-id]
+  (-> (request :get
+               (endpoint (:base-url config)
+                         (str (auth-collection-path config "/records/")
+                              user-id))
+               {:headers {"Authorization" (str "Bearer " token)}})
+      ensure-success))
 
 (defn- request
   [method url options]
@@ -75,15 +74,18 @@
 
 (defn sign-in
   [config username password _options]
-  (let [record (-> (request :post
-                            (endpoint (:base-url config)
-                                      (auth-collection-path config "/auth-with-password"))
-                            {:content-type :json
-                             :form-params {:identity username
-                                           :password password}})
-                   ensure-success
-                   :record)]
-    (-> (fetch-user-record config (:id record))
+  (let [{:keys [token record]}
+        (-> (request :post
+                     (endpoint (:base-url config)
+                               (auth-collection-path config "/auth-with-password"))
+                     {:content-type :json
+                      :form-params {:identity username
+                                    :password password}})
+            ensure-success)]
+    (-> (try
+          (fetch-user-record config token (:id record))
+          (catch Exception _
+            record))
         session-user)))
 
 (defn sign-up

@@ -80,13 +80,9 @@
             :url "http://127.0.0.1:8090/api/collections/users/auth-with-password"
             :form-params {:identity "user@example.org"
                           :password "pw"}}
-           {:method :post
-            :url "http://127.0.0.1:8090/api/collections/_superusers/auth-with-password"
-            :form-params {:identity "admin@example.org"
-                          :password "secret"}}
            {:method :get
             :url "http://127.0.0.1:8090/api/collections/users/records/user-1"
-            :headers {"Authorization" "Bearer admin-token"}}
+            :headers {"Authorization" "Bearer user-token"}}
            {:method :post
             :url "http://127.0.0.1:8090/api/collections/users/records"
             :form-params {:email "user@example.org"
@@ -109,6 +105,29 @@
             :query-params {"filter" "verified = false"
                            "sort" "email"
                            "perPage" 200}}])))
+
+(fact "PocketBase sign-in falls back to the auth response when user lookup fails"
+      (with-redefs [clj-http.client/request
+                    (fn [request]
+                      (case (:url request)
+                        "http://127.0.0.1:8090/api/collections/users/auth-with-password"
+                        {:status 200
+                         :body {:token "user-token"
+                                :record {:id "user-1"
+                                         :email "user@example.org"
+                                         :name "User Name"
+                                         :admin false
+                                         :verified true}}}
+                        "http://127.0.0.1:8090/api/collections/users/records/user-1"
+                        {:status 403
+                         :body {:message "Forbidden."}}))]
+        (pocketbase/sign-in config "user@example.org" "pw" {}) =>
+        {:id "user-1"
+         :email "user@example.org"
+         :name "User Name"
+         :admin false
+         :other-names []
+         :verified true}))
 
 (fact "PocketBase errors surface the API message"
       (with-redefs [clj-http.client/request
