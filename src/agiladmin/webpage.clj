@@ -194,9 +194,10 @@
 
 (defn- nav-menu
   [links]
-  (for [{:keys [href icon label]} links]
+  (for [{:keys [href icon label]} links
+        :let [icon-name icon]]
     [:li [:a {:class "gap-2" :href href}
-          (icon icon "h-5 w-5") label]]))
+          (icon icon-name "h-5 w-5") label]]))
 
 (defn- theme-toggle
   []
@@ -217,9 +218,9 @@
     [:div {:class "flex flex-1 items-center gap-2 md:gap-3"}
      [:a {:class "flex items-center gap-2 no-underline md:gap-3"
           :href "/"}
-      [:span {:class "flex h-8 w-8 items-center justify-center rounded-full border border-base-300 bg-base-100 shadow-sm md:h-9 md:w-9"}
+      [:span {:class "flex h-7 w-7 items-center justify-center rounded-full border border-base-300 bg-base-100 shadow-sm md:h-8 md:w-8"}
        [:img {:src "/static/img/dyne-icon-black.svg"
-              :class "h-4 w-4 md:h-5 md:w-5"
+              :class "h-3.5 w-3.5 md:h-4 md:w-4"
               :alt "Dyne icon"}]]
       [:div {:class "leading-tight"}
        [:div {:class "text-sm font-semibold tracking-wide md:text-base"} "Agiladmin"]
@@ -346,12 +347,12 @@
    [:div {:class "mx-auto flex w-full max-w-screen-2xl flex-col gap-6 px-4 py-8 md:flex-row md:items-center md:justify-between md:px-6"}
     [:a {:href "https://www.dyne.org"
          :class "inline-flex items-center"}
-     [:picture
-      [:source {:srcset "/static/img/dyne-logotype-white.svg"
-                :media "(prefers-color-scheme: dark)"}]
-      [:img {:src "/static/img/dyne-logotype-black.svg"
-             :class "h-10 w-auto"
-             :alt "Dyne.org"}]]]
+     [:img {:src "/static/img/dyne-logotype-black.svg"
+            :class "h-10 w-auto"
+            :alt "Dyne.org"
+            :data-theme-logo "true"
+            :data-theme-logo-light "/static/img/dyne-logotype-black.svg"
+            :data-theme-logo-dark "/static/img/dyne-logotype-white.svg"}]]
     [:div {:class "flex items-center gap-4 self-start md:self-auto"}
      [:img {:src "/static/img/AGPLv3.png"
             :class "h-auto max-w-32 opacity-80"
