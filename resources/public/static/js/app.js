@@ -101,10 +101,64 @@
     });
   }
 
+  function applyTheme(theme) {
+    var body = document.body;
+    if (!body) {
+      return;
+    }
+
+    body.setAttribute("data-theme", theme);
+    try {
+      window.localStorage.setItem("agiladmin-theme", theme);
+    } catch (error) {
+      // Ignore storage failures and keep the in-memory theme.
+    }
+
+    Array.prototype.slice
+      .call(document.querySelectorAll("[data-theme-toggle]"))
+      .forEach(function (toggle) {
+        var darkTheme = body.getAttribute("data-theme-dark") || "dim";
+        toggle.checked = theme === darkTheme;
+      });
+  }
+
+  function initThemeToggle(root) {
+    var body = document.body;
+    if (!body) {
+      return;
+    }
+
+    var lightTheme = body.getAttribute("data-theme-light") || "nord";
+    var darkTheme = body.getAttribute("data-theme-dark") || "dim";
+    var initialTheme = body.getAttribute("data-theme") || lightTheme;
+
+    try {
+      initialTheme = window.localStorage.getItem("agiladmin-theme") || initialTheme;
+    } catch (error) {
+      // Keep the server-provided theme when storage is unavailable.
+    }
+
+    Array.prototype.slice
+      .call(root.querySelectorAll("[data-theme-toggle]"))
+      .forEach(function (toggle) {
+        if (toggle.dataset.bound === "true") {
+          return;
+        }
+
+        toggle.dataset.bound = "true";
+        toggle.addEventListener("change", function () {
+          applyTheme(toggle.checked ? darkTheme : lightTheme);
+        });
+      });
+
+    applyTheme(initialTheme === darkTheme ? darkTheme : lightTheme);
+  }
+
   function boot(root) {
     initTabGroups(root);
     initNavToggles(root);
     initTextFilters(root);
+    initThemeToggle(root);
   }
 
   document.addEventListener("DOMContentLoaded", function () {

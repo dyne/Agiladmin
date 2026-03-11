@@ -20,6 +20,10 @@
           (:body response) => (contains "Clear Persons filter")
           (:body response) => (contains "data-text-filter-value=\"Ada-Lovelace\"")
           (:body response) => (contains "inline-flex max-w-full w-full")
+          (:body response) => (contains "/static/img/dyne-icon-black.svg")
+          (:body response) => (contains "data-theme-toggle=\"true\"")
+          (:body response) => (contains "/static/img/dyne-logotype-black.svg")
+          (:body response) =not=> (contains "For enquiries please contact")
           (:body response) =not=> (contains "Newcomers"))))
 
 (fact "Personnel list rejects non-admin access"
