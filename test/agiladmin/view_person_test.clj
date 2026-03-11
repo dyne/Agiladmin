@@ -12,18 +12,18 @@
                         :verified false}])]
         (let [response (view-person/list-all
                         {}
-                        {:agiladmin {:admins ["admin@example.org"]
-                                     :budgets {:path "test/assets/"}}}
-                        {:email "admin@example.org"})]
+                        {:agiladmin {:budgets {:path "test/assets/"}}}
+                        {:email "admin@example.org"
+                         :admin true})]
           (:body response) => (contains "Pending User")
           (:body response) => (contains "pending@example.org"))))
 
 (fact "Personnel list rejects non-admin access"
       (let [response (view-person/list-all
                       {}
-                      {:agiladmin {:admins ["admin@example.org"]
-                                   :budgets {:path "test/assets/"}}}
-                      {:email "user@example.org"})]
+                      {:agiladmin {:budgets {:path "test/assets/"}}}
+                      {:email "user@example.org"
+                       :admin false})]
         (:body response) => (contains "Unauthorized access")))
 
 (fact "Personnel list shows pending-user backend failures"
@@ -32,9 +32,9 @@
                       (failjure.core/fail "PocketBase unavailable."))]
         (let [response (view-person/list-all
                         {}
-                        {:agiladmin {:admins ["admin@example.org"]
-                                     :budgets {:path "test/assets/"}}}
-                        {:email "admin@example.org"})]
+                        {:agiladmin {:budgets {:path "test/assets/"}}}
+                        {:email "admin@example.org"
+                         :admin true})]
           (:body response) => (contains "Unable to load pending users: PocketBase unavailable."))))
 
 (fact "Personnel download returns raw json when requested"

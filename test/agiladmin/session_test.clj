@@ -3,11 +3,12 @@
             [failjure.core :as f]
             [midje.sweet :refer :all]))
 
-(def config {:agiladmin {:admins ["admin@example.org"]}})
+(def config {:agiladmin {}})
 
-(fact "Session check marks configured admins"
+(fact "Session check keeps the admin flag from the authenticated session"
       (session/check-account config {:session {:auth {:email "admin@example.org"
-                                                      :name "Admin"}}})
+                                                      :name "Admin"
+                                                      :admin true}}})
       => {:email "admin@example.org"
           :name "Admin"
           :admin true})
