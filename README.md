@@ -58,6 +58,10 @@ Use these credentials:
 
 - username: `admin`
 - password: `admin`
+- username: `manager`
+- password: `manager`
+- username: `guest`
+- password: `guest`
 
 The dev auth backend only supports sign-in. Sign-up and pending-user flows are intentionally disabled there.
 

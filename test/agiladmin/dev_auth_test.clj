@@ -6,6 +6,8 @@
 (fact "Development auth backend accepts admin admin"
       (let [backend (dev-auth/backend)]
         ((:sign-in backend) "admin" "admin" {}) => dev-auth/default-user
+        ((:sign-in backend) "manager" "manager" {}) => dev-auth/manager-user
+        (:role ((:sign-in backend) "manager" "manager" {})) => "manager"
         ((:sign-in backend) "guest" "guest" {}) => dev-auth/guest-user
         (:role ((:sign-in backend) "guest" "guest" {})) => nil
         (f/failed? ((:sign-in backend) "admin" "wrong" {})) => truthy))
