@@ -1,0 +1,328 @@
+#+TITLE: Incanter Removal Migration Plan
+#+AUTHOR: Codex
+
+* Summary
+
+The real goal is to remove the Incanter dependency while preserving
+behavior.
+
+The easiest path is *not* ~core.matrix~. The easiest path is a local
+tabular layer built on plain Clojure data:
+
+#+begin_src clojure
+{:column-names [:month :name :project :task :tag :hours]
+ :rows [{:month "2026-01" :name "Alice" ...}
+        ...]}
+#+end_src
+
+with transforms implemented via:
+
+- ~mapv~
+- ~filterv~
+- ~reduce~
+- ~group-by~
+- ~sort-by~
+- ~select-keys~
+- ~dissoc~
+- small local helper functions
+
+If the goal is "remove Incanter without changing behavior", the safest
+path is:
+
+1. isolate all Incanter usage behind a local tabular facade
+2. replace call sites with that facade
+3. switch the facade implementation to plain seqs/maps
+4. remove Incanter from ~deps.edn~
+
+* Difficulty Assessment
+
+** Overall
+
+- *Direct substitution with no intermediate facade:* hard
+- *Facade-first migration with behavior locking tests:* medium-hard
+- *If willing to replace Incanter datasets with plain seq/map transforms:* medium
+- *If insisting on core.matrix as the main tabular representation:* hard
+
+** Why it is hard here
+
+The repo depends on Incanter dataset features in multiple places:
+
+- dataset construction
+- column projection and exclusion
+- row filtering
+- grouping and aggregation
+- derived columns
+- row ordering
+- row/column concatenation
+- dataset-to-list conversion for rendering/export
+
+These are not the strengths of ~core.matrix~.
+
+* What Incanter Is Doing In This Repo
+
+** Main usage sites
+
+- [[/home/jrml/devel/planb-agiladmin/src/agiladmin/core.clj][src/agiladmin/core.clj]]
+- [[/home/jrml/devel/planb-agiladmin/src/agiladmin/view_project.clj][src/agiladmin/view_project.clj]]
+- [[/home/jrml/devel/planb-agiladmin/src/agiladmin/view_person.clj][src/agiladmin/view_person.clj]]
+- [[/home/jrml/devel/planb-agiladmin/src/agiladmin/view_timesheet.clj][src/agiladmin/view_timesheet.clj]]
+- [[/home/jrml/devel/planb-agiladmin/src/agiladmin/graphics.clj][src/agiladmin/graphics.clj]]
+
+** Incanter operations currently relied on
+
+- ~to-dataset~
+- ~with-data~
+- ~$~
+- ~$where~
+- ~$order~
+- ~aggregate~
+- ~add-derived-column~
+- ~query-dataset~
+- ~conj-cols~
+- ~conj-rows~
+- ~to-list~
+- ~sum~
+- ~nrow~
+- ~sel~
+
+This means the code is using Incanter like a dataframe library, not as a
+matrix library. That is why ~core.matrix~ is the wrong primary target
+for this migration.
+
+* Coordinate System Concern
+
+Your concern about different XY defaults is valid in general, but in
+this repository it is probably *not the dominant cost*.
+
+Why:
+
+- the current graphics namespace does not actively use ~incanter.charts~
+  in production code
+- most rendering is HTML tables and derived progress values
+- the project Gantt view is driven by JS data structures, not Incanter
+  charts
+
+So the likely migration pain is not "x/y inversion" but:
+
+- losing dataset semantics
+- replacing column-oriented transforms
+- preserving ordering and rendering shape
+- keeping numeric output identical enough for tests and reports
+
+* Behavioral Risks
+
+** High risk
+
+- derived cost calculations in [[/home/jrml/devel/planb-agiladmin/src/agiladmin/core.clj][src/agiladmin/core.clj]]
+- task progress and empty-task logic in [[/home/jrml/devel/planb-agiladmin/src/agiladmin/core.clj][src/agiladmin/core.clj]]
+- project detail views in [[/home/jrml/devel/planb-agiladmin/src/agiladmin/view_project.clj][src/agiladmin/view_project.clj]]
+- person billing views/export formatting in [[/home/jrml/devel/planb-agiladmin/src/agiladmin/view_person.clj][src/agiladmin/view_person.clj]]
+
+** Medium risk
+
+- dataset-to-table rendering in [[/home/jrml/devel/planb-agiladmin/src/agiladmin/graphics.clj][src/agiladmin/graphics.clj]]
+- upload preview content rendering in [[/home/jrml/devel/planb-agiladmin/src/agiladmin/view_timesheet.clj][src/agiladmin/view_timesheet.clj]]
+
+** Lower risk
+
+- simple column extraction and CSV/HTML export plumbing
+
+* Recommendation
+
+Do *not* replace Incanter with raw ~core.matrix~ directly.
+
+The recommended target for this repository is:
+
+1. a local plain-data tabular facade
+2. vectors of row maps as the backing representation
+3. no new external dataframe dependency unless the plain-data approach
+   proves insufficient
+
+* Migration Plan
+
+** Phase 0: Freeze behavior
+
+Goal: make the current output hard to accidentally change.
+
+Tasks:
+
+- keep the current expanded test suite green
+- add any missing characterization tests before refactoring:
+  - project totals and person totals shapes
+  - table column order in rendered views
+  - export payload shape for CSV/JSON/HTML
+- capture 2-3 representative end-to-end fixture outputs
+
+Exit criteria:
+
+- current behavior is well locked by tests
+
+** Phase 1: Introduce a local tabular facade
+
+Goal: stop calling Incanter all over the app.
+
+Create a new namespace:
+
+- ~src/agiladmin/tabular.clj~
+
+Move all abstract operations behind local functions such as:
+
+- ~dataset~
+- ~rows~
+- ~select-cols~
+- ~drop-cols~
+- ~filter-rows~
+- ~order-by~
+- ~group-sum~
+- ~add-col~
+- ~append-rows~
+- ~append-cols~
+- ~to-row-seq~
+- ~col-values~
+- ~row-count~
+
+Important:
+
+- keep the output shape compatible with current call sites
+- keep column ordering explicit
+- prefer plain Clojure data from the start
+
+Status:
+
+- initial facade created
+- first migrated consumers:
+  - [[/home/jrml/devel/planb-agiladmin/src/agiladmin/graphics.clj][src/agiladmin/graphics.clj]]
+  - [[/home/jrml/devel/planb-agiladmin/src/agiladmin/view_timesheet.clj][src/agiladmin/view_timesheet.clj]]
+- initial tests added:
+  - [[/home/jrml/devel/planb-agiladmin/test/agiladmin/tabular_test.clj][test/agiladmin/tabular_test.clj]]
+
+Exit criteria:
+
+- all app code uses ~agiladmin.tabular~
+- Incanter usage is centralized to one namespace
+
+** Phase 2: Normalize internal data shape
+
+Goal: define what a "table" is in this app.
+
+Recommended internal shape:
+
+#+begin_src clojure
+{:column-names [:month :name :project :task :tag :hours]
+ :rows [{:month "2026-01" :name "Alice" ...}
+        ...]}
+#+end_src
+
+This is already close to what tests assert and what rendering expects.
+
+Exit criteria:
+
+- all major transforms operate on a documented local shape
+- rendering helpers consume the same local shape
+
+** Phase 3: Replace Incanter-backed facade implementation
+
+Options:
+
+*** Option A: plain Clojure data
+
+Best for preserving behavior with lowest conceptual overhead.
+
+Use:
+
+- vectors of row maps
+- ~group-by~, ~reduce~, ~sort-by~, ~mapv~, ~filterv~
+
+Pros:
+
+- smallest dependency surface
+- easiest to debug
+- best fit for this repo's current usage
+- matches current tests well
+
+Cons:
+
+- more custom code than a dataframe library
+
+*** Option B: core.matrix-backed numeric operations only
+
+Use ~core.matrix~ only where true matrix operations help.
+
+Pros:
+
+- keeps numeric kernels available
+
+Cons:
+
+- still requires writing a custom dataset layer
+- does not reduce most migration work
+
+*** Option C: core.matrix as primary table layer
+
+Not recommended.
+
+Pros:
+
+- single target library
+
+Cons:
+
+- poor fit for heterogeneous row maps and named columns
+- large adapter layer required
+- highest behavior-regression risk
+
+Exit criteria:
+
+- facade no longer depends on Incanter
+- tests remain green
+
+** Phase 4: Remove Incanter imports incrementally
+
+Suggested order:
+
+1. [[/home/jrml/devel/planb-agiladmin/src/agiladmin/graphics.clj][src/agiladmin/graphics.clj]]
+2. [[/home/jrml/devel/planb-agiladmin/src/agiladmin/view_timesheet.clj][src/agiladmin/view_timesheet.clj]]
+3. [[/home/jrml/devel/planb-agiladmin/src/agiladmin/view_person.clj][src/agiladmin/view_person.clj]]
+4. [[/home/jrml/devel/planb-agiladmin/src/agiladmin/view_project.clj][src/agiladmin/view_project.clj]]
+5. [[/home/jrml/devel/planb-agiladmin/src/agiladmin/core.clj][src/agiladmin/core.clj]]
+
+Rationale:
+
+- start with consumers
+- migrate the central transform engine last
+
+** Phase 5: Dependency cleanup
+
+Tasks:
+
+- remove ~incanter/incanter-core~ from [[/home/jrml/devel/planb-agiladmin/deps.edn][deps.edn]]
+- remove residual imports and dead compatibility helpers
+- rerun full tests and build
+
+* Suggested Next Implementation Slices
+
+The first slice is already done: create ~agiladmin.tabular~ and migrate
+low-risk consumers.
+
+Recommended next slices:
+
+1. migrate [[/home/jrml/devel/planb-agiladmin/src/agiladmin/view_person.clj][src/agiladmin/view_person.clj]] export and table consumers
+2. migrate [[/home/jrml/devel/planb-agiladmin/src/agiladmin/view_project.clj][src/agiladmin/view_project.clj]] table consumers
+3. migrate helper operations from [[/home/jrml/devel/planb-agiladmin/src/agiladmin/core.clj][src/agiladmin/core.clj]]:
+   - column extraction
+   - derived columns
+   - sorting
+   - row filtering
+4. migrate aggregation logic last
+5. remove ~incanter/incanter-core~ only after all call sites are gone
+
+This ordering minimizes risk because it removes view-level consumption
+before replacing the central transformation engine.
+
+* Bottom Line
+
+Removing Incanter is feasible, but the easiest route is a plain
+seqs/maps tabular layer, not ~core.matrix~.
+
+The biggest challenge is preserving dataframe-like behavior, column
+order, and report output while replacing the current Incanter DSL.

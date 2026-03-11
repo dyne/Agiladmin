@@ -21,6 +21,7 @@
    [clojure.string :as str]
    [clojure.java.io :as io]
    [agiladmin.core :refer :all]
+   [agiladmin.tabular :as tab]
    [agiladmin.utils :as util]
    [agiladmin.graphics :refer :all]
    [agiladmin.webpage :as web]
@@ -31,8 +32,7 @@
    [failjure.core :as f]
    [hiccup.form :as hf]
    [me.raynes.fs :as fs]
-   [clj-jgit.porcelain :as git]
-   [incanter.core :refer [sel]]))
+   [clj-jgit.porcelain :as git]))
 
 (def json-dataset-pp
   (json/create-pretty-printer
@@ -183,7 +183,7 @@ proceed to validation."]
           ;; CONTENT tab
           [:div {:class "tab-pane fade" :id "content"}
            [:h2 "Contents of the new timesheet"]
-           (to-table (sel hours :except-cols :name))]]]]])
+           (to-table (tab/drop-cols hours [:name]))]]]]])
      ;; handle failjure of timesheet loading from the uploaded file
      (f/when-failed [e]
        (web/render-error-page
