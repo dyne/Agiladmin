@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2016 Dyne.org Foundation
 # timesheetpy is written and maintained by parazyd <parazyd@dyne.org>
 #
@@ -20,241 +20,209 @@
 import argparse
 from calendar import monthrange
 from calendar import weekheader
+from dataclasses import dataclass
+from typing import List
 import datetime
-import sys
 import xlsxwriter
 
-## TODO: name parameter
 
-now = datetime.date.today()
+IMAGE_SCALE = {"x_scale": 0.55, "y_scale": 0.55}
+DEFAULT_ORG_NAME = "STICHTING DYNE.ORG"
+DEFAULT_LOGO_PATH = "dyne.png"
+CURRENT_YEAR = datetime.date.today().year
 
-parser=argparse.ArgumentParser()
-parser.add_argument("-sm", "--start-month",
-                    help="starting month, ex: 9",
-                    type=int)
-parser.add_argument("-sy", "--start-year",
-                    help="starting year, ex: 2016",
-                    type=int)
-parser.add_argument("-em", "--end-month",
-                    help="ending month, ex: 11",
-                    type=int)
-parser.add_argument("-ey", "--end-year",
-                    help="ending year, ex: 2016",
-                    type=int)
-parser.add_argument("-n", "--name",
-                    help="name of person, ex: 'John Doe'",
-                    type=str)
-parser.add_argument("-o", "--output-file",
-                    help="output file, ex: timesheet.xlsx",
-                    default="timesheet.xlsx",
-                    type=str)
-args = parser.parse_args()
 
-if not args.start_month:
-    args.start_month = now.month
-if not args.start_year:
-    args.start_year = now.year
-if not args.end_month:
-    args.end_month = args.start_month
-if not args.end_year:
-    args.end_year = args.start_year
+@dataclass(frozen=True)
+class TimesheetOptions:
+    """Runtime options used to generate a full-year timesheet book."""
 
-global workbook
-workbook = xlsxwriter.Workbook(args.output_file)
+    year: int
+    name: str | None
+    org_name: str
+    logo: str
+    output_file: str
 
-## {{{ formatting
-format_days = workbook.add_format({
-    'border': True,
-    'bg_color': 'eeeeee',
-    'align': 'right',
-    'font_name': 'Inconsolata'
-})
 
-format_timegridWhite = workbook.add_format({
-    'border': True,
-    'bg_color': 'ffffff',
-    'align': 'center',
-    'font_name': 'Inconsolata'
-})
+def parse_args(argv=None):
+    """Parse CLI arguments and map them into a Namespace."""
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument("-h", action="help", help="show this help message and exit")
+    parser.add_argument(
+        "-Y",
+        default=CURRENT_YEAR,
+        type=int,
+        help="generate timesheets for this year, ex: 2026",
+    )
+    parser.add_argument("-n", "-N", help="name of person, ex: 'John Doe'", type=str)
+    parser.add_argument(
+        "-c",
+        "-o",
+        default=DEFAULT_ORG_NAME,
+        help="organization name, ex: 'ACME INC.'",
+        type=str,
+    )
+    parser.add_argument(
+        "-l",
+        default=DEFAULT_LOGO_PATH,
+        help="path to logo image, ex: dyne.png",
+        type=str,
+    )
+    return parser.parse_args(argv)
 
-format_timegridGrey = workbook.add_format({
-    'border': True,
-    'bg_color': 'eeeeee',
-    'align': 'center',
-    'font_name': 'Inconsolata'
-})
 
-format_bold = workbook.add_format({
-    'bold': True
-})
+def normalize_name(name: str | None) -> str:
+    """Normalize the person name for safe file names.
 
-format_centerbold = workbook.add_format({
-    'bold': True,
-    'align': 'center',
-    'font_name': 'Inconsolata'
-})
+    Spaces are converted to dashes and empty values are handled with a fallback.
+    """
+    if not name:
+        return "timesheet"
+    return "-".join(name.strip().split())
 
-format_vcenterbold = workbook.add_format({
-    'bold': True,
-    'valign': 'vcenter'
-})
 
-format_border = workbook.add_format({
-    'border': True
-})
+def make_output_filename(year: int, name: str | None) -> str:
+    """Build the default output filename for a full-year export."""
+    return f"{year}_timesheet_{normalize_name(name)}.xlsx"
 
-format_centerbigger = workbook.add_format({
-    'bold': True,
-    'align': 'center',
-    'valign': 'vcenter'
-})
-## }}}
 
-def putDefaults(mm, yy):
-    worksheet.set_column('A:A', 12) ## make first column wider
+def month_day_labels(year: int, month: int) -> List[str]:
+    """Return weekday/day labels for every day in the month."""
+    start_weekday, total_days = monthrange(year, month)
+    header = weekheader(3).split()
+    return [f"{header[(start_weekday + day_index) % 7]} {day_index + 1}" for day_index in range(total_days)]
 
+
+def build_formats(workbook: xlsxwriter.Workbook):
+    """Create and return the reusable cell formats for the whole workbook."""
+    return {
+        "days": workbook.add_format({
+            "border": True,
+            "bg_color": "eeeeee",
+            "align": "right",
+            "font_name": "Inconsolata",
+        }),
+        "timegrid_white": workbook.add_format({
+            "border": True,
+            "bg_color": "ffffff",
+            "align": "center",
+            "font_name": "Inconsolata",
+        }),
+        "timegrid_grey": workbook.add_format({
+            "border": True,
+            "bg_color": "eeeeee",
+            "align": "center",
+            "font_name": "Inconsolata",
+        }),
+        "bold": workbook.add_format({"bold": True}),
+        "center_bold": workbook.add_format({
+            "bold": True,
+            "align": "center",
+            "font_name": "Inconsolata",
+        }),
+        "vcenter_bold": workbook.add_format({"bold": True, "valign": "vcenter"}),
+        "center_bigger": workbook.add_format({
+            "bold": True,
+            "align": "center",
+            "valign": "vcenter",
+        }),
+    }
+
+
+def write_totals(worksheet, total_days: int, formats):
+    """Write month summary totals for each project/day column."""
+    totals_row = 42
+    start_row = 11
+    end_row = 10 + total_days
+
+    for col_code in range(ord("B"), ord("H") + 1):
+        col = chr(col_code)
+        sum_formula = f"=SUM({col}{start_row}:{col}{end_row})"
+
+        # Column H receives slightly different formatting in the original layout.
+        if col == "H":
+            summary_fmt = formats["timegrid_grey"]
+            worksheet.write(f"B4", sum_formula, summary_fmt)
+            worksheet.write(f'B5', f'=COUNTIFS({col}{start_row}:{col}{end_row},"<>0")', summary_fmt)
+
+        worksheet.write(f"{col}{totals_row}", sum_formula, formats["center_bold"])
+
+
+def write_month_sheet(worksheet, options: TimesheetOptions, year: int, month: int, formats):
+    """Render one worksheet representing a single month."""
+    day_labels = month_day_labels(year, month)
+    total_days = len(day_labels)
+
+    worksheet.set_column("A:A", 12)  # Make first column wider for date labels.
     worksheet.set_row(0, 30)
-    worksheet.write('A1', 'STICHTING DYNE.ORG', format_vcenterbold)
-    worksheet.insert_image('E1', 'dyne.png', {'x_scale': 0.55, 'y_scale': 0.55})
+    worksheet.write("A1", options.org_name, formats["vcenter_bold"])
+    worksheet.insert_image("E1", options.logo, IMAGE_SCALE)
 
     worksheet.set_row(1, 30)
-    worksheet.write('A2', 'Month:', format_centerbigger)
-    worksheet.write('B2', str(yy) + '-' + str(mm), format_centerbigger)
+    worksheet.write("A2", "Month:", formats["center_bigger"])
+    worksheet.write("B2", f"{year}-{month}", formats["center_bigger"])
 
     worksheet.set_row(2, 30)
-    worksheet.write('A3', 'Name:', format_centerbigger)
-    if args.name:
-        worksheet.merge_range('B3:C3', args.name, format_centerbigger)
-        #worksheet.write('B3', args.name, format_centerbigger)
+    worksheet.write("A3", "Name:", formats["center_bigger"])
+    if options.name:
+        worksheet.merge_range("B3:C3", options.name, formats["center_bigger"])
 
-    worksheet.write('A4', "Total hrs:", format_centerbigger)
-    worksheet.write('A5', "Total days:", format_centerbigger)
+    worksheet.write("A4", "Total hrs:", formats["center_bigger"])
+    worksheet.write("A5", "Total days:", formats["center_bigger"])
 
     worksheet.set_row(5, 30)
-    worksheet.merge_range('B6:G6', 'TIMESHEET', format_centerbigger)
-    for i in range(1,7): ## cells for project codes
-        worksheet.write(6, i, '', format_centerbold)
+    worksheet.merge_range("B6:G6", "TIMESHEET", formats["center_bigger"])
+    for col in range(1, 7):  # B..G keep a light placeholder header row.
+        worksheet.write(6, col, "", formats["center_bold"])
 
-    worksheet.write('A7', 'Project', format_bold)
-    worksheet.write('A8', 'W.P.', format_bold)
-    worksheet.write('A9', 'Tag', format_bold)
+    worksheet.write("A7", "Project", formats["bold"])
+    worksheet.write("A8", "Task", formats["bold"])
+    worksheet.write("A9", "Tag", formats["bold"])
 
-    ## space from above
-    fieldx = 10
-    fieldy = 0
-    for day in calendar(mm, yy):
-        if fieldx % 2 == 0:
-            worksheet.write(fieldx ,fieldy, day, format_days)
-            for i in range(1,7):
-                worksheet.write(fieldx, i, '', format_timegridWhite)
-        else:
-            worksheet.write(fieldx ,fieldy, day, format_days)
-            for i in range(1,7):
-                worksheet.write(fieldx, i, '', format_timegridGrey)
+    row = 10
+    for offset, label in enumerate(day_labels):
+        worksheet.write(row, 0, label, formats["days"])
+        row_format = formats["timegrid_white"] if offset % 2 == 0 else formats["timegrid_grey"]
+        for col in range(1, 7):
+            worksheet.write(row, col, "", row_format)
 
-        sumform = '=SUM(B' + str(fieldx+1) + ':G' + str(fieldx+1) + ')'
-        worksheet.write(fieldx, 7, sumform, format_centerbold)
+        sum_formula = f"=SUM(B{row + 1}:G{row + 1})"
+        worksheet.write(row, 7, sum_formula, formats["center_bold"])
+        row += 1
 
-        fieldx += 1
-
-    ## Bottom: Signature, Date, Free text space
     worksheet.set_row(43, 30)
-    worksheet.write('A44', 'Signature:', format_vcenterbold)
-
-    #worksheet.set_row(43, 30)
-    #worksheet.write('A44', 'Date:', format_vcenterbold)
-    #worksheet.write('B44', now.isoformat(), format_vcenterbold)
-
-    worksheet.set_row(45, 30)
-    worksheet.write('A46', 'Free text space:', format_vcenterbold)
-
-    ## calculations
-    worksheet.write('H10', 'Total', format_centerbold)
-
-    writetotals()
-
-def writetotals():
-    totalsrow = str(42) ## bottom row of totals
-    startrow  = str(11) ## first day
-    endrow    = str(0)  ## last day
-    if total == 30:
-        endrow = str(40)
-    elif total == 31:
-        endrow = str(41)
-    elif total == 28:
-        endrow = str(38)
-    elif total == 29:
-        endrow = str(39)
-
-    fmt = format_centerbold
-    for col in range(66,73):
-        if col == 72:
-            fmt = format_timegridGrey
-            worksheet.write('B4', '=SUM('+chr(col)+startrow+':'+chr(col)+endrow+')', fmt)
-            worksheet.write('B5', '=COUNTIFS('+chr(col)+startrow+':'+chr(col)+endrow+',"<>0")', fmt)
-
-        worksheet.write(chr(col)+totalsrow, '=SUM('+chr(col)+startrow+':'+chr(col)+endrow+')', fmt)
+    worksheet.write("A44", "Signature:", formats["vcenter_bold"])
+    worksheet.write("J6", "Free text space:", formats["vcenter_bold"])
+    worksheet.write("H10", "Total", formats["center_bold"])
+    write_totals(worksheet, total_days, formats)
 
 
-def calendar(mm, yy):
-    month = monthrange(yy, mm)
-    head = weekheader(3)
-    start = month[0]
-    global total
-    total = month[1]
-
-    c = 0
-    montharr = []
-    for val in range(start, total+start):
-        c = c + 1
-        montharr += ["%s %d" % (head.split()[val % 7], c)]
-
-    return montharr
-
-def main(mm, yy):
-    global worksheet
-    worksheet = workbook.add_worksheet(str(yy) + '-' + str(mm))
-
-    #worksheet.set_landscape()
-    worksheet.set_portrait()
-    worksheet.set_paper(9) ## a4
-    worksheet.fit_to_pages(1,1)
-
-    putDefaults(mm, yy)
-
-if args.start_month != args.end_month or args.start_year != args.end_year:
+def write_workbook(options: TimesheetOptions):
+    """Create the workbook and render all 12 months."""
+    workbook = xlsxwriter.Workbook(options.output_file)
+    try:
+        formats = build_formats(workbook)
+        for month in range(1, 13):
+            worksheet = workbook.add_worksheet(f"{options.year}-{month}")
+            worksheet.set_portrait()
+            worksheet.set_paper(9)  # A4
+            worksheet.fit_to_pages(1, 1)
+            write_month_sheet(worksheet, options, options.year, month, formats)
+    finally:
+        workbook.close()
 
 
-    ## if it's not the same year
-    if args.start_year != args.end_year:
-        year = args.start_year
+def main(argv=None):
+    """CLI entry point."""
+    args = parse_args(argv)
+    options = TimesheetOptions(
+        year=args.Y,
+        name=args.n,
+        org_name=args.c,
+        logo=args.l,
+        output_file=make_output_filename(args.Y, args.n),
+    )
+    write_workbook(options)
 
-        ## first year
-        for mnth in range(args.start_month, 13):
-            main(mnth, year)
-        year += 1
 
-        ## until last year
-        while year != args.end_year:
-            for mnth in range(1, 13):
-                main(mnth, year)
-            year += 1
-
-        ## last year
-        if year != args.end_year:
-            year = args.end_year
-        for mnth in range(1, args.end_month+1):
-            main(mnth, year)
-
-    else:
-        year = args.start_year
-        for mnth in range(args.start_month, args.end_month+1):
-            main(mnth, year)
-
-    ## clean up
-    workbook.close()
-    exit(0)
-else:
-    main(args.start_month, args.start_year)
-    workbook.close()
-    exit(0)
+if __name__ == "__main__":
+    main()
