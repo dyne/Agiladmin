@@ -37,8 +37,6 @@
    [me.raynes.fs :as fs :refer [base-name]]
    [failjure.core :as f]
 
-   [incanter.core :refer :all]
-
    [taoensso.timbre :as log]
 
    [agiladmin.core :refer :all]
