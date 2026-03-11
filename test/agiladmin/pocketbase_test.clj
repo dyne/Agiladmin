@@ -81,7 +81,7 @@
             :url "http://127.0.0.1:8090/api/collections/users/auth-with-password"
             :form-params {:identity "user@example.org"
                           :password "pw"}}
-           {:method :get
+           {:method :post
             :url "http://127.0.0.1:8090/api/collections/users/auth-refresh"
             :headers {"Authorization" "Bearer user-token"}}
            {:method :post
