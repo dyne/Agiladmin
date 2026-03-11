@@ -11,7 +11,7 @@
            [java.security KeyPairGenerator Security]))
 
 (def default-algorithm "RSA")
-(def default-key-size 2048)
+(def default-key-size 4096)
 
 (Security/addProvider (BouncyCastleProvider.))
 
