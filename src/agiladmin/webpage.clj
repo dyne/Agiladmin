@@ -41,6 +41,7 @@
 (declare render-error)
 (declare render-error-page)
 (declare render-fragment)
+(declare filterable-button-list)
 
 (defn button
   ([url text] (button url text [:p]))
@@ -94,6 +95,38 @@
                 :data-tab-panel id
                 :hidden (when-not (zero? idx) true)}
       content])])
+
+(defn filterable-button-list
+  [id title empty-text items]
+  [:section {:class "card bg-base-100 shadow-sm"}
+   [:div {:class "card-body gap-4"}
+    [:div {:class "flex flex-wrap items-center justify-between gap-3"}
+     [:h2 title]
+     [:div {:class "join w-full sm:w-auto"
+            :data-text-filter id}
+      [:input {:type "text"
+               :class "input input-bordered join-item w-full sm:w-72"
+               :placeholder (str "Filter " (clojure.string/lower-case title))
+               :aria-label (str "Filter " title)
+               :autocomplete "off"
+               :data-text-filter-input "true"}]
+      [:button {:type "button"
+                :class "btn btn-outline join-item"
+                :aria-label (str "Clear " title " filter")
+                :data-text-filter-clear "true"}
+       "Clear"]]]
+    (if (seq items)
+      (into
+       [:div {:id id
+              :class "grid gap-2 sm:grid-cols-2 xl:grid-cols-3"
+              :data-text-filter-list id
+              :data-empty-text empty-text}
+        [:p {:class "hidden rounded-box border border-dashed border-base-300 px-4 py-6 text-sm text-base-content/70"
+             :data-text-filter-empty "true"}
+         empty-text]]
+       items)
+      [:p {:class "rounded-box border border-dashed border-base-300 px-4 py-6 text-sm text-base-content/70"}
+       empty-text])]])
 
 (defn- nav-menu
   [links]

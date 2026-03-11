@@ -26,6 +26,18 @@
                         {:email "admin@example.org"}
                         "CORE"]]))))
 
+(fact "Project list renders a compact filterable project list"
+      (with-redefs [agiladmin.config/project-names
+                    (fn [_] ["CORE" "ALPHA" "BETA"])]
+        (let [response (view-project/list-all
+                        {}
+                        {}
+                        {:email "admin@example.org"})]
+          (:body response) => (contains "data-text-filter=\"projects-list\"")
+          (:body response) => (contains "Filter projects")
+          (:body response) => (contains "Clear Projects filter")
+          (:body response) => (contains "data-text-filter-value=\"ALPHA\""))))
+
 (fact "Project start dispatches rolling projects to the rolling view"
       (with-redefs [agiladmin.config/load-project
                     (fn [_ _]

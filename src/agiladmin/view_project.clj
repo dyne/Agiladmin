@@ -39,14 +39,22 @@
 (defn list-all
   "list all projects"
   [request config account]
+  (let [project-buttons
+        (mapv (fn [pj]
+                [:div {:class "log-project"
+                       :data-text-filter-item "true"
+                       :data-text-filter-value pj}
+                 (web/button "/project" pj
+                             (hf/hidden-field "project" pj)
+                             "btn btn-outline w-full justify-start")])
+              (conf/project-names config))]
   (web/render
    account
    [:div {:class "space-y-4"}
-    [:h2 "Projects"]
-    (for [pj (conf/project-names config)]
-     [:div {:class "log-project"}
-      (web/button "/project" pj
-                  (hf/hidden-field "project" pj))])]))
+    (web/filterable-button-list "projects-list"
+                                "Projects"
+                                "No projects match the current filter."
+                                project-buttons)])))
 
 (defn edit [request config account]
   (f/attempt-all

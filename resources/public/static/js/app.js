@@ -52,9 +52,57 @@
     });
   }
 
+  function initTextFilters(root) {
+    root.querySelectorAll("[data-text-filter]").forEach(function (filter) {
+      if (filter.dataset.bound === "true") {
+        return;
+      }
+
+      var filterId = filter.getAttribute("data-text-filter");
+      var input = filter.querySelector("[data-text-filter-input]");
+      var clear = filter.querySelector("[data-text-filter-clear]");
+      var list = document.querySelector('[data-text-filter-list="' + filterId + '"]');
+      if (!input || !clear || !list) {
+        return;
+      }
+
+      var items = Array.from(list.querySelectorAll("[data-text-filter-item]"));
+      var emptyState = list.querySelector("[data-text-filter-empty]");
+
+      function update() {
+        var query = input.value.toLowerCase().trim();
+        var visibleCount = 0;
+
+        items.forEach(function (item) {
+          var value = (item.getAttribute("data-text-filter-value") || "").toLowerCase();
+          var visible = query === "" || value.indexOf(query) !== -1;
+          item.classList.toggle("hidden", !visible);
+          if (visible) {
+            visibleCount += 1;
+          }
+        });
+
+        if (emptyState) {
+          emptyState.classList.toggle("hidden", visibleCount !== 0);
+        }
+        clear.disabled = input.value === "";
+      }
+
+      filter.dataset.bound = "true";
+      input.addEventListener("input", update);
+      clear.addEventListener("click", function () {
+        input.value = "";
+        update();
+        input.focus();
+      });
+      update();
+    });
+  }
+
   function boot(root) {
     initTabGroups(root);
     initNavToggles(root);
+    initTextFilters(root);
   }
 
   document.addEventListener("DOMContentLoaded", function () {
