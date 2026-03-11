@@ -32,8 +32,61 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-clojure-
 
+      - name: Download PocketBase
+        env:
+          POCKETBASE_VERSION: "0.36.6"
+        run: |
+          curl -fsSL -o /tmp/pocketbase.zip \
+            "https://github.com/pocketbase/pocketbase/releases/download/v${POCKETBASE_VERSION}/pocketbase_${POCKETBASE_VERSION}_linux_amd64.zip"
+          unzip -q /tmp/pocketbase.zip -d /tmp/pocketbase
+          chmod +x /tmp/pocketbase/pocketbase
+
+      - name: Initialize PocketBase superuser
+        env:
+          PB_SUPERUSER_EMAIL: admin@example.org
+          PB_SUPERUSER_PASSWORD: change-me
+        run: |
+          mkdir -p /tmp/pb_ci_data
+          /tmp/pocketbase/pocketbase superuser create "$PB_SUPERUSER_EMAIL" "$PB_SUPERUSER_PASSWORD" --dir /tmp/pb_ci_data || \
+          /tmp/pocketbase/pocketbase superuser upsert "$PB_SUPERUSER_EMAIL" "$PB_SUPERUSER_PASSWORD" --dir /tmp/pb_ci_data
+
+      - name: Start PocketBase
+        run: |
+          /tmp/pocketbase/pocketbase serve \
+            --http 127.0.0.1:8090 \
+            --dir /tmp/pb_ci_data \
+            --migrationsDir "$GITHUB_WORKSPACE/pb_migrations" \
+            >/tmp/pocketbase.log 2>&1 &
+          echo $! > /tmp/pocketbase.pid
+
+      - name: Wait for PocketBase health
+        run: |
+          for _ in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8090/api/health >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/pocketbase.log
+          exit 1
+
       - name: Run tests
         run: make test CLOJURE=clojure
 
+      - name: Run PocketBase integration tests
+        env:
+          AGILADMIN_PB_IT: "1"
+          AGILADMIN_PB_BASE_URL: http://127.0.0.1:8090
+          AGILADMIN_PB_SUPERUSER_EMAIL: admin@example.org
+          AGILADMIN_PB_SUPERUSER_PASSWORD: change-me
+          AGILADMIN_PB_IT_USER_EMAIL: agiladmin-it@example.org
+          AGILADMIN_PB_IT_USER_PASSWORD: agiladmin-it-secret
+        run: make test-pocketbase-integration CLOJURE=clojure
+
       - name: Build uberjar
         run: make build CLOJURE=clojure
+
+      - name: Print PocketBase log on failure
+        if: failure()
+        run: |
+          test -f /tmp/pocketbase.log && cat /tmp/pocketbase.log || true
