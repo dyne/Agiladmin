@@ -4,6 +4,9 @@
 
 (declare request ensure-success superuser-token)
 
+(def ^:private role-field-id "select2282622326")
+(def ^:private role-field-values ["admin" "manager"])
+
 (defn- trim-slash
   [value]
   (str/replace value #"/+$" ""))
@@ -17,6 +20,26 @@
   (str "/api/collections/"
        (:users-collection config)
        suffix))
+
+(defn- role-field
+  [field]
+  (merge field
+         {:hidden false
+          :id (or (:id field) role-field-id)
+          :name "role"
+          :presentable false
+          :required false
+          :system false
+          :type "select"
+          :maxSelect 1
+          :values role-field-values}))
+
+(defn- normalize-collection-fields
+  [fields]
+  (let [role (some #(when (= "role" (:name %)) %) fields)
+        retained (remove #(contains? #{"admin" "role"} (:name %)) fields)]
+    (vec (conj (vec retained)
+               (role-field role)))))
 
 (defn- session-user
   [record]
@@ -70,6 +93,23 @@
                               :password (:superuser-password config)}})
       ensure-success
       :token))
+
+(defn ensure-role-field!
+  [config]
+  (let [token (superuser-token config)
+        collection (-> (request :get
+                                (endpoint (:base-url config)
+                                          (auth-collection-path config ""))
+                                {:headers {"Authorization" (str "Bearer " token)}})
+                       ensure-success)
+        fields (normalize-collection-fields (:fields collection))]
+    (-> (request :patch
+                 (endpoint (:base-url config)
+                           (auth-collection-path config ""))
+                 {:headers {"Authorization" (str "Bearer " token)}
+                  :content-type :json
+                  :form-params {:fields fields}})
+        ensure-success)))
 
 (defn sign-in
   [config username password _options]

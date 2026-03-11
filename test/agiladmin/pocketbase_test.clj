@@ -141,3 +141,51 @@
           false => true
           (catch clojure.lang.ExceptionInfo ex
             (.getMessage ex) => "Failed to authenticate."))))
+
+(fact "PocketBase role field initialization replaces the legacy admin field with a role select"
+      (let [calls (atom [])]
+        (with-redefs [clj-http.client/request
+                      (fn [request]
+                        (swap! calls conj request)
+                        (case [(:method request) (:url request)]
+                          [:post "http://127.0.0.1:8090/api/collections/_superusers/auth-with-password"]
+                          {:status 200 :body {:token "admin-token"}}
+                          [:get "http://127.0.0.1:8090/api/collections/users"]
+                          {:status 200
+                           :body {:id "users"
+                                  :name "users"
+                                  :fields [{:id "title"
+                                            :name "title"
+                                            :type "text"}
+                                           {:id "bool2282622326"
+                                            :name "admin"
+                                            :type "bool"}]}}
+                          [:patch "http://127.0.0.1:8090/api/collections/users"]
+                          {:status 200
+                           :body {:id "users"
+                                  :name "users"
+                                  :fields (:fields (:form-params request))}}))]
+          (pocketbase/ensure-role-field! config)
+          (map #(select-keys % [:method :url :headers :form-params]) @calls) =>
+          [{:method :post
+            :url "http://127.0.0.1:8090/api/collections/_superusers/auth-with-password"
+            :form-params {:identity "admin@example.org"
+                          :password "secret"}}
+           {:method :get
+            :url "http://127.0.0.1:8090/api/collections/users"
+            :headers {"Authorization" "Bearer admin-token"}}
+           {:method :patch
+            :url "http://127.0.0.1:8090/api/collections/users"
+            :headers {"Authorization" "Bearer admin-token"}
+           :form-params {:fields [{:id "title"
+                                    :name "title"
+                                    :type "text"}
+                                   {:hidden false
+                                    :id "select2282622326"
+                                    :name "role"
+                                    :presentable false
+                                    :required false
+                                    :system false
+                                    :type "select"
+                                    :maxSelect 1
+                                    :values ["admin" "manager"]}]}}])))

@@ -55,7 +55,6 @@ jobs:
           /tmp/pocketbase/pocketbase serve \
             --http 127.0.0.1:8090 \
             --dir /tmp/pb_ci_data \
-            --migrationsDir "$GITHUB_WORKSPACE/pb_migrations" \
             >/tmp/pocketbase.log 2>&1 &
           echo $! > /tmp/pocketbase.pid
 
@@ -69,6 +68,11 @@ jobs:
           done
           cat /tmp/pocketbase.log
           exit 1
+
+      - name: Initialize PocketBase users collection
+        env:
+          AGILADMIN_CONF: doc/agiladmin.pocketbase.yaml
+        run: clojure -M -m agiladmin.pocketbase-init
 
       - name: Run tests
         run: make test CLOJURE=clojure
