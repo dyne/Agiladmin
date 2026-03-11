@@ -17,7 +17,6 @@
         ring-middleware-accept/ring-middleware-accept {:mvn/version "2.0.3"}
         ring/ring-core {:mvn/version "1.7.1"}
         ring/ring-jetty-adapter {:mvn/version "1.7.1"}
-        formidable/formidable {:mvn/version "0.1.10"}
         markdown-clj/markdown-clj {:mvn/version "1.0.7"}
         io.forward/yaml {:mvn/version "1.0.11"}
         dk.ative/docjure {:mvn/version "1.12.0"}
