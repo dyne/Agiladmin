@@ -18,8 +18,7 @@
 
 (ns agiladmin.graphics
 ;;  (:import  [org.jfree.chart ChartUtilities]) ; experiment on inline images
-  (:require [clojure.data.codec.base64 :as b64]
-            [hiccup.element :refer :all]
+  (:require [hiccup.element :refer :all]
             [hiccup.form :as hf]
             [agiladmin.tabular :as tab]
             [agiladmin.webpage :as web]
@@ -94,19 +93,6 @@
     #(.getTime (.parse (java.text.SimpleDateFormat. fmt) %))
     (tab/column-values data column))))
 
-(comment (defn chart-to-image
-  "Takes an incanter.chart and returns a base64 image for easy
-  inclusion in a web page"
-  [chart & {:keys [plot-size aspect-ratio]
-            :or   {plot-size 800
-                   aspect-ratio 1.618}}]
-  (let [width (/ plot-size aspect-ratio)
-        ba (java.io.ByteArrayOutputStream.)
-        _ (org.jfree.chart.ChartUtilities/writeChartAsPNG
-           ba chart plot-size width)]
-    (->> (.toByteArray ba)
-         b64/encode
-         (map char)
-         clojure.string/join
-         (str "data:image/png;base64,")
-         image))))
+(comment
+  ;; Former chart-image helper removed along with the data.codec dependency.
+  )
