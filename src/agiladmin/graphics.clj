@@ -21,11 +21,11 @@
   (:require [clojure.data.codec.base64 :as b64]
             [hiccup.element :refer :all]
             [hiccup.form :as hf]
+            [agiladmin.tabular :as tab]
             [agiladmin.webpage :as web]
             [agiladmin.utils :refer :all]
 ;;            [incanter.charts :refer :all]
-            [taoensso.timbre :as log]
-            [incanter.core :refer :all]))
+            [taoensso.timbre :as log]))
 
 ;; TODO: inline images for charts, see
 ;; https://github.com/incanter/incanter/blob/master/examples/blog/projects/simple_web_app/src/simple_web_app.clj
@@ -83,7 +83,7 @@
   "Takes a dataset and converts it in a format read to be written to
   an excel sheet"
   [data]
-  (into [(map name (:column-names data))] (to-list data)))
+  (into [(map name (:column-names data))] (tab/to-row-seq data)))
 
 (defn date-to-ts
   "Takes a dataset column and a date format (default yyyy-MM) and
@@ -91,9 +91,9 @@
   ([data] (date-to-ts data :month "yyyy-MM"))
   ([data column] (date-to-ts data column "yyyy-MM"))
   ([data column fmt]
-   ($map
+   (mapv
     #(.getTime (.parse (java.text.SimpleDateFormat. fmt) %))
-    column data)))
+    (tab/column-values data column))))
 
 (comment (defn chart-to-image
   "Takes an incanter.chart and returns a base64 image for easy

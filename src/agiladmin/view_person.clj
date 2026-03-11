@@ -21,6 +21,7 @@
   (:require
    [agiladmin.core :refer :all]
    [agiladmin.auth.core :as auth]
+   [agiladmin.tabular :as tab]
    [agiladmin.utils :as util]
    [agiladmin.graphics :refer :all]
    [agiladmin.webpage :as web]
@@ -30,7 +31,6 @@
    [clojure.data.json :as json :refer [read-str]]
    [agiladmin.config :as conf]
    [taoensso.timbre :as log :refer [debug]]
-   [incanter.core :refer :all]
    [hiccup.form :as hf]))
 
 
@@ -110,7 +110,7 @@
       (= "csv"  (s/param request :format3))
       (-> costs-json json/read-str web/download-csv)
       (= "html" (s/param request :format4))
-      (->> costs-json json/read-str to-dataset to-table
+      (->> costs-json json/read-str tab/from-row-seq to-table
            (web/render account)))))
 
 (defn list-person [config account person year]
@@ -133,23 +133,32 @@
       ;;   [:small
       ;;    ;;[:a {:href (str "https://gogs.dyne.org/dyne/admin-budgets/commit/" githead)}
       ;;    (str "git rev object hash: " githead)])
-      (if (zero? (->> ($ :cost costs) util/wrap sum))
+      (if (zero? (tab/sum-col costs :cost))
         (web/render-error
          (log/spy :error [:p "No costs found (blank timesheet)"]))
         ;; else
-        [:div [:h1 "Yearly totals"]
-         (-> {:Total_hours  (-> ($ :hours costs) util/wrap sum util/round)
-              :Voluntary_hours (->> ($where {:tag "VOL"} costs)
-                                    ($ :hours) util/wrap sum util/round)
-              :Total_billed (->> ($where ($fn [tag] (not (strcasecmp tag "VOL")))
-                                         costs) ($ :cost) util/wrap sum util/round)
-              :Monthly_average  (->> ($rollup :sum :cost :month costs)
-                                     (average :cost) util/round)}
-             to-dataset to-table)
+        (let [voluntary-costs (tab/filter-by costs {:tag "VOL"})
+              billed-costs (tab/filter-rows costs
+                                            (fn [row]
+                                              (not (strcasecmp (:tag row) "VOL"))))
+              monthly-costs (tab/dataset
+                             (->> (:rows costs)
+                                  (group-by :month)
+                                  vals
+                                  (mapv (fn [rows]
+                                          {:cost (reduce + 0 (map :cost rows))}))))
+              monthly-average (-> (tab/average-col monthly-costs :cost)
+                                  util/round)]
+          [:div [:h1 "Yearly totals"]
+         (-> {:Total_hours  (-> (tab/sum-col costs :hours) util/round)
+              :Voluntary_hours (-> (tab/sum-col voluntary-costs :hours) util/round)
+              :Total_billed (-> (tab/sum-col billed-costs :cost) util/round)
+              :Monthly_average monthly-average}
+             vector tab/dataset to-table)
          (person-download-toolbar
           person year
           (into [["Date" "Name" "Project" "Task" "Tags" "Hours" "Cost" "CPH"]]
-                (-> costs (derive-cost-per-hour config projects) to-list)))
+                (-> costs (derive-cost-per-hour config projects) tab/to-row-seq)))
          [:hr]
          ;; (->> (derive-cost-per-hour costs config projects)
          ;;      ($ [:project :task :tag :hours :cost :cph])
@@ -157,11 +166,11 @@
          [:h1 "Monthly totals"]
          ;; cycle all months to 13 (off-by-one)
          (for [m (-> (range 1 13) vec rseq)
-               :let [worked ($where {:month (str year '- m)} costs)
-                     mtot (-> ($ :hours worked) util/wrap sum)
-                     mvol (->> ($where {:tag "VOL"} worked)
-                               ($ :hours) util/wrap sum)
-                     pay (-> ($ :cost worked) util/wrap sum)]
+               :let [worked (tab/filter-by costs {:month (str year '- m)})
+                     mtot (tab/sum-col worked :hours)
+                     mvol (-> (tab/filter-by worked {:tag "VOL"})
+                              (tab/sum-col :hours))
+                     pay (tab/sum-col worked :cost)]
                :when (> mtot 0)]
            [:span
             [:strong (util/month-name m)] " total bill for "
@@ -176,8 +185,9 @@
             " (with 21% VAT added is " (+ pay (* pay 0.21)) ")"
             [:div {:class "month-detail"}
              (->> (derive-cost-per-hour worked config projects)
-                  ($ [:project :task :tag :hours :cost :cph])
+                  (tab/select-cols [:project :task :tag :hours :cost :cph])
                   (to-monthly-bill-table projects))]])])
+         )
       (web/button-prev-year year person)]
      (f/when-failed [e]
        [:div (web/render-error (f/message e))
