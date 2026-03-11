@@ -52,10 +52,10 @@
   ([url text field] (button url text field "btn-secondary btn-lg"))
 
   ([url text field type]
-   (hf/form-to [:post url]
-               field ;; can be an hidden key/value field (project,
-               ;; person, etc using hf/hidden-field)
-               (hf/submit-button {:class (str "btn " type)} text))))
+   (apply hf/form-to
+          [:post url]
+          (concat (if (sequential? field) field [field])
+                  [(hf/submit-button {:class (str "btn " type)} text)]))))
 
 (defn button-prev-year [year person]
   [:div {:class "col-lg-2"}
