@@ -7,9 +7,10 @@
    [agiladmin.webpage :as web]))
 
 (defn param [request param]
-  (let [value
-        (get-in request
-                (conj [:params] param))]
+  (let [params (:params request)
+        keyname (name param)
+        value (or (clojure.core/get params param)
+                  (clojure.core/get params keyname))]
     (if (nil? value)
       (f/fail (str "Parameter not found: " param))
       value)))

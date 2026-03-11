@@ -5,6 +5,14 @@
 
 (def config {:agiladmin {}})
 
+(fact "Session param accepts keyword form keys"
+      (session/param {:params {:person "Denis Roio"}} :person)
+      => "Denis Roio")
+
+(fact "Session param accepts string form keys"
+      (session/param {:params {"person" "Denis Roio"}} :person)
+      => "Denis Roio")
+
 (fact "Session check keeps the admin flag from the authenticated session"
       (session/check-account config {:session {:auth {:email "admin@example.org"
                                                       :name "Admin"
