@@ -36,7 +36,8 @@
           (:body response) => (contains "data-text-filter=\"projects-list\"")
           (:body response) => (contains "Filter projects")
           (:body response) => (contains "Clear Projects filter")
-          (:body response) => (contains "data-text-filter-value=\"ALPHA\""))))
+          (:body response) => (contains "data-text-filter-value=\"ALPHA\"")
+          (:body response) => (contains "inline-flex max-w-full w-full"))))
 
 (fact "Project start dispatches rolling projects to the rolling view"
       (with-redefs [agiladmin.config/load-project
