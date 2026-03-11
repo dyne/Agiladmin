@@ -133,7 +133,6 @@
       (if (zero? (tab/sum-col costs :cost))
         (web/render-error
          (log/spy :error [:p "No costs found (blank timesheet)"]))
-        ;; else
         (let [voluntary-costs (tab/filter-by costs {:tag "VOL"})
               billed-costs (tab/filter-rows costs
                                             (fn [row]
@@ -146,45 +145,42 @@
                                           {:cost (reduce + 0 (map :cost rows))}))))
               monthly-average (-> (tab/average-col monthly-costs :cost)
                                   util/round)]
-          [:div [:h1 "Yearly totals"]
-         (-> {:Total_hours  (-> (tab/sum-col costs :hours) util/round)
-              :Voluntary_hours (-> (tab/sum-col voluntary-costs :hours) util/round)
-              :Total_billed (-> (tab/sum-col billed-costs :cost) util/round)
-              :Monthly_average monthly-average}
-             vector tab/dataset to-table)
-         (person-download-toolbar
-          person year
-          (into [["Date" "Name" "Project" "Task" "Tags" "Hours" "Cost" "CPH"]]
-                (-> costs (derive-cost-per-hour config projects) tab/to-row-seq)))
-         [:hr]
-         ;; (->> (derive-cost-per-hour costs config projects)
-         ;;      ($ [:project :task :tag :hours :cost :cph])
-         ;;      to-list))
-         [:h1 "Monthly totals"]
-         ;; cycle all months to 13 (off-by-one)
-         (for [m (-> (range 1 13) vec rseq)
-               :let [worked (tab/filter-by costs {:month (str year '- m)})
-                     mtot (tab/sum-col worked :hours)
-                     mvol (-> (tab/filter-by worked {:tag "VOL"})
-                              (tab/sum-col :hours))
-                     pay (tab/sum-col worked :cost)]
-               :when (> mtot 0)]
-           [:span
-            [:strong (util/month-name m)] " total bill for "
-            (util/dotname person) " is "
-            [:strong pay]
-            " for " (- mtot mvol)
-            " hours worked across "
-            (keep #(when (= (:month %) (str year '- m))
-                     (:days %)) (:sheets timesheet))
-            " days, plus " mvol
-            " voluntary hours."
-            " (with 21% VAT added is " (+ pay (* pay 0.21)) ")"
-            [:div {:class "month-detail"}
-             (-> (derive-cost-per-hour worked config projects)
-                  (tab/select-cols [:project :task :tag :hours :cost :cph])
-                  (to-monthly-bill-table projects))]])])
-         )
+          [:div
+           [:h1 "Yearly totals"]
+           (-> {:Total_hours (-> (tab/sum-col costs :hours) util/round)
+                :Voluntary_hours (-> (tab/sum-col voluntary-costs :hours) util/round)
+                :Total_billed (-> (tab/sum-col billed-costs :cost) util/round)
+                :Monthly_average monthly-average}
+               vector tab/dataset to-table)
+           (person-download-toolbar
+            person year
+            (into [["Date" "Name" "Project" "Task" "Tags" "Hours" "Cost" "CPH"]]
+                  (-> costs (derive-cost-per-hour config projects) tab/to-row-seq)))
+           [:hr]
+           [:h1 "Monthly totals"]
+           (for [m (-> (range 1 13) vec rseq)
+                 :let [worked (tab/filter-by costs {:month (str year '- m)})
+                       mtot (tab/sum-col worked :hours)
+                       mvol (-> (tab/filter-by worked {:tag "VOL"})
+                                (tab/sum-col :hours))
+                       pay (tab/sum-col worked :cost)
+                       breakdown (-> (derive-cost-per-hour worked config projects)
+                                     (tab/select-cols [:project :task :tag :hours :cost :cph]))]
+                 :when (> mtot 0)]
+             [:div
+              [:strong (util/month-name m)] " total bill for "
+              (util/dotname person) " is "
+              [:strong pay]
+              " for " (- mtot mvol)
+              " hours worked across "
+              (keep #(when (= (:month %) (str year '- m))
+                       (:days %))
+                    (:sheets timesheet))
+              " days, plus " mvol
+              " voluntary hours."
+              " (with 21% VAT added is " (+ pay (* pay 0.21)) ")"
+              [:div {:class "month-detail"}
+               (to-monthly-bill-table projects breakdown)]])]))
       (web/button-prev-year year person)]
      (f/when-failed [e]
        [:div (web/render-error (f/message e))
