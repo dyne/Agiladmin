@@ -127,3 +127,14 @@
      :rows (mapv (fn [row-key]
                    (get-in grouped [:by-key row-key]))
                  (:order grouped))}))
+
+(defn append-rows
+  [first-arg & more]
+  (let [[column-names tables]
+        (if (map? first-arg)
+          [(:column-names first-arg) (cons first-arg more)]
+          [first-arg more])]
+    {:column-names (vec column-names)
+     :rows (mapv (fn [row]
+                   (select-keys row column-names))
+                 (mapcat :rows tables))}))
