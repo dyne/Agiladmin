@@ -48,7 +48,6 @@
                     agiladmin.core/load-timesheet (fn [_] {:sheets []})
                     agiladmin.core/load-all-projects (fn [_] {})
                     agiladmin.core/map-timesheets (fn [& _] {:rows []})
-                    incanter.core/sel (fn [hours & _] hours)
                     agiladmin.graphics/to-table (fn [_] [:table "hours"])]
         (let [response (view-timesheet/upload
                         {:params {:file {:size 1024

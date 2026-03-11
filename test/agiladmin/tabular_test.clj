@@ -27,6 +27,13 @@
                                   ["2026-02" 20]]
         (tab/column-values data :hours) => [10 20]))
 
+(fact "Tabular derived columns append values without disturbing prior columns"
+      (let [data {:column-names [:month :hours]
+                  :rows [{:month "2026-01" :hours 10}]}
+            with-cost (tab/add-column data :cost (fn [row] (* 5 (:hours row))))]
+        with-cost => {:column-names [:month :hours :cost]
+                      :rows [{:month "2026-01" :hours 10 :cost 50}]}))
+
 (fact "Tabular filtering, ordering, and aggregation use plain row maps"
       (let [data {:column-names [:month :name :hours :cost]
                   :rows [{:month "2026-02" :name "Bob" :hours 2 :cost 20}

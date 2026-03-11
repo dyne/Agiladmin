@@ -193,6 +193,10 @@ Status:
 - first migrated consumers:
   - [[/home/jrml/devel/planb-agiladmin/src/agiladmin/graphics.clj][src/agiladmin/graphics.clj]]
   - [[/home/jrml/devel/planb-agiladmin/src/agiladmin/view_timesheet.clj][src/agiladmin/view_timesheet.clj]]
+- later migrated consumers:
+  - [[/home/jrml/devel/planb-agiladmin/src/agiladmin/view_project.clj][src/agiladmin/view_project.clj]]
+- main derived-column and dataset-construction paths migrated:
+  - [[/home/jrml/devel/planb-agiladmin/src/agiladmin/core.clj][src/agiladmin/core.clj]]
 - initial tests added:
   - [[/home/jrml/devel/planb-agiladmin/test/agiladmin/tabular_test.clj][test/agiladmin/tabular_test.clj]]
 
@@ -286,6 +290,13 @@ Suggested order:
 4. [[/home/jrml/devel/planb-agiladmin/src/agiladmin/view_project.clj][src/agiladmin/view_project.clj]]
 5. [[/home/jrml/devel/planb-agiladmin/src/agiladmin/core.clj][src/agiladmin/core.clj]]
 
+Completed so far:
+
+1. [[/home/jrml/devel/planb-agiladmin/src/agiladmin/graphics.clj][src/agiladmin/graphics.clj]]
+2. [[/home/jrml/devel/planb-agiladmin/src/agiladmin/view_timesheet.clj][src/agiladmin/view_timesheet.clj]]
+3. [[/home/jrml/devel/planb-agiladmin/src/agiladmin/view_project.clj][src/agiladmin/view_project.clj]]
+4. key transform paths in [[/home/jrml/devel/planb-agiladmin/src/agiladmin/core.clj][src/agiladmin/core.clj]]
+
 Rationale:
 
 - start with consumers
@@ -306,15 +317,10 @@ low-risk consumers.
 
 Recommended next slices:
 
-1. migrate [[/home/jrml/devel/planb-agiladmin/src/agiladmin/view_person.clj][src/agiladmin/view_person.clj]] export and table consumers
-2. migrate [[/home/jrml/devel/planb-agiladmin/src/agiladmin/view_project.clj][src/agiladmin/view_project.clj]] table consumers
-3. migrate helper operations from [[/home/jrml/devel/planb-agiladmin/src/agiladmin/core.clj][src/agiladmin/core.clj]]:
-   - column extraction
-   - derived columns
-   - sorting
-   - row filtering
-4. migrate aggregation logic last
-5. remove ~incanter/incanter-core~ only after all call sites are gone
+1. identify any residual direct Incanter calls outside the migrated slices
+2. migrate tests from ~inc/to-dataset~ fixtures to [[/home/jrml/devel/planb-agiladmin/src/agiladmin/tabular.clj][src/agiladmin/tabular.clj]]
+3. migrate any remaining aggregation helpers not yet routed through the tabular facade
+4. remove ~incanter/incanter-core~ only after all app and test call sites are gone
 
 This ordering minimizes risk because it removes view-level consumption
 before replacing the central transformation engine.
