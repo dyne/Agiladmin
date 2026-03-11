@@ -13,6 +13,12 @@
           :name "User Name"
           :role nil}})
 
+(def manager-session
+  {:config admin-config
+   :auth {:email "manager@example.org"
+          :name "Manager User"
+          :role "manager"}})
+
 (def admin-session
   {:config admin-config
    :auth {:email "admin@example.org"
@@ -68,6 +74,76 @@
                         {:email "admin@example.org"
                          :name "Admin User"
                          :role "admin"}]]))))
+
+(fact "Project list route denies authenticated users without project access"
+      (let [response (handlers/app-routes
+                      (assoc (mock/request :get "/projects/list")
+                             :session user-session))]
+        (:status response) => 200
+        (:body response) => (contains "Unauthorized access")))
+
+(fact "Project list route allows managers"
+      (let [calls (atom [])]
+        (with-redefs [agiladmin.view-project/list-all
+                      (fn [request config account]
+                        (swap! calls conj [config account])
+                        {:status 200 :body "projects"})]
+          (let [response (handlers/app-routes
+                          (assoc (mock/request :get "/projects/list")
+                                 :session manager-session))]
+            (:status response) => 200
+            (:body response) => "projects"
+            @calls => [[admin-config
+                        {:email "manager@example.org"
+                         :name "Manager User"
+                         :role "manager"}]]))))
+
+(fact "Project edit route is denied to managers"
+      (let [response (handlers/app-routes
+                      (assoc (mock/request :post "/projects/edit")
+                             :params {:project "CORE"}
+                             :session manager-session))]
+        (:status response) => 200
+        (:body response) => (contains "Unauthorized access")))
+
+(fact "Project route allows managers"
+      (let [calls (atom [])]
+        (with-redefs [agiladmin.view-project/start
+                      (fn [request config account]
+                        (swap! calls conj [config account (get-in request [:params :project])])
+                        {:status 200 :body "project"})]
+          (let [response (handlers/app-routes
+                          (assoc (mock/request :post "/project")
+                                 :params {:project "CORE"}
+                                 :session manager-session))]
+            (:status response) => 200
+            (:body response) => "project"
+            @calls => [[admin-config
+                        {:email "manager@example.org"
+                         :name "Manager User"
+                         :role "manager"}
+                        "CORE"]]))))
+
+(fact "Config route is denied to managers"
+      (let [response (handlers/app-routes
+                      (assoc (mock/request :get "/config")
+                             :session manager-session))]
+        (:status response) => 200
+        (:body response) => (contains "Unauthorized access")))
+
+(fact "Personnel route forces non-admin users to their own person"
+      (let [calls (atom [])]
+        (with-redefs [agiladmin.view-person/start
+                      (fn [request config account]
+                        (swap! calls conj (get-in request [:params :person]))
+                        {:status 200 :body "person"})]
+          (let [response (handlers/app-routes
+                          (assoc (mock/request :post "/person")
+                                 :params {:person "Other User" :year "2026"}
+                                 :session manager-session))]
+            (:status response) => 200
+            (:body response) => "person"
+            @calls => ["Manager User"]))))
 
 (fact "Unknown routes return the not found page"
       (let [response (handlers/app-routes (mock/request :get "/missing"))]

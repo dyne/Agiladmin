@@ -45,6 +45,41 @@
   [account]
   (= "manager" (:role account)))
 
+(defn can-view-costs?
+  [account]
+  (not (manager? account)))
+
+(defn can-access-projects?
+  [account]
+  (or (admin? account)
+      (manager? account)))
+
+(defn require-admin
+  [account]
+  (if (admin? account)
+    account
+    (f/fail "Unauthorized access.")))
+
+(defn require-project-access
+  [account]
+  (if (can-access-projects? account)
+    account
+    (f/fail "Unauthorized access.")))
+
+(defn effective-person
+  [account request]
+  (let [params (:params request)
+        requested-person (or (clojure.core/get params :person)
+                             (clojure.core/get params "person"))]
+    (if (admin? account)
+      (or requested-person
+          (:name account))
+      (:name account))))
+
+(defn scoped-person-request
+  [request account]
+  (assoc-in request [:params :person] (effective-person account request)))
+
 (defn check-account [config request]
   ;; check if login is present in session
   (let [login (get-in request [:session :auth])]

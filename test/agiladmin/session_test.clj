@@ -42,6 +42,26 @@
 (fact "Session check fails without a login in the session"
       (f/failed? (session/check-account config {:session {:config config}})) => truthy)
 
+(fact "Project access is granted to admins and managers only"
+      (session/can-access-projects? {:role "admin"}) => true
+      (session/can-access-projects? {:role "manager"}) => true
+      (session/can-access-projects? {:role nil}) => false)
+
+(fact "Managers cannot view costs"
+      (session/can-view-costs? {:role "admin"}) => true
+      (session/can-view-costs? {:role "manager"}) => false
+      (session/can-view-costs? {:role nil}) => true)
+
+(fact "Non-admin personnel requests are scoped to the authenticated person"
+      (session/effective-person {:name "User Name" :role "manager"}
+                                {:params {:person "Other User"}})
+      => "User Name")
+
+(fact "Admin personnel requests keep the requested person"
+      (session/effective-person {:name "Admin" :role "admin"}
+                                {:params {:person "Other User"}})
+      => "Other User")
+
 (fact "Session check keeps the authenticated shell for downstream failures"
       (let [response (session/check
                       {:session {:config config

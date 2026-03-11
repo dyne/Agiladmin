@@ -58,17 +58,24 @@
   (GET "/" request (web/render web/readme))
 
   (GET "/projects/list" request
-       (->> view-project/list-all
+       (->> (fn [req conf acct]
+              (f/attempt-all [_ (s/require-project-access acct)]
+                (view-project/list-all req conf acct)))
             (s/check request)))
   (POST "/project" request
-        (->> view-project/start
+        (->> (fn [req conf acct]
+               (f/attempt-all [_ (s/require-project-access acct)]
+                 (view-project/start req conf acct)))
              (s/check request)))
   (POST "/projects/edit" request
-        (->> view-project/edit
+        (->> (fn [req conf acct]
+               (f/attempt-all [_ (s/require-admin acct)]
+                 (view-project/edit req conf acct)))
              (s/check request)))
 
   (POST "/person" request
-        (->> view-person/start
+        (->> (fn [req conf acct]
+               (view-person/start (s/scoped-person-request req acct) conf acct))
              (s/check request)))
   (GET "/persons/list" request
        (f/attempt-all [config (s/check-config request)
@@ -93,10 +100,13 @@
        ;; (->> view-person/list-all
        ;;      (s/check request)))
   (POST "/persons/spreadsheet" request
-        (->> view-person/download
+        (->> (fn [req conf acct]
+               (view-person/download (s/scoped-person-request req acct) conf acct))
              (s/check request)))
   (GET "/reload" request
-       (->> view-reload/start
+       (->> (fn [req conf acct]
+              (f/attempt-all [_ (s/require-admin acct)]
+                (view-reload/start req conf acct)))
             (s/check request)))
 
   (GET "/timesheets" request
@@ -155,47 +165,45 @@
   (GET "/config" request
        (->>
         (fn [req conf acct]
-          (web/render
-           acct
-           [:div {:class "space-y-6"}
-            [:div {:class "space-y-3"}
-             [:h1 "SSH authentication keys"]
-             [:div "Public: "
-              [:pre
-               (slurp
-                (str
-                 (get-in
-                  conf
-                  [:agiladmin :budgets :ssh-key]) ".pub"))]]]
-            ;; [:div {:class "row-fluid"}
-            ;;  [:h1 "Configuration"
-            ;;   [:a {:href "/config/edit"}
-            ;;    [:button {:class "btn btn-info"} "Edit"]]]
-            ;;  (web/render-yaml (:session req))]
-            ]))
+          (f/attempt-all [_ (s/require-admin acct)]
+            (web/render
+             acct
+             [:div {:class "space-y-6"}
+              [:div {:class "space-y-3"}
+               [:h1 "SSH authentication keys"]
+               [:div "Public: "
+                [:pre
+                 (slurp
+                  (str
+                   (get-in
+                    conf
+                    [:agiladmin :budgets :ssh-key]) ".pub"))]]]
+              ])))
         (s/check request)))
 
   (GET "/config/edit" request
        (->>
         (fn [req conf acct]
-          (web/render
-           acct
-           [:div {:class "space-y-4"}
-            [:form {:action "/config/edit"
-                    :method "post"
-                    :class "space-y-4"}
-             [:h1 "Configuration editor"]
-             (web/edit-edn conf)]]))
+          (f/attempt-all [_ (s/require-admin acct)]
+            (web/render
+             acct
+             [:div {:class "space-y-4"}
+              [:form {:action "/config/edit"
+                      :method "post"
+                      :class "space-y-4"}
+               [:h1 "Configuration editor"]
+               (web/edit-edn conf)]])))
         (s/check request)))
 
   (POST "/config/edit" request
         (->>
          (fn [req conf acct]
-           (web/render
-            acct
-            [:div {:class "space-y-4"}
-             [:h1 "Saving configuration"]
-             (web/highlight-yaml (get-in request [:params :editor]))]))
+           (f/attempt-all [_ (s/require-admin acct)]
+             (web/render
+              acct
+              [:div {:class "space-y-4"}
+               [:h1 "Saving configuration"]
+               (web/highlight-yaml (get-in request [:params :editor]))])))
          (s/check request)))
   ;; TODO: validate and save
   ;; also visualise diff: https://github.com/benjamine/jsondiffpatch
