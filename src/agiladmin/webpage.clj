@@ -52,10 +52,14 @@
   ([url text field] (button url text field "btn-secondary btn-lg"))
 
   ([url text field type]
+   (let [fields (cond
+                  (nil? field) []
+                  (and (seq? field) (every? vector? field)) field
+                  :else [field])]
    (apply hf/form-to
           [:post url]
-          (concat (if (sequential? field) field [field])
-                  [(hf/submit-button {:class (str "btn " type)} text)]))))
+          (concat fields
+                  [(hf/submit-button {:class (str "btn " type)} text)])))))
 
 (defn button-prev-year [year person]
   [:div {:class "col-lg-2"}
