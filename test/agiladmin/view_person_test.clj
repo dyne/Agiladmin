@@ -72,6 +72,21 @@
           (:status response) => 200
           (:body response) => "User Name:2026:user@example.org")))
 
+(fact "Personnel start falls back to the session user and current year when params are missing"
+      (with-redefs [agiladmin.utils/now (fn [] {:year 2026})
+                    agiladmin.view-person/list-person
+                    (fn [config account person year]
+                      {:status 200
+                       :body (str person ":" year ":" (:email account))})]
+        (let [response (view-person/start
+                        {:params {}}
+                        {}
+                        {:email "user@example.org"
+                         :name "User Name"
+                         :admin false})]
+          (:status response) => 200
+          (:body response) => "User Name:2026:user@example.org")))
+
 (fact "Personnel start blocks users from viewing someone else"
       (let [response (view-person/start
                       {:params {:person "Other User"
