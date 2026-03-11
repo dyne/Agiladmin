@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply font-sans;
+  }
+
+  h1 {
+    @apply text-3xl font-semibold md:text-4xl;
+  }
+
+  h2 {
+    @apply text-2xl font-semibold;
+  }
+
+  h3 {
+    @apply text-xl font-semibold;
+  }
+
+  pre {
+    @apply overflow-x-auto whitespace-pre-wrap rounded-box border border-base-300 bg-base-200 p-4 text-sm;
+  }
+
+  code {
+    @apply whitespace-pre-wrap;
+  }
+}
