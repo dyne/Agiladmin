@@ -11,8 +11,6 @@ with the Clojure CLI. Authentication is backend-driven: PocketBase is
 supported for real deployments, and a development-only fallback
 backend is available for local manual testing.
 
-![](https://files.dyne.org/software_by_dyne.png)
-
 ## Current State
 
 - Runtime: Ring + Compojure on Jetty
@@ -230,3 +228,5 @@ Copyright (C) 2016-2026 Dyne.org foundation
 Sourcecode written and maintained by Denis Roio <jaromil@dyne.org>
 
 Designed in cooperation with Manuela Annibali <manuela@dyne.org>
+
+![](https://files.dyne.org/software_by_dyne.png)
