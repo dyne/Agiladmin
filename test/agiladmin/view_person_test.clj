@@ -14,7 +14,7 @@
                         {}
                         {:agiladmin {:budgets {:path "test/assets/"}}}
                         {:email "admin@example.org"
-                         :admin true})]
+                         :role "admin"})]
           (:body response) => (contains "Pending User")
           (:body response) => (contains "pending@example.org"))))
 
@@ -23,7 +23,7 @@
                       {}
                       {:agiladmin {:budgets {:path "test/assets/"}}}
                       {:email "user@example.org"
-                       :admin false})]
+                       :role nil})]
         (:body response) => (contains "Unauthorized access")))
 
 (fact "Personnel list shows pending-user backend failures"
@@ -34,7 +34,7 @@
                         {}
                         {:agiladmin {:budgets {:path "test/assets/"}}}
                         {:email "admin@example.org"
-                         :admin true})]
+                         :role "admin"})]
           (:body response) => (contains "Unable to load pending users: PocketBase unavailable."))))
 
 (fact "Personnel download returns raw json when requested"
@@ -68,7 +68,7 @@
                         {}
                         {:email "user@example.org"
                          :name "User Name"
-                         :admin false})]
+                         :role nil})]
           (:status response) => 200
           (:body response) => "User Name:2026:user@example.org")))
 
@@ -83,7 +83,7 @@
                         {}
                         {:email "user@example.org"
                          :name "User Name"
-                         :admin false})]
+                         :role nil})]
           (:status response) => 200
           (:body response) => "User Name:2026:user@example.org")))
 
@@ -94,7 +94,7 @@
                       {}
                       {:email "user@example.org"
                        :name "User Name"
-                       :admin false})]
+                       :role nil})]
         (:body response) => (contains "Unauthorized access")))
 
 (fact "Admin personnel view ignores xlsx files that do not match the timesheet naming pattern"
@@ -109,6 +109,6 @@
                         {}
                         {:agiladmin {:budgets {:path "ignored/"}}}
                         {:email "admin@example.org"
-                         :admin true})]
+                         :role "admin"})]
           (:body response) => (contains "User-Name")
           (:body response) =not=> (contains "notes_timesheet_backup"))))

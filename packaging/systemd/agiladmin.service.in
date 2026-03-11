@@ -1,0 +1,21 @@
+[Unit]
+Description=Agiladmin payroll and project administration
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=@APP_HOME@
+Environment=AGILADMIN_CONF=@APP_HOME@/etc/agiladmin.yaml
+Environment=JAVA_OPTS=
+ExecStart=/bin/sh -lc 'exec /usr/bin/java $$JAVA_OPTS -jar @APP_HOME@/lib/agiladmin.jar'
+Restart=on-failure
+RestartSec=5s
+SyslogIdentifier=@APP_NAME@
+RuntimeDirectory=@APP_NAME@
+RuntimeDirectoryMode=0755
+StateDirectory=@APP_NAME@
+StateDirectoryMode=0755
+
+[Install]
+WantedBy=multi-user.target

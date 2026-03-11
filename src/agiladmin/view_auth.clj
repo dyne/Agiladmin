@@ -49,10 +49,10 @@
    [username (or (get-in request [:params :email])
                  (get-in request [:params :username])
                  (f/fail "Parameter not found: :email"))
-    password (s/param request :password)
+   password (s/param request :password)
     logged (auth/sign-in username password {:ip-address (get-client-ip request)})]
    (let [session {:session {:config config
-                            :auth logged}}]
+                            :auth (s/normalize-role logged)}}]
      (conj session
            (web/render
             logged

@@ -12,7 +12,18 @@
                                                        :password "secret"}
                                               :remote-addr "127.0.0.1"})]
           (get-in response [:session :auth :email]) => "user@example.org"
+          (get-in response [:session :auth :role]) => nil
           (get-in response [:session :auth :options]) => {:ip-address "127.0.0.1"})))
+
+(fact "Login normalizes legacy admin responses into the admin role"
+      (with-redefs [agiladmin.auth.core/sign-in (fn [username _password _options]
+                                                  {:email username
+                                                   :name "User Name"
+                                                   :admin true})]
+        (let [response (view-auth/login-post {:params {:email "user@example.org"
+                                                       :password "secret"}
+                                              :remote-addr "127.0.0.1"})]
+          (get-in response [:session :auth :role]) => "admin")))
 
 (fact "Login still accepts the legacy username field"
       (with-redefs [agiladmin.auth.core/sign-in (fn [username password options]

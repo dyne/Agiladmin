@@ -11,13 +11,13 @@
   {:config admin-config
    :auth {:email "user@example.org"
           :name "User Name"
-          :admin false}})
+          :role nil}})
 
 (def admin-session
   {:config admin-config
    :auth {:email "admin@example.org"
           :name "Admin User"
-          :admin true}})
+          :role "admin"}})
 
 (fact "Root route renders the bundled readme"
       (let [response (handlers/app-routes (mock/request :get "/"))]
@@ -49,7 +49,7 @@
             @calls => [[admin-config
                         {:email "user@example.org"
                          :name "User Name"
-                         :admin false}
+                         :role nil}
                         "User Name"
                         2026]]))))
 
@@ -67,7 +67,7 @@
             @calls => [[admin-config
                         {:email "admin@example.org"
                          :name "Admin User"
-                         :admin true}]]))))
+                         :role "admin"}]]))))
 
 (fact "Unknown routes return the not found page"
       (let [response (handlers/app-routes (mock/request :get "/missing"))]
@@ -136,7 +136,7 @@
             @calls => [[admin-config
                         {:email "admin@example.org"
                          :name "Admin User"
-                         :admin true}]]))))
+                         :role "admin"}]]))))
 
 (fact "Project route keeps the authenticated shell when project loading fails"
       (with-redefs [agiladmin.config/load-project

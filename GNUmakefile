@@ -1,7 +1,13 @@
 CLOJURE ?= clj
-JAR ?= target/0.4.0-SNAPSHOT-standalone.jar
+AGILADMIN_VERSION ?= 0.4.0-SNAPSHOT
+PREFIX ?= /usr/local
+DESTDIR ?=
+APP_NAME ?= agiladmin
+APP_HOME ?= $(PREFIX)/$(APP_NAME)
+SYSTEMD_UNIT_DIR ?= $(PREFIX)/lib/systemd/system
+JAR ?= target/$(AGILADMIN_VERSION)-standalone.jar
 
-.PHONY: help test test-pocketbase-integration run dev run-pocketbase build clean
+.PHONY: help test test-pocketbase-integration run dev run-pocketbase build install clean
 
 help:
 	@printf '%s\n' \
@@ -12,6 +18,7 @@ help:
 	  '  make dev    Start with request-time code reload enabled' \
 	  '  make run-pocketbase CONF=doc/agiladmin.pocketbase.yaml  Start with a PocketBase config' \
 	  '  make build  Build the standalone uberjar' \
+	  '  make install  Install the jar, docs, examples, and systemd unit' \
 	  '  make clean  Remove build outputs'
 
 test:
@@ -39,8 +46,30 @@ run-pocketbase:
 	AGILADMIN_CONF=$(CONF) $(CLOJURE) -M:run
 
 build:
-	$(CLOJURE) -T:build uber
+	AGILADMIN_VERSION=$(AGILADMIN_VERSION) $(CLOJURE) -T:build uber
 	@printf 'Built %s\n' "$(JAR)"
+
+install: build
+	install -d "$(DESTDIR)$(APP_HOME)/lib" \
+		"$(DESTDIR)$(APP_HOME)/doc" \
+		"$(DESTDIR)$(APP_HOME)/etc" \
+		"$(DESTDIR)$(APP_HOME)/run" \
+		"$(DESTDIR)$(APP_HOME)/log" \
+		"$(DESTDIR)$(SYSTEMD_UNIT_DIR)"
+	install -m 0644 "$(JAR)" "$(DESTDIR)$(APP_HOME)/lib/agiladmin.jar"
+	install -m 0644 README.md "$(DESTDIR)$(APP_HOME)/doc/README.md"
+	install -m 0644 LICENSE.txt "$(DESTDIR)$(APP_HOME)/doc/LICENSE.txt"
+	install -m 0644 doc/agiladmin.pocketbase.yaml "$(DESTDIR)$(APP_HOME)/etc/agiladmin.yaml"
+	install -m 0644 doc/agiladmin.pocketbase.yaml "$(DESTDIR)$(APP_HOME)/etc/agiladmin.yaml.example"
+	sed \
+		-e 's|@APP_HOME@|$(APP_HOME)|g' \
+		-e 's|@APP_NAME@|$(APP_NAME)|g' \
+		packaging/systemd/agiladmin.service.in > "$(DESTDIR)$(SYSTEMD_UNIT_DIR)/agiladmin.service"
+	chmod 0644 "$(DESTDIR)$(SYSTEMD_UNIT_DIR)/agiladmin.service"
+	@printf '%s\n' \
+	  "Installed $(APP_NAME) under $(DESTDIR)$(APP_HOME)" \
+	  "Systemd unit: $(DESTDIR)$(SYSTEMD_UNIT_DIR)/agiladmin.service" \
+	  "To enable on the target host: systemctl enable --now agiladmin.service"
 
 clean:
 	$(CLOJURE) -T:build clean

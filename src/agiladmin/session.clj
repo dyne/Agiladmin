@@ -30,13 +30,28 @@
       (conf/load-config "agiladmin" conf/default-settings))
     (f/fail "Session not found. ")))
 
+(defn normalize-role
+  [login]
+  (let [role (or (:role login)
+                 (when (true? (:admin login))
+                   "admin"))]
+    (assoc login :role role)))
+
+(defn admin?
+  [account]
+  (= "admin" (:role account)))
+
+(defn manager?
+  [account]
+  (= "manager" (:role account)))
+
 (defn check-account [config request]
   ;; check if login is present in session
   (let [login (get-in request [:session :auth])]
     (cond
       (nil? login) (f/fail (str "Unauthorized access."))
       :else
-      (assoc login :admin (true? (:admin login))))))
+      (normalize-role login))))
 
 (defn- render-check-failure
   [request error]

@@ -20,7 +20,7 @@ Agiladmin should only:
 
 - call PocketBase over HTTP
 - store a minimal logged-in user map in the existing Ring session
-- decide `:admin` from local config
+- carry the PocketBase `:role` value through the Ring session
 
 ## Implemented Result
 
@@ -43,11 +43,10 @@ Current session user shape:
 {:id "pocketbase-record-id"
  :email "user@example.org"
  :name "User Name"
+ :role "admin" ;; or "manager" or nil
  :other-names []
  :verified true}
 ```
-
-`src/agiladmin/session.clj` adds `:admin true/false` from local config.
 
 ## PocketBase Config
 
