@@ -33,7 +33,7 @@ jobs:
             ${{ runner.os }}-clojure-
 
       - name: Run tests
-        run: make test
+        run: make test CLOJURE=clojure
 
       - name: Build uberjar
-        run: make build
+        run: make build CLOJURE=clojure
