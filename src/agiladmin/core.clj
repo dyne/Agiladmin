@@ -359,11 +359,16 @@
 
   (defn load-all-projects [conf]
     "load all project budgets specified in a directory"
-    (loop [[p & projects] (get-in conf [:agiladmin :projects])
+    (loop [[p & projects] (conf/project-names conf)
            res {}]
       (let [r (conf/load-project conf p)]
         ;; cannot use failjure inside a loop/recur?
         ;; tried (when (f/failed?)) here but no
         ;; attempt all also cannot allow recur to be last
-        (if (empty? projects) (conj r res)
-            (recur  projects  (conj r res))))))
+        (if (f/failed? r)
+          (do
+            (log/warn (str "Skipping invalid project " p ": " (f/message r)))
+            (if (empty? projects) res
+                (recur projects res)))
+          (if (empty? projects) (conj r res)
+              (recur  projects  (conj r res)))))))

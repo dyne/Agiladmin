@@ -33,7 +33,7 @@
    {:budgets {:git s/Str
               :ssh-key s/Str
               :path s/Str}
-    :projects [s/Str]
+    (s/optional-key :projects) [s/Str]
     (s/optional-key :webserver) {(s/optional-key :port) s/Num
                                  (s/optional-key :host) s/Str
                                  (s/optional-key :anti-forgery) s/Bool
@@ -53,8 +53,8 @@
 (s/defschema ProjectTask
   {:id s/Str
    :text s/Str
-   :start_date s/Str
-   :duration s/Num
+   (s/optional-key :start_date) s/Str
+   (s/optional-key :duration) s/Num
    :pm s/Num})
 
 (s/defschema ProjectEntry
@@ -74,7 +74,6 @@
                        {:git "ssh://git@my.server.org/admin-budgets"
                         :ssh-key "id_rsa"
                         :path "budgets/"}
-                       :projects [ "TEST" "ADMIN" "CODE" ]
                        :webserver
                        {:anti-forgery false
                         :ssl-redirect false}})
@@ -228,6 +227,42 @@
   ;;     (f/fail (log/spy :error ["Invalid configuration: " conf ex]))))
   (get-in conf path))
 
+(defn- project-file?
+  [conf file]
+  (let [name (.getName file)
+        config-filename (:filename conf)]
+    (and (.isFile file)
+         (not (.startsWith name "."))
+         (or (.endsWith name ".yaml")
+             (.endsWith name ".yml"))
+         (not= name config-filename))))
+
+(defn project-files
+  [conf]
+  (let [budgets-path (get-in conf [:agiladmin :budgets :path])
+        dir (io/file budgets-path)]
+    (if (.exists dir)
+      (->> (.listFiles dir)
+           (filter #(project-file? conf %))
+           (reduce (fn [acc file]
+                     (let [filename (.getName file)
+                           project-name (-> filename
+                                            (str/split #"\." 2)
+                                            first
+                                            upper-case)]
+                       (if (contains? acc project-name)
+                         acc
+                         (assoc acc project-name (str (io/file budgets-path filename))))))
+                   {})
+           (into (sorted-map)))
+      {})))
+
+(defn project-names
+  [conf]
+  (if-let [projects (seq (get-in conf [:agiladmin :projects]))]
+    (vec projects)
+    (-> conf project-files keys vec)))
+
 (defn load-config [name default]
   (log/info (str "Loading configuration: " name))
   (let [conf (config-read name default)
@@ -249,9 +284,8 @@
 
 (defn load-project [conf proj]
   (log/debug (str "Loading project: " proj))
-  (if (contains? (-> conf (get-in [:agiladmin :projects]) set) proj)
-    (let [path  (str (get-in conf [:agiladmin :budgets :path]) proj ".yaml")
-          pconf (yaml-read-safe path)]
+  (if-let [path (get (project-files conf) (upper-case proj))]
+    (let [pconf (yaml-read-safe path)]
       (f/attempt-all
        [_ (if (f/failed? pconf) pconf true)
         entry-data (project-entry pconf proj path)
@@ -263,4 +297,4 @@
         (normalize-project-entry (:entry entry-data))}
        (f/when-failed [e]
          e)))
-    (f/fail (str "Project not found in configuration: " proj))))
+    (f/fail (str "Project not found in budgets path: " proj))))

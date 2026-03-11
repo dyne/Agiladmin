@@ -17,8 +17,3 @@ agiladmin:
     users-collection: users
     superuser-email: admin@example.org
     superuser-password: changeme
-
-  projects:
-    - UNO
-    - DUE
-    - TRE
