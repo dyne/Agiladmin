@@ -131,6 +131,22 @@ This produces:
 target/0.4.0-SNAPSHOT-standalone.jar
 ```
 
+### Run Standalone Jar
+
+Run the built jar with:
+
+```sh
+java -jar target/<version>-standalone.jar
+```
+
+Or with an explicit config file:
+
+```sh
+AGILADMIN_CONF=doc/agiladmin.pocketbase.yaml java -jar target/<version>-standalone.jar
+```
+
+The jar uses the same config lookup as `clj -M:run`: by default it looks for `agiladmin.yaml` in the standard locations, including the current working directory.
+
 ## Configuration
 
 By default the app looks for `agiladmin.yaml` in standard locations,
