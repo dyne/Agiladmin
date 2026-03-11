@@ -270,10 +270,14 @@
   names used in task details"
   [conf used]
   (let [tasks (-> conf (get-in [(-> conf first first) :tasks]))
-        ut ($ :task used)]
-        (log/info (seq ut))
+        used-task-ids (let [tasks-column ($ :task used)]
+                        (cond
+                          (nil? tasks-column) #{}
+                          (string? tasks-column) #{tasks-column}
+                          :else (set (seq tasks-column))))]
+        (log/info used-task-ids)
         (-> (to-dataset tasks)
-          (query-dataset (fn [row] (not (some #{(:id row)} (seq ut))))))
+          (query-dataset (fn [row] (not (contains? used-task-ids (:id row))))))
   )
 )
 
