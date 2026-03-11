@@ -86,6 +86,32 @@
               [:td nil (:cph row)]])
            rows))]))
 
+(defn to-monthly-hours-table
+  "Takes a dataset and converts it into an hiccup table with hour
+  details only, without cost-related columns."
+  [projects data]
+  (let [rows (:rows data)]
+    [:table {:class "sortable table table-zebra"}
+     [:thead nil
+      [:tr nil
+       [:th nil :project]
+       [:th nil :task]
+       [:th nil :tag]
+       [:th nil :hours]]]
+     [:tbody nil
+      (for [row rows]
+        [:tr nil
+         [:td nil (web/button
+                   "/project" (:project row)
+                   (hf/hidden-field "project" (:project row))
+                   "btn btn-primary btn-sm")]
+         [:td nil (when-not (= (:task row) "")
+                    [:span (str (:task row) " - ")
+                     [:small (get-in projects [(-> row :project keyword) :idx
+                                               (-> row :task keyword) :text])]])]
+         [:td nil (:tag row)]
+         [:td nil (:hours row)]])]]))
+
 (defn to-excel
   "Takes a dataset and converts it in a format read to be written to
   an excel sheet"

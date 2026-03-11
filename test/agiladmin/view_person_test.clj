@@ -88,15 +88,46 @@
           (:status response) => 200
           (:body response) => "User Name:2026:user@example.org")))
 
-(fact "Personnel start blocks users from viewing someone else"
-      (let [response (view-person/start
-                      {:params {:person "Other User"
-                                :year "2026"}}
-                      {}
-                      {:email "user@example.org"
-                       :name "User Name"
-                       :role nil})]
-        (:body response) => (contains "Unauthorized access")))
+(fact "Personnel start scopes non-admin users back to their own page"
+      (with-redefs [agiladmin.view-person/list-person
+                    (fn [config account person year]
+                      {:status 200
+                       :body (str person ":" year ":" (:email account))})]
+        (let [response (view-person/start
+                        {:params {:person "Other User"
+                                  :year "2026"}}
+                        {}
+                        {:email "user@example.org"
+                         :name "User Name"
+                         :role nil})]
+          (:status response) => 200
+          (:body response) => "User Name:2026:user@example.org")))
+
+(fact "Manager personnel view omits cost output and yearly export controls"
+      (with-redefs [agiladmin.config/q (fn [_ _] "ignored/")
+                    agiladmin.utils/name-year-to-timesheet (fn [_ _] "ignored.xlsx")
+                    agiladmin.core/load-timesheet (fn [_]
+                                                   {:sheets [{:month "2026-1" :days 20}]})
+                    agiladmin.core/load-all-projects (fn [_]
+                                                      {:CORE {:idx {:TASK-1 {:text "Task one"}}}})
+                    agiladmin.core/map-timesheets
+                    (fn [& _]
+                      {:column-names [:month :project :task :tag :hours]
+                       :rows [{:month "2026-1"
+                               :project "CORE"
+                               :task "TASK-1"
+                               :tag ""
+                               :hours 12}]})]
+        (let [response (view-person/list-person
+                        {}
+                        {:role "manager"
+                         :name "Manager User"}
+                        "Manager User"
+                        2026)]
+          (:body response) => (contains "Yearly totals")
+          (:body response) =not=> (contains "Total_billed")
+          (:body response) =not=> (contains "Download yearly totals:")
+          (:body response) =not=> (contains "with 21% VAT added"))))
 
 (fact "Admin personnel view ignores xlsx files that do not match the timesheet naming pattern"
       (with-redefs [agiladmin.utils/now (fn [] {:year 2026})

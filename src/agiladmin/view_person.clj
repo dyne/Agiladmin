@@ -60,6 +60,64 @@
     [:input {:type "submit" :name "format4" :value "html"
              :class "btn btn-ghost"}]]])
 
+(defn person-hours-summary
+  [hours]
+  (let [voluntary-hours (-> (tab/filter-by hours {:tag "VOL"})
+                            (tab/sum-col :hours)
+                            util/round)]
+    (-> [{:Total_hours (-> (tab/sum-col hours :hours) util/round)
+          :Voluntary_hours voluntary-hours}]
+        tab/dataset
+        to-table)))
+
+(defn list-person-manager
+  [config account person year]
+  (web/render
+   account
+   [:div
+    [:h1 (str year " - " (util/dotname person))]
+    (f/attempt-all
+     [ts-path (conf/q config [:agiladmin :budgets :path])
+      ts-file (util/name-year-to-timesheet person year)
+      timesheet (load-timesheet (str ts-path ts-file))
+      projects (load-all-projects config)
+      hours (map-timesheets [timesheet] load-monthly-hours (fn [_] true))]
+     (let [monthly-sections
+           (for [m (-> (range 1 13) vec rseq)
+                 :let [worked (tab/filter-by hours {:month (str year '- m)})
+                       mtot (tab/sum-col worked :hours)
+                       mvol (-> (tab/filter-by worked {:tag "VOL"})
+                                (tab/sum-col :hours))
+                       breakdown (tab/select-cols worked [:project :task :tag :hours])]
+                 :when (> mtot 0)]
+             [:div {:class "card bg-base-100 shadow-sm"}
+              [:div {:class "card-body gap-3"}
+               [:strong (util/month-name m)] " total hours for "
+               (util/dotname person) " are "
+               [:strong mtot]
+               " across "
+               (keep #(when (= (:month %) (str year '- m))
+                        (:days %))
+                     (:sheets timesheet))
+               " days, plus " mvol
+               " voluntary hours."
+               [:div {:class "month-detail overflow-x-auto"}
+                (to-monthly-hours-table projects breakdown)]]])]
+       [:div {:class "space-y-6"}
+        (person-download-timesheet ts-file)
+        [:br]
+        [:div {:class "space-y-6"}
+         [:h1 "Yearly totals"]
+         (person-hours-summary hours)
+         [:div {:class "divider"}]
+         [:h1 "Monthly totals"]
+         monthly-sections]
+        (web/button-prev-year year person)])
+     (f/when-failed [e]
+       [:div
+        (web/render-error (f/message e))
+        (web/button-prev-year year person)]))]))
+
 (defn list-all
   "list all persons"
   [_request config account]
@@ -105,89 +163,83 @@
            (web/render account)))))
 
 (defn list-person [config account person year]
-  (web/render
-   account
-   [:div
-    [:h1 (str year " - " (util/dotname person))]
-    (f/attempt-all
-     [ts-path (conf/q config [:agiladmin :budgets :path])
-      ts-file (util/name-year-to-timesheet person year)
-      timesheet (load-timesheet (str ts-path ts-file))
-      projects (load-all-projects config)
-      costs (-> (map-timesheets
-                 [timesheet] load-monthly-hours (fn [_] true))
-                (derive-costs config projects))]
-     [:div {:class "space-y-6"}
-      ;; insert the Git Id of the file (Git object in master)
-      (person-download-timesheet ts-file) [:br]
-      ;; (if-let [githead (util/git-id config ts-file)]
-      ;;   [:small
-      ;;    ;;[:a {:href (str "https://gogs.dyne.org/dyne/admin-budgets/commit/" githead)}
-      ;;    (str "git rev object hash: " githead)])
-      (if (zero? (tab/sum-col costs :cost))
-        (web/render-error
-         (log/spy :error [:p "No costs found (blank timesheet)"]))
-        (let [voluntary-costs (tab/filter-by costs {:tag "VOL"})
-              billed-costs (tab/filter-rows costs
-                                            (fn [row]
-                                              (not (strcasecmp (:tag row) "VOL"))))
-              monthly-costs (tab/dataset
-                             (->> (:rows costs)
-                                  (group-by :month)
-                                  vals
-                                  (mapv (fn [rows]
-                                          {:cost (reduce + 0 (map :cost rows))}))))
-              monthly-average (-> (tab/average-col monthly-costs :cost)
-                                  util/round)]
-          [:div {:class "space-y-6"}
-           [:h1 "Yearly totals"]
-           (-> {:Total_hours (-> (tab/sum-col costs :hours) util/round)
-                :Voluntary_hours (-> (tab/sum-col voluntary-costs :hours) util/round)
-                :Total_billed (-> (tab/sum-col billed-costs :cost) util/round)
-                :Monthly_average monthly-average}
-               vector tab/dataset to-table)
-           (person-download-toolbar
-            person year
-            (into [["Date" "Name" "Project" "Task" "Tags" "Hours" "Cost" "CPH"]]
-                  (-> costs (derive-cost-per-hour config projects) tab/to-row-seq)))
-           [:div {:class "divider"}]
-           [:h1 "Monthly totals"]
-           (for [m (-> (range 1 13) vec rseq)
-                 :let [worked (tab/filter-by costs {:month (str year '- m)})
-                       mtot (tab/sum-col worked :hours)
-                       mvol (-> (tab/filter-by worked {:tag "VOL"})
-                                (tab/sum-col :hours))
-                       pay (tab/sum-col worked :cost)
-                       breakdown (-> (derive-cost-per-hour worked config projects)
-                                     (tab/select-cols [:project :task :tag :hours :cost :cph]))]
-                 :when (> mtot 0)]
-             [:div {:class "card bg-base-100 shadow-sm"}
-              [:div {:class "card-body gap-3"}
-               [:strong (util/month-name m)] " total bill for "
-               (util/dotname person) " is "
-               [:strong pay]
-               " for " (- mtot mvol)
-               " hours worked across "
-               (keep #(when (= (:month %) (str year '- m))
-                        (:days %))
-                     (:sheets timesheet))
-               " days, plus " mvol
-               " voluntary hours."
-               " (with 21% VAT added is " (+ pay (* pay 0.21)) ")"
-               [:div {:class "month-detail overflow-x-auto"}
-                (to-monthly-bill-table projects breakdown)]]])]))
-      (web/button-prev-year year person)]
-     (f/when-failed [e]
-       [:div (web/render-error (f/message e))
-        (web/button-prev-year year person)
-        ]))]))
+  (if (s/can-view-costs? account)
+    (web/render
+     account
+     [:div
+      [:h1 (str year " - " (util/dotname person))]
+      (f/attempt-all
+       [ts-path (conf/q config [:agiladmin :budgets :path])
+        ts-file (util/name-year-to-timesheet person year)
+        timesheet (load-timesheet (str ts-path ts-file))
+        projects (load-all-projects config)
+        costs (-> (map-timesheets
+                   [timesheet] load-monthly-hours (fn [_] true))
+                  (derive-costs config projects))]
+       [:div {:class "space-y-6"}
+        (person-download-timesheet ts-file) [:br]
+        (if (zero? (tab/sum-col costs :cost))
+          (web/render-error
+           (log/spy :error [:p "No costs found (blank timesheet)"]))
+          (let [voluntary-costs (tab/filter-by costs {:tag "VOL"})
+                billed-costs (tab/filter-rows costs
+                                              (fn [row]
+                                                (not (strcasecmp (:tag row) "VOL"))))
+                monthly-costs (tab/dataset
+                               (->> (:rows costs)
+                                    (group-by :month)
+                                    vals
+                                    (mapv (fn [rows]
+                                            {:cost (reduce + 0 (map :cost rows))}))))
+                monthly-average (-> (tab/average-col monthly-costs :cost)
+                                    util/round)]
+            [:div {:class "space-y-6"}
+             [:h1 "Yearly totals"]
+             (-> {:Total_hours (-> (tab/sum-col costs :hours) util/round)
+                  :Voluntary_hours (-> (tab/sum-col voluntary-costs :hours) util/round)
+                  :Total_billed (-> (tab/sum-col billed-costs :cost) util/round)
+                  :Monthly_average monthly-average}
+                 vector tab/dataset to-table)
+             (person-download-toolbar
+              person year
+              (into [["Date" "Name" "Project" "Task" "Tags" "Hours" "Cost" "CPH"]]
+                    (-> costs (derive-cost-per-hour config projects) tab/to-row-seq)))
+             [:div {:class "divider"}]
+             [:h1 "Monthly totals"]
+             (for [m (-> (range 1 13) vec rseq)
+                   :let [worked (tab/filter-by costs {:month (str year '- m)})
+                         mtot (tab/sum-col worked :hours)
+                         mvol (-> (tab/filter-by worked {:tag "VOL"})
+                                  (tab/sum-col :hours))
+                         pay (tab/sum-col worked :cost)
+                         breakdown (-> (derive-cost-per-hour worked config projects)
+                                       (tab/select-cols [:project :task :tag :hours :cost :cph]))]
+                   :when (> mtot 0)]
+               [:div {:class "card bg-base-100 shadow-sm"}
+                [:div {:class "card-body gap-3"}
+                 [:strong (util/month-name m)] " total bill for "
+                 (util/dotname person) " is "
+                 [:strong pay]
+                 " for " (- mtot mvol)
+                 " hours worked across "
+                 (keep #(when (= (:month %) (str year '- m))
+                          (:days %))
+                       (:sheets timesheet))
+                 " days, plus " mvol
+                 " voluntary hours."
+                 " (with 21% VAT added is " (+ pay (* pay 0.21)) ")"
+                 [:div {:class "month-detail overflow-x-auto"}
+                  (to-monthly-bill-table projects breakdown)]]])]))
+        (web/button-prev-year year person)]
+       (f/when-failed [e]
+         [:div (web/render-error (f/message e))
+          (web/button-prev-year year person)]))])
+    (list-person-manager config account person year)))
 
 (defn start
   [request config account]
   (let [params (:params request)
-        person (or (clojure.core/get params :person)
-                   (clojure.core/get params "person")
-                   (:name account))
+        person (s/effective-person account request)
         year (or (clojure.core/get params :year)
                  (clojure.core/get params "year")
                  (:year (util/now)))]
