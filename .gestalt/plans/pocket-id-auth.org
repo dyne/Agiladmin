@@ -14,7 +14,7 @@ Change: Read `src/agiladmin/auth/core.clj`, `src/agiladmin/view_auth.clj`, `src/
 Tests: No code changes expected. If no files change, skip tests.
 Done when: A written inventory exists and every current public auth operation has an explicit disposition for the Pocket ID migration.
 
-** WIP [#A] Define the provider-neutral auth port around browser redirect login
+** DONE [#A] Define the provider-neutral auth port around browser redirect login
 Why: Pocket ID requires the OIDC authorization code flow. A password-based `sign-in` function is the wrong abstraction and will force hacks into the adapter if left unchanged.
 Change: Design a minimal auth port with operations shaped around the real use-cases:
 `healthy?`
@@ -29,7 +29,7 @@ Prefer a map-based port over protocols to stay consistent with the current codeb
 Tests: Add or update unit tests for `agiladmin.auth.core` to prove missing optional functions fail clearly or are feature-gated cleanly.
 Done when: The port supports redirect-based auth cleanly and there is no requirement for Pocket ID to pretend it accepts passwords.
 
-** TODO [#A] Decide the Pocket ID role mapping and invariants
+** WIP [#A] Decide the Pocket ID role mapping and invariants
 Why: PocketBase currently stores the role directly on the user record, while Pocket ID uses OIDC plus group-based access controls. Agiladmin needs a deterministic rule for deriving `admin`, `manager`, or plain user from Pocket ID claims.
 Change: Choose one invariant and document it in code comments and config docs:
 Option A, preferred: derive Agiladmin role from Pocket ID `groups` claim by configured group names, such as `agiladmin-admin` and `agiladmin-manager`.
