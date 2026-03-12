@@ -55,7 +55,10 @@
 
 (defroutes app-routes
 
-  (GET "/" request (web/render web/readme))
+  (GET "/" request
+       {:status 302
+        :headers {"Location" "/login"}
+        :body ""})
 
   (GET "/projects/list" request
        (->> (fn [req conf acct]

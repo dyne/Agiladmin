@@ -73,6 +73,10 @@
                                                             :name "User Name"}}})]
         (:body response) => (contains "Already logged in with account: user@example.org")))
 
+(fact "Login get includes the unauthorized access warning for logged-out visitors"
+      (let [response (view-auth/login-get {})]
+        (:body response) => (contains "Unauthorized access is prohibited. Every visit is recorded.")))
+
 (fact "Activation delegates through the auth boundary"
       (let [calls (atom [])]
         (with-redefs [agiladmin.auth.core/confirm-verification
