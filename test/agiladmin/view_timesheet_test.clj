@@ -7,7 +7,9 @@
 (fact "Timesheet upload form uses HTMX for progressive enhancement"
       (let [html (hiccup/html view-timesheet/upload-form)]
         html => (contains "hx-post=\"/timesheets/upload\"")
-        html => (contains "id=\"timesheet-workspace\"")))
+        html => (contains "id=\"timesheet-workspace\"")
+        html => (contains "class=\"flex items-end gap-3\"")
+        html => (contains "shrink-0")))
 
 (fact "Timesheet upload rejects files above the configured size limit"
       (let [response (view-timesheet/upload
