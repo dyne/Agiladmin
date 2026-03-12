@@ -38,7 +38,7 @@ Document precedence, for example `admin` wins over `manager`, unknown groups yie
 Tests: Add normalization tests for role derivation from representative claims payloads.
 Done when: A single source of truth exists for role mapping and it is independent of view code.
 
-* WIP [#A] Add explicit backend selection and Pocket ID configuration
+* DONE [#A] Add explicit backend selection and Pocket ID configuration
 Effort: M
 Goal: Allow Agiladmin to run with PocketBase, Pocket ID, or dev auth through explicit configuration instead of implicit presence checks.
 Notes: This is the key architectural cleanup. The current `ring/init` behavior picks PocketBase if the config exists, otherwise maybe dev auth. That will become ambiguous once two real providers exist.
@@ -76,7 +76,7 @@ Avoid adding settings for Pocket ID user management unless Agiladmin truly needs
 Tests: Add schema validation coverage for required fields and reasonable defaults.
 Done when: The Pocket ID config is small, OIDC-native, and enough to bootstrap login without provider-specific hardcoding in views.
 
-** WIP [#A] Refactor startup wiring to select adapters through one place
+** DONE [#A] Refactor startup wiring to select adapters through one place
 Why: `src/agiladmin/ring.clj` currently knows too much about PocketBase process management and backend initialization. Adding Pocket ID there without cleanup will make startup logic fragile.
 Change: Add a small auth bootstrap decision point in `ring/init` that selects one backend from config and initializes `agiladmin.auth.core` with it. Keep PocketBase process management isolated to PocketBase only. Pocket ID should never share those code paths. Ensure health checks run only against the selected backend.
 Tests: Extend `test/agiladmin/ring_test.clj` to cover:
@@ -87,12 +87,12 @@ auth health failure for Pocket ID,
 missing backend selection.
 Done when: Startup contains one explicit branch per backend and no provider inference logic remains.
 
-* TODO [#A] Implement Pocket ID as an OIDC adapter and login slice
+* WIP [#A] Implement Pocket ID as an OIDC adapter and login slice
 Effort: L
 Goal: Add the Pocket ID adapter plus the request/endpoint/response flow for passkey login.
 Notes: Keep this slice narrow. Do not attempt full identity management in Agiladmin. Pocket ID should own authentication; Agiladmin should only initiate login, verify the callback, and store a small session user.
 
-** TODO [#A] Build a Pocket ID OIDC adapter under the auth hex boundary
+** WIP [#A] Build a Pocket ID OIDC adapter under the auth hex boundary
 Why: The new adapter is the core IO integration. It must handle discovery, authorization redirect generation, token exchange, and claim extraction without leaking OIDC details to the rest of the app.
 Change: Add `src/agiladmin/auth/pocket_id.clj` with small functions for:
 OIDC discovery fetch and validation,
