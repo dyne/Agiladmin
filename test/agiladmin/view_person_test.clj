@@ -15,6 +15,7 @@
                         {:agiladmin {:budgets {:path "ignored/"}}}
                         {:email "admin@example.org"
                          :role "admin"})]
+          (:body response) => (contains "Upload a new timesheet")
           (:body response) => (contains "data-text-filter=\"persons-list\"")
           (:body response) => (contains "Filter persons")
           (:body response) => (contains "Clear Persons filter")
@@ -124,10 +125,26 @@
                          :name "Manager User"}
                         "Manager User"
                         2026)]
+          (:body response) => (contains "Upload a new timesheet")
           (:body response) => (contains "Yearly totals")
           (:body response) =not=> (contains "Total_billed")
           (:body response) =not=> (contains "Download yearly totals:")
           (:body response) =not=> (contains "with 21% VAT added"))))
+
+(fact "Personnel view keeps the upload form visible when timesheet loading fails"
+      (with-redefs [agiladmin.config/q (fn [_ _] "ignored/")
+                    agiladmin.utils/name-year-to-timesheet (fn [_ _] "missing.xlsx")
+                    agiladmin.core/load-timesheet
+                    (fn [_]
+                      (failjure.core/fail "Missing timesheet"))]
+        (let [response (view-person/list-person
+                        {}
+                        {:role "admin"
+                         :name "Admin User"}
+                        "Admin User"
+                        2026)]
+          (:body response) => (contains "Upload a new timesheet")
+          (:body response) => (contains "Missing timesheet"))))
 
 (fact "Admin personnel view ignores xlsx files that do not match the timesheet naming pattern"
       (with-redefs [agiladmin.utils/now (fn [] {:year 2026})
@@ -142,5 +159,6 @@
                         {:agiladmin {:budgets {:path "ignored/"}}}
                         {:email "admin@example.org"
                          :role "admin"})]
+          (:body response) => (contains "Upload a new timesheet")
           (:body response) => (contains "User-Name")
           (:body response) =not=> (contains "notes_timesheet_backup"))))

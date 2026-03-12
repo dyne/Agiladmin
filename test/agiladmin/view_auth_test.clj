@@ -11,6 +11,8 @@
         (let [response (view-auth/login-post {:params {:email "user@example.org"
                                                        :password "secret"}
                                               :remote-addr "127.0.0.1"})]
+          (:status response) => 302
+          (get-in response [:headers "Location"]) => "/persons/list"
           (get-in response [:session :auth :email]) => "user@example.org"
           (get-in response [:session :auth :role]) => nil
           (get-in response [:session :auth :options]) => {:ip-address "127.0.0.1"})))
@@ -23,7 +25,19 @@
         (let [response (view-auth/login-post {:params {:email "user@example.org"
                                                        :password "secret"}
                                               :remote-addr "127.0.0.1"})]
+          (:status response) => nil
           (get-in response [:session :auth :role]) => "admin")))
+
+(fact "Login keeps manager users on the logged-in landing page"
+      (with-redefs [agiladmin.auth.core/sign-in (fn [username _password _options]
+                                                  {:email username
+                                                   :name "Manager User"
+                                                   :role "manager"})]
+        (let [response (view-auth/login-post {:params {:email "manager"
+                                                       :password "manager"}
+                                              :remote-addr "127.0.0.1"})]
+          (:status response) => nil
+          (:body response) => (contains "Logged in: manager"))))
 
 (fact "Login still accepts the legacy username field"
       (with-redefs [agiladmin.auth.core/sign-in (fn [username password options]

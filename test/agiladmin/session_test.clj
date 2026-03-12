@@ -70,5 +70,6 @@
                       (fn [_ _ _]
                         (f/fail "Project configuration file is missing, empty, or invalid YAML: budgets/CODE.yaml")))]
         (:body response) => (contains "Project configuration file is missing, empty, or invalid YAML: budgets/CODE.yaml")
-        (:body response) => (contains "Personnel")
+        (:body response) => (contains "Logout")
+        (:body response) => (contains "href=\"/persons/list\"")
         (:body response) =not=> (contains "Login into Agiladmin")))

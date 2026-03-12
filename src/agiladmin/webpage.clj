@@ -215,14 +215,24 @@
 
 (defn- account-nav-links
   [account]
-  (cond-> [{:href "/persons/list" :icon :user-circle :label "Personnel"}
-           {:href "/timesheets" :icon :plus :label "Upload"}]
+  (cond-> []
     (project-access? account)
-    (conj {:href "/projects/list" :icon :paper-airplane :label "Projects"})
+    (conj {:href "/persons/list" :icon :user-circle :label "Personnel"}
+          {:href "/projects/list" :icon :paper-airplane :label "Projects"})
 
     (admin-role? account)
-    (conj {:href "/reload" :icon :arrow-path :label "Reload"}
-          {:href "/config" :icon :document-text :label "Configuration"})))
+    (conj {:href "/persons/list" :icon :user-circle :label "Personnel"}
+          {:href "/reload" :icon :arrow-path :label "Reload"}
+          {:href "/config" :icon :document-text :label "Configuration"})
+
+    true
+    (conj {:href "/logout" :icon :user-circle :label "Logout"})))
+
+(defn- account-home-href
+  [account]
+  (if (project-access? account)
+    "/"
+    "/persons/list"))
 
 (defn- theme-toggle
   []
@@ -236,13 +246,13 @@
    [:span {:class "swap-on"} (icon :sun "h-5 w-5")]])
 
 (defn- navbar
-  [toggle-id links]
+  [toggle-id links home-href]
   [:nav
    {:class "sticky top-0 z-40 border-b border-base-300 bg-base-100/90 shadow-sm backdrop-blur"}
    [:div {:class "navbar mx-auto min-h-0 w-full max-w-screen-2xl px-4 py-2 md:px-6"}
     [:div {:class "flex flex-1 items-center gap-2 md:gap-3"}
      [:a {:class "flex items-center gap-2 no-underline md:gap-3"
-          :href "/"}
+          :href home-href}
       [:span {:class "flex h-7 w-7 items-center justify-center overflow-hidden rounded-full border border-base-300/50 bg-base-100 shadow-sm md:h-8 md:w-8"}
        [:img {:src "/static/img/dyne-icon-black.svg"
               :class "h-[1.2rem] w-[1.2rem] object-contain md:h-[1.44rem] md:w-[1.44rem]"
@@ -371,11 +381,14 @@
   (navbar "guest-nav"
           [{:href "/login"
             :icon :user-circle
-            :label "Login"}]))
+            :label "Login"}]
+          "/"))
 
 (defn navbar-account
   [account]
-  (navbar "account-nav" (account-nav-links account)))
+  (navbar "account-nav"
+          (account-nav-links account)
+          (account-home-href account)))
 
 (defn render-footer []
   [:footer {:class "mt-16 border-t border-base-300 bg-base-100/80"}
@@ -388,6 +401,9 @@
             :data-theme-logo "true"
             :data-theme-logo-light "/static/img/dyne-logotype-black.svg"
             :data-theme-logo-dark "/static/img/dyne-logotype-white.svg"}]]
+    [:p
+     "Software By Denis \"Jaromil\" Roio and Manuela Annibali<br/>"
+     "Copyright (C) 2016-2026 by the Dyne.org Foundation"]
     [:div {:class "flex items-center gap-4 self-start md:self-auto"}
      [:img {:src "/static/img/AGPLv3.png"
             :class "h-auto max-w-32 opacity-80"

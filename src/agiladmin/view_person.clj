@@ -29,6 +29,7 @@
    [auxiliary.string :refer [strcasecmp]]
    [clojure.data.json :as json :refer [read-str]]
    [agiladmin.config :as conf]
+   [agiladmin.view-timesheet :as view-timesheet]
    [taoensso.timbre :as log :refer [debug]]
    [hiccup.form :as hf]))
 
@@ -76,6 +77,7 @@
    account
    [:div
     [:h1 (str year " - " (util/dotname person))]
+    (view-timesheet/upload-card)
     (f/attempt-all
      [ts-path (conf/q config [:agiladmin :budgets :path])
       ts-file (util/name-year-to-timesheet person year)
@@ -142,6 +144,7 @@
       (web/render
        account
        [:div {:class "space-y-4"}
+        (view-timesheet/upload-card)
         (web/filterable-button-list "persons-list"
                                     "Persons"
                                     "No persons match the current filter."
@@ -168,6 +171,7 @@
      account
      [:div
       [:h1 (str year " - " (util/dotname person))]
+      (view-timesheet/upload-card)
       (f/attempt-all
        [ts-path (conf/q config [:agiladmin :budgets :path])
         ts-file (util/name-year-to-timesheet person year)

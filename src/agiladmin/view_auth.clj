@@ -54,13 +54,20 @@
    password (s/param request :password)
     logged (auth/sign-in username password {:ip-address (get-client-ip request)})]
    (let [session {:session {:config config
-                            :auth (s/normalize-role logged)}}]
-     (conj session
-           (web/render
-            logged
-            [:div {:class "card mx-auto max-w-xl bg-base-100 shadow-xl"}
-             [:div {:class "card-body"}
-              [:h1 {:class "card-title text-3xl"} "Logged in: " username]]])))
+                            :auth (s/normalize-role logged)}}
+         account (s/normalize-role logged)]
+     (if (or (s/admin? account)
+             (s/manager? account))
+       (conj session
+             (web/render
+              logged
+              [:div {:class "card mx-auto max-w-xl bg-base-100 shadow-xl"}
+               [:div {:class "card-body"}
+                [:h1 {:class "card-title text-3xl"} "Logged in: " username]]]))
+       (assoc session
+              :status 302
+              :headers {"Location" "/persons/list"}
+              :body "")))
    (f/when-failed [e]
      (web/render-error-page
       (str "Login failed: " (f/message e))))))
