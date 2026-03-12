@@ -309,4 +309,9 @@
    :begin-login (fn [request]
                   (begin-login config request))
    :complete-login (fn [request]
-                     (complete-login config request))})
+                     (complete-login config request))
+   :logout-response (fn [_request]
+                      {:status 302
+                       :headers {"Location" "/login"}
+                       :session {}
+                       :body ""})})

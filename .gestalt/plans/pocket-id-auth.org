@@ -107,7 +107,7 @@ Model this as a classic Hex adapter: config and HTTP are adapter concerns; user 
 Tests: Add adapter unit tests with stubbed HTTP calls for discovery, token exchange, JWKS retrieval, and claims normalization. Include failure cases for bad issuer, state mismatch, nonce mismatch, missing claims, and unknown role groups.
 Done when: The adapter can transform a valid Pocket ID callback into the existing Agiladmin session user map without any view-specific branching.
 
-** WIP [#A] Add REPR route handling for login start and callback completion
+** DONE [#A] Add REPR route handling for login start and callback completion
 Why: The current auth REPR is a simple form POST. Pocket ID needs a request flow with redirect initiation and callback completion.
 Change: Replace or branch the auth route handling so the active backend drives the flow:
 GET `/login` remains the entry page.
@@ -122,7 +122,7 @@ callback failure renders a clear login error,
 PocketBase still accepts the old login form path.
 Done when: Pocket ID login works as a browser redirect loop and the route contract is isolated to the auth slice.
 
-** TODO [#A] Define how logout behaves for Pocket ID
+** WIP [#A] Define how logout behaves for Pocket ID
 Why: OIDC logout behavior is often different from local session clearing. The app must make a deliberate choice instead of assuming local logout is enough.
 Change: Decide between:
 local-only logout, which clears the Ring session and returns to `/login`;

@@ -159,3 +159,8 @@
                               :code "code-1"}})]
         (f/failed? result) => true
         (f/message result) => "Pocket ID state mismatch."))
+
+(fact "Pocket ID backend uses local logout"
+      (let [response (((pocket-id/backend config) :logout-response) {})]
+        (get-in response [:headers "Location"]))
+      => "/login")
