@@ -53,12 +53,13 @@
             :hx-target (str "#" workspace-id)
             :hx-swap "outerHTML"
             :hx-encoding "multipart/form-data"}
-     [:input {:name "file"
-              :type "file"
-              :class "file-input file-input-bordered w-full"}]
-     [:input {:class "btn btn-primary btn-lg"
-              :id "field-submit" :type "submit"
-              :name "submit" :value "submit"}]]]])
+     [:div {:class "flex items-end gap-3"}
+      [:input {:name "file"
+               :type "file"
+               :class "file-input file-input-bordered w-full"}]
+      [:input {:class "btn btn-primary btn-lg shrink-0"
+               :id "field-submit" :type "submit"
+               :name "submit" :value "submit"}]]]]])
 
 (defn- render-workspace
   [request account body]
