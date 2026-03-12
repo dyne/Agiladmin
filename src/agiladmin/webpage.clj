@@ -249,30 +249,42 @@
   [toggle-id links home-href]
   [:nav
    {:class "sticky top-0 z-40 border-b border-base-300 bg-base-100/90 shadow-sm backdrop-blur"}
-   [:div {:class "navbar mx-auto min-h-0 w-full max-w-screen-2xl px-4 py-2 md:px-6"}
-    [:div {:class "flex flex-1 items-center gap-2 md:gap-3"}
-     [:a {:class "flex items-center gap-2 no-underline md:gap-3"
-          :href home-href}
-      [:span {:class "flex h-7 w-7 items-center justify-center overflow-hidden rounded-full border border-base-300/50 bg-base-100 shadow-sm md:h-8 md:w-8"}
-       [:img {:src "/static/img/dyne-icon-black.svg"
-              :class "h-[1.2rem] w-[1.2rem] object-contain md:h-[1.44rem] md:w-[1.44rem]"
-              :alt "Dyne icon"
-              :data-theme-invert "true"}]]
-      [:div {:class "leading-tight"}
-       [:div {:class "text-sm font-semibold tracking-wide md:text-base"} "Agiladmin"]
-       [:div {:class "text-[10px] uppercase tracking-[0.25em] text-base-content/60 md:text-xs"}
-        (str "v" version/current)]]]]
-    [:div {:class "flex items-center gap-2"}
-     [:div {:class "hidden md:block"}
-      (theme-toggle)]
+   [:div {:class "mx-auto flex min-h-0 w-full max-w-screen-2xl items-center justify-between px-4 py-2 md:hidden md:px-6"}
+    [:a {:class "flex items-center gap-2 no-underline"
+         :href home-href}
+     [:span {:class "flex h-7 w-7 items-center justify-center overflow-hidden rounded-full border border-base-300/50 bg-base-100 shadow-sm"}
+      [:img {:src "/static/img/dyne-icon-black.svg"
+             :class "h-[1.2rem] w-[1.2rem] object-contain"
+             :alt "Dyne icon"
+             :data-theme-invert "true"}]]
+     [:div {:class "leading-tight"}
+      [:div {:class "text-sm font-semibold tracking-wide"} "Agiladmin"]
+      [:div {:class "text-[10px] uppercase tracking-[0.25em] text-base-content/60"}
+       (str "v" version/current)]]]
     [:button {:type "button"
-              :class "btn btn-ghost btn-square md:hidden"
+              :class "btn btn-ghost btn-square"
               :data-nav-toggle toggle-id
               :aria-controls toggle-id
               :aria-expanded "false"
               :aria-label "Toggle navigation"}
-     (icon :bars-3 "h-5 w-5")]
-     (into [:ul {:class "menu menu-horizontal hidden items-center gap-2 px-1 md:flex"}]
+     (icon :bars-3 "h-5 w-5")]]
+   [:div {:class "mx-auto hidden min-h-0 w-full max-w-screen-2xl items-center px-4 py-2 md:flex md:px-6"}
+    [:div {:class "flex flex-1 justify-start"}
+     [:a {:class "flex items-center gap-3 no-underline"
+          :href home-href}
+      [:span {:class "flex h-7 w-7 items-center justify-center overflow-hidden rounded-full border border-base-300/50 bg-base-100 shadow-sm"}
+       [:img {:src "/static/img/dyne-icon-black.svg"
+              :class "h-[1.2rem] w-[1.2rem] object-contain"
+              :alt "Dyne icon"
+              :data-theme-invert "true"}]]
+      [:div {:class "leading-tight"}
+       [:div {:class "text-sm font-semibold tracking-wide"} "Agiladmin"]
+       [:div {:class "text-[10px] uppercase tracking-[0.25em] text-base-content/60"}
+        (str "v" version/current)]]]]
+    [:div {:class "flex flex-1 justify-center"}
+     (theme-toggle)]
+    [:div {:class "flex flex-1 justify-end"}
+     (into [:ul {:class "menu menu-horizontal items-center gap-2 px-1"}]
            (nav-menu links))]]
    [:div {:id toggle-id
           :class "mx-auto hidden w-full max-w-screen-2xl px-4 pb-4 md:hidden"}
