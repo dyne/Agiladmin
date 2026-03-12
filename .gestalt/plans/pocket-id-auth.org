@@ -8,13 +8,13 @@ Effort: M
 Goal: Define one stable auth contract that can support both PocketBase and Pocket ID without spreading provider-specific logic across routes and views.
 Notes: Keep the existing `agiladmin.auth.core` boundary, but challenge its current password-centric shape. Pocket ID is an OIDC provider, not a username/password API, so the boundary must model authentication as a use-case, not as a form post. Preserve the current session contract used by `agiladmin.session` and downstream views.
 
-** WIP [#A] Inventory the current auth use-cases and classify what remains valid
+** DONE [#A] Inventory the current auth use-cases and classify what remains valid
 Why: The current backend contract mixes three concerns: password login, user registration, and admin queries for pending users. Pocket ID supports a different model, so the plan must separate reusable use-cases from PocketBase-only behavior before any code changes start.
 Change: Read `src/agiladmin/auth/core.clj`, `src/agiladmin/view_auth.clj`, `src/agiladmin/ring.clj`, `src/agiladmin/session.clj`, `src/agiladmin/handlers.clj`, and tests touching login or signup. Produce a short design note inside the branch or commit message that classifies each existing operation as one of: provider-neutral (`healthy?`, session-user normalization, logout), PocketBase-only (`sign-in`, `sign-up`, verification, pending users), or needs replacement (`login-post`).
 Tests: No code changes expected. If no files change, skip tests.
 Done when: A written inventory exists and every current public auth operation has an explicit disposition for the Pocket ID migration.
 
-** TODO [#A] Define the provider-neutral auth port around browser redirect login
+** WIP [#A] Define the provider-neutral auth port around browser redirect login
 Why: Pocket ID requires the OIDC authorization code flow. A password-based `sign-in` function is the wrong abstraction and will force hacks into the adapter if left unchanged.
 Change: Design a minimal auth port with operations shaped around the real use-cases:
 `healthy?`
