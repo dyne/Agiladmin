@@ -147,7 +147,95 @@
         (f/failed? conf) => false
         (:filename conf) => "agiladmin.pocketbase.yaml"
         (:paths conf) => ["doc/agiladmin.pocketbase.yaml"]
+        (get-in conf [:agiladmin :auth :backend]) => "pocketbase"
+        (get-in conf [:agiladmin :auth :pocketbase :base-url]) => "http://127.0.0.1:8090"
         (get-in conf [:agiladmin :pocketbase :base-url]) => "http://127.0.0.1:8090"))
+
+(fact "Application config loader accepts the nested auth PocketBase config"
+      (let [path "/tmp/agiladmin-auth-pocketbase.yaml"
+            _ (spit path
+                    (str "agiladmin:\n"
+                         "  budgets:\n"
+                         "    git: ssh://dyne.org/dyne/budgets\n"
+                         "    ssh-key: id_rsa\n"
+                         "    path: test/assets/\n"
+                         "  auth:\n"
+                         "    backend: pocketbase\n"
+                         "    pocketbase:\n"
+                         "      base-url: http://127.0.0.1:8090\n"
+                         "      users-collection: users\n"
+                         "      superuser-email: admin@example.org\n"
+                         "      superuser-password: changeme\n"))
+            conf (conf/load-config path conf/default-settings)]
+        (f/failed? conf) => false
+        (get-in conf [:agiladmin :auth :backend]) => "pocketbase"
+        (get-in conf [:agiladmin :auth :pocketbase :users-collection]) => "users"))
+
+(fact "Application config loader accepts the nested auth Pocket ID config"
+      (let [path "/tmp/agiladmin-auth-pocket-id.yaml"
+            _ (spit path
+                    (str "agiladmin:\n"
+                         "  budgets:\n"
+                         "    git: ssh://dyne.org/dyne/budgets\n"
+                         "    ssh-key: id_rsa\n"
+                         "    path: test/assets/\n"
+                         "  auth:\n"
+                         "    backend: pocket-id\n"
+                         "    pocket-id:\n"
+                         "      issuer-url: https://pocket-id.example.org\n"
+                         "      client-id: agiladmin\n"
+                         "      client-secret: secret\n"
+                         "      redirect-uri: https://agiladmin.example.org/auth/pocket-id/callback\n"
+                         "      admin-group: agiladmin-admin\n"
+                         "      manager-group: agiladmin-manager\n"
+                         "      scopes:\n"
+                         "        - openid\n"
+                         "        - profile\n"
+                         "        - email\n"
+                         "        - groups\n"))
+            conf (conf/load-config path conf/default-settings)]
+        (f/failed? conf) => false
+        (get-in conf [:agiladmin :auth :backend]) => "pocket-id"
+        (get-in conf [:agiladmin :auth :pocket-id :issuer-url]) => "https://pocket-id.example.org"))
+
+(fact "Application config loader rejects ambiguous nested auth providers without a backend selector"
+      (let [path "/tmp/agiladmin-auth-ambiguous.yaml"
+            _ (spit path
+                    (str "agiladmin:\n"
+                         "  budgets:\n"
+                         "    git: ssh://dyne.org/dyne/budgets\n"
+                         "    ssh-key: id_rsa\n"
+                         "    path: test/assets/\n"
+                         "  auth:\n"
+                         "    pocketbase:\n"
+                         "      base-url: http://127.0.0.1:8090\n"
+                         "      users-collection: users\n"
+                         "      superuser-email: admin@example.org\n"
+                         "      superuser-password: changeme\n"
+                         "    pocket-id:\n"
+                         "      issuer-url: https://pocket-id.example.org\n"
+                         "      client-id: agiladmin\n"
+                         "      client-secret: secret\n"
+                         "      redirect-uri: https://agiladmin.example.org/auth/pocket-id/callback\n"
+                         "      admin-group: agiladmin-admin\n"
+                         "      manager-group: agiladmin-manager\n"))
+            conf (conf/load-config path conf/default-settings)]
+        (f/failed? conf) => true
+        (f/message conf) => (contains "auth.backend is required")))
+
+(fact "Application config loader accepts an explicit dev auth backend"
+      (let [path "/tmp/agiladmin-auth-dev.yaml"
+            _ (spit path
+                    (str "agiladmin:\n"
+                         "  budgets:\n"
+                         "    git: ssh://dyne.org/dyne/budgets\n"
+                         "    ssh-key: id_rsa\n"
+                         "    path: test/assets/\n"
+                         "  auth:\n"
+                         "    backend: dev\n"))
+            conf (conf/load-config path conf/default-settings)]
+        (f/failed? conf) => false
+        (get-in conf [:agiladmin :auth :backend]) => "dev"))
 
 (fact "Application config loader reports an explicit missing file"
       (let [conf (conf/load-config "/tmp/does-not-exist-agiladmin.yaml" conf/default-settings)]

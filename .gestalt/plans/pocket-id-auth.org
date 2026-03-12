@@ -3,7 +3,7 @@
 #+DATE: 2026-03-12
 #+KEYWORDS: auth pocket-id oidc passkey pocketbase ring clojure
 
-* WIP [#A] Establish the target auth model and backend boundary
+* DONE [#A] Establish the target auth model and backend boundary
 Effort: M
 Goal: Define one stable auth contract that can support both PocketBase and Pocket ID without spreading provider-specific logic across routes and views.
 Notes: Keep the existing `agiladmin.auth.core` boundary, but challenge its current password-centric shape. Pocket ID is an OIDC provider, not a username/password API, so the boundary must model authentication as a use-case, not as a form post. Preserve the current session contract used by `agiladmin.session` and downstream views.
@@ -29,7 +29,7 @@ Prefer a map-based port over protocols to stay consistent with the current codeb
 Tests: Add or update unit tests for `agiladmin.auth.core` to prove missing optional functions fail clearly or are feature-gated cleanly.
 Done when: The port supports redirect-based auth cleanly and there is no requirement for Pocket ID to pretend it accepts passwords.
 
-** WIP [#A] Decide the Pocket ID role mapping and invariants
+** DONE [#A] Decide the Pocket ID role mapping and invariants
 Why: PocketBase currently stores the role directly on the user record, while Pocket ID uses OIDC plus group-based access controls. Agiladmin needs a deterministic rule for deriving `admin`, `manager`, or plain user from Pocket ID claims.
 Change: Choose one invariant and document it in code comments and config docs:
 Option A, preferred: derive Agiladmin role from Pocket ID `groups` claim by configured group names, such as `agiladmin-admin` and `agiladmin-manager`.
@@ -38,12 +38,12 @@ Document precedence, for example `admin` wins over `manager`, unknown groups yie
 Tests: Add normalization tests for role derivation from representative claims payloads.
 Done when: A single source of truth exists for role mapping and it is independent of view code.
 
-* TODO [#A] Add explicit backend selection and Pocket ID configuration
+* WIP [#A] Add explicit backend selection and Pocket ID configuration
 Effort: M
 Goal: Allow Agiladmin to run with PocketBase, Pocket ID, or dev auth through explicit configuration instead of implicit presence checks.
 Notes: This is the key architectural cleanup. The current `ring/init` behavior picks PocketBase if the config exists, otherwise maybe dev auth. That will become ambiguous once two real providers exist.
 
-** TODO [#A] Introduce an explicit auth backend selector in config
+** WIP [#A] Introduce an explicit auth backend selector in config
 Why: Two optional provider blocks are not enough. Startup must know which backend is authoritative, and failures must be clear.
 Change: Extend `src/agiladmin/config.clj` with a dedicated auth section, for example:
 `agiladmin.auth.backend: pocketbase | pocket-id | dev`
