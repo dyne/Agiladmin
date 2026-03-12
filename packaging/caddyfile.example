@@ -1,0 +1,17 @@
+# Snippet for robots.txt
+(common_robots_txt) {
+	handle /robots.txt {
+		# Set the Content-Type header
+		header Content-Type "text/plain; charset=utf-8"
+		# Respond with the body and status code 200
+		respond `User-agent: *
+		Disallow: /` 200
+	}
+}
+
+# Pocket-ID
+id.xxxx.xx {
+	import common_robots_txt
+	# Fallback to reverse proxy for other requests
+	reverse_proxy 192.168.x.yyy:1411 [xxxx:xxxx:xxxx:xxxx::yyyy]:1411
+}
