@@ -149,7 +149,7 @@
         (:paths conf) => ["doc/agiladmin.pocketbase.yaml"]
         (get-in conf [:agiladmin :auth :backend]) => "pocketbase"
         (get-in conf [:agiladmin :auth :pocketbase :base-url]) => "http://127.0.0.1:8090"
-        (get-in conf [:agiladmin :pocketbase :base-url]) => "http://127.0.0.1:8090"))
+        (get-in conf [:agiladmin :pocketbase :base-url]) => nil))
 
 (fact "Application config loader accepts the nested auth PocketBase config"
       (let [path "/tmp/agiladmin-auth-pocketbase.yaml"

@@ -5,7 +5,7 @@
 - The app reads monthly `.xlsx` timesheets, loads project definitions from YAML files in a separate budgets repository, derives hours and costs, and renders HTML reports.
 - The storage model is mixed:
   - project metadata and uploaded spreadsheets live in a Git-backed budgets directory;
-  - authentication goes through an auth boundary, with PocketBase currently implemented and a dev-only fallback for local testing.
+  - authentication is selected via `agiladmin.auth.backend` and currently supports PocketBase, Pocket ID, or dev auth.
 
 ## Stack
 - Language: Clojure 1.12.4
@@ -13,13 +13,13 @@
 - Web: Ring + Compojure
 - HTML: Hiccup-style vectors rendered by view namespaces
 - Data processing: Incanter datasets, Docjure/Apache POI for Excel, YAML parsing via `yaml.core`
-- Auth: PocketBase via `src/agiladmin/auth/core.clj`, plus a development auth backend
+- Auth: backend abstraction in `src/agiladmin/auth/`
 - Git integration: `clj-jgit`
 
 ## Entry Points
 - Main HTTP routes are in `src/agiladmin/handlers.clj`.
 - Application initialization is in `src/agiladmin/ring.clj`.
-  - `ring/init` loads configuration, ensures the SSH key exists, connects to MongoDB, and initializes auth stores.
+  - `ring/init` loads configuration, ensures the SSH key exists, and initializes the selected auth backend.
 - Core spreadsheet and project logic is in `src/agiladmin/core.clj`.
 - The main user-facing views are split by domain:
   - `src/agiladmin/view_project.clj`
@@ -46,7 +46,7 @@
   - `:budgets`
   - `:webserver`
   - `:source`
-  - `:just-auth`
+  - `:auth`
 - Project configs are separate YAML files stored under the configured budgets path and loaded by `load-project`.
 - Tests use fixture config under `test/assets/agiladmin.yaml`.
 
@@ -83,9 +83,8 @@
 - Covered areas:
   - config parsing and schema validation
   - spreadsheet ingestion and cost derivation
-  - auth backends and session behavior
-  - selected route and view behavior
-  - minimal `ring/init` smoke test
+  - utility functions
+  - auth adapters, route behavior, and `ring/init` backend selection
 - Not well covered:
   - HTTP route behavior
   - auth flows
@@ -104,7 +103,7 @@
 - `src/agiladmin/view_timesheet.clj`
   - upload, temp-file handling, Git add/commit/push, and filesystem assumptions are all coupled.
 - `src/agiladmin/ring.clj`
-  - startup performs real side effects: config load, SSH key generation, Mongo connection, auth initialization.
+  - startup performs real side effects: config load, SSH key generation, PocketBase process management, and auth initialization.
 - `src/agiladmin/config.clj`
   - config merging and schema handling are permissive and a bit irregular; changes here can affect every feature.
 
@@ -113,6 +112,7 @@
 - Keep root navigation and navbar home links aligned with the `/persons/list` landing behavior for authenticated users.
 - When changing spreadsheet parsing, validate against `test/assets/2016_timesheet_Luca-Pacioli.xlsx` and the expectations in `test/agiladmin/timesheet_test.clj`.
 - When changing config handling, verify both global config loading and per-project YAML loading.
+- When changing auth behavior, check both [src/agiladmin/view_auth.clj](/home/jrml/devel/agiladmin/src/agiladmin/view_auth.clj) and the adapter under [src/agiladmin/auth/](/home/jrml/devel/agiladmin/src/agiladmin/auth/). Pocket ID is OIDC redirect-based; PocketBase remains password-based.
 - Be conservative around `view_timesheet/commit`; it mutates the budgets repo and pushes over SSH.
 - Avoid “cleanup” changes that rename columns, normalize casing differently, or alter dataset shapes unless you also update all dependent views/tests.
 - Frontend styling uses TailwindCSS + DaisyUI with the `nord` theme; shared layout helpers live in `src/agiladmin/webpage.clj`.

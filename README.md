@@ -7,9 +7,9 @@ repository, computes hours and costs, and renders HTML reports for
 personnel and projects.
 
 The current codebase targets `org.clojure/clojure` `1.12.4` and starts
-with the Clojure CLI. Authentication is backend-driven: PocketBase is
-supported for real deployments, and a development-only fallback
-backend is available for local manual testing.
+with the Clojure CLI. Authentication is backend-driven: PocketBase and
+Pocket ID are supported for real deployments, and a development-only
+fallback backend is available for local manual testing.
 
 ## Current State
 
@@ -17,7 +17,7 @@ backend is available for local manual testing.
 - Data processing: core.matrix, Docjure / Apache POI, YAML files
 - Storage model:
   - project metadata and uploaded spreadsheets live in a Git-managed budgets directory
-  - authentication is handled through a backend abstraction, with PocketBase currently implemented
+  - authentication is handled through a backend abstraction, with PocketBase and Pocket ID adapters
 - Build: Clojure CLI with `deps.edn`
 - Tests: Midje
 
@@ -32,7 +32,7 @@ The app is well tested and fairly stateful. Startup performs real side effects:
 - Java (JRE) and the Clojure CLI
 - a writable budgets Git checkout or clone target in `budgets/`
 - a valid `agiladmin.yaml` configuration file, or an explicit config path via `AGILADMIN_CONF`
-- for real auth flows: a reachable PocketBase instance
+- for real auth flows: either a reachable PocketBase instance or a reachable Pocket ID issuer
 
 ## Running
 
@@ -78,7 +78,7 @@ Or directly:
 AGILADMIN_CONF=doc/agiladmin.pocketbase.yaml clj -M:run
 ```
 
-PocketBase is optional in config, but without either PocketBase or `AGILADMIN_DEV_AUTH=1`, authentication is not initialized and login will not work.
+PocketBase is optional in config, but without either an auth backend or `AGILADMIN_DEV_AUTH=1`, authentication is not initialized and login will not work.
 
 Agiladmin expects the PocketBase `users` auth collection to have a `role` select field. Supported values are `admin`, `manager`, or empty.
 
@@ -99,7 +99,37 @@ AGILADMIN_CONF=doc/agiladmin.pocketbase.yaml clj -M -m agiladmin.pocketbase-init
 
 If `agiladmin.pocketbase.manage-process` is `true`, Agiladmin starts PocketBase itself, serves it with the configured migrations directory, waits for health, applies the role bootstrap when the installed Agiladmin version changes, and stops PocketBase again on exit.
 
-PocketBase HTTP calls use bounded timeouts by default so startup does not hang forever if the service is unreachable. Override them with `agiladmin.pocketbase.connect-timeout-ms` and `agiladmin.pocketbase.socket-timeout-ms` if needed.
+PocketBase HTTP calls use bounded timeouts by default so startup does not hang forever if the service is unreachable. Override them with `agiladmin.auth.pocketbase.connect-timeout-ms` and `agiladmin.auth.pocketbase.socket-timeout-ms` if needed.
+
+### Running With Pocket ID
+
+The repository also ships a Pocket ID example config at [doc/agiladmin.pocket-id.yaml](/home/jrml/devel/agiladmin/doc/agiladmin.pocket-id.yaml).
+
+Run with it using:
+
+```sh
+AGILADMIN_CONF=doc/agiladmin.pocket-id.yaml clj -M:run
+```
+
+Create an OIDC client in Pocket ID with this redirect URI:
+
+```text
+https://<your-agiladmin-host>/auth/pocket-id/callback
+```
+
+Recommended scopes are:
+
+```text
+openid profile email groups
+```
+
+Agiladmin checked Pocket ID documentation on 2026-03-12 and uses the standard OIDC authorization code flow with PKCE, a shared client secret, and role mapping from groups. Configure two Pocket ID groups and map them into Agiladmin with `admin-group` and `manager-group`. If a user belongs to both groups, `admin` wins.
+
+Pocket ID login is redirect-based. The Agiladmin login page shows a single “Sign in with Pocket ID” action and no local password form when this backend is active.
+
+Logout is local-only for now: Agiladmin clears its Ring session and redirects back to `/login`. The Pocket ID session may still be active in the browser.
+
+Pocket ID does not power Agiladmin signup, activation, or pending-user admin flows. Those actions stay in Pocket ID.
 
 ## Testing
 
@@ -153,6 +183,12 @@ Or with an explicit config file:
 AGILADMIN_CONF=doc/agiladmin.pocketbase.yaml java -jar target/<version>-standalone.jar
 ```
 
+Or:
+
+```sh
+AGILADMIN_CONF=doc/agiladmin.pocket-id.yaml java -jar target/<version>-standalone.jar
+```
+
 The jar uses the same config lookup as `clj -M:run`: by default it looks for `agiladmin.yaml` in the standard locations, including the current working directory.
 
 ## Configuration
@@ -182,18 +218,28 @@ agiladmin:
     git: https://github.com/dyne/agiladmin
     update: false
 
-  pocketbase:
-    base-url: http://127.0.0.1:8090
-    users-collection: users
-    superuser-email: admin@example.org
-    superuser-password: change-me
+  auth:
+    backend: pocket-id
+    pocket-id:
+      issuer-url: https://pocket-id.example.org
+      client-id: agiladmin
+      client-secret: change-me
+      redirect-uri: https://agiladmin.example.org/auth/pocket-id/callback
+      admin-group: agiladmin-admin
+      manager-group: agiladmin-manager
+      scopes:
+        - openid
+        - profile
+        - email
+        - groups
 ```
 
 Notes:
 
 - `budgets.ssh-key` is the private key path used for Git access; if it does not exist, Agiladmin generates a new keypair and exposes the public key in the `/config` page
 - project names are discovered from `*.yaml` files in `budgets.path`, using the part of the filename before the first `.`
-- `pocketbase` is optional only if you are using dev auth locally
+- `agiladmin.auth.backend` may be `pocketbase`, `pocket-id`, or `dev`
+- legacy top-level `agiladmin.pocketbase` config is still normalized into `agiladmin.auth.pocketbase`
 
 ## Project Configuration
 
@@ -247,6 +293,7 @@ Notes:
 - [src/agiladmin/core.clj](/home/jrml/devel/planb-agiladmin/src/agiladmin/core.clj): spreadsheet and project logic
 - [src/agiladmin/view_timesheet.clj](/home/jrml/devel/planb-agiladmin/src/agiladmin/view_timesheet.clj): upload and Git commit flow
 - [src/agiladmin/auth/pocketbase.clj](/home/jrml/devel/planb-agiladmin/src/agiladmin/auth/pocketbase.clj): PocketBase auth backend
+- [src/agiladmin/auth/pocket_id.clj](/home/jrml/devel/agiladmin/src/agiladmin/auth/pocket_id.clj): Pocket ID OIDC auth backend
 - [pb_migrations/](/home/jrml/devel/agiladmin/pb_migrations): PocketBase schema migrations kept for future schema changes
 - [test/agiladmin/](/home/jrml/devel/planb-agiladmin/test/agiladmin): Midje test suite
 
@@ -255,6 +302,7 @@ Notes:
 - Timesheet upload and commit logic writes temporary files under `/tmp/...`
 - The budgets repository is mutable application state; timesheet submission performs Git operations
 - PocketBase-backed role-aware access depends on a `role` select field on the auth users collection
+- Pocket ID-backed role-aware access depends on the configured Pocket ID groups being present in ID token claims or `userinfo`
 - Managed PocketBase mode uses a local version marker file to record that the current Agiladmin version has applied its bootstrap step
 - The app serves a bundled static HTML README on `/`, so updating this file does not automatically change the in-app landing page
 

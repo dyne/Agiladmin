@@ -1,0 +1,35 @@
+appname: agiladmin
+
+agiladmin:
+  webserver:
+    anti-forgery: false
+    ssl-redirect: false
+    port: 8000
+    host: localhost
+
+  budgets:
+    git: ssh://git@example.org/admin-budgets
+    ssh-key: id_rsa
+    path: budgets/
+
+  source:
+    git: https://github.com/dyne/agiladmin
+    update: false
+
+  auth:
+    backend: pocket-id
+    pocket-id:
+      issuer-url: https://pocket-id.example.org
+      client-id: agiladmin
+      client-secret: change-me
+      redirect-uri: https://agiladmin.example.org/auth/pocket-id/callback
+      post-logout-redirect-uri: https://agiladmin.example.org/login
+      admin-group: agiladmin-admin
+      manager-group: agiladmin-manager
+      scopes:
+        - openid
+        - profile
+        - email
+        - groups
+      connect-timeout-ms: 2000
+      socket-timeout-ms: 2000

@@ -10,9 +10,10 @@
     (when (f/failed? config)
       (throw (ex-info (f/message config)
                       {:type ::config-load-failed})))
-    (if-let [pocketbase-conf (get-in config [:agiladmin :pocketbase])]
+    (if-let [pocketbase-conf (or (get-in config [:agiladmin :auth :pocketbase])
+                                 (get-in config [:agiladmin :pocketbase]))]
       (do
         (pocketbase/ensure-role-field! pocketbase-conf)
         (println "PocketBase users collection initialized with role select."))
-      (throw (ex-info "Missing :agiladmin :pocketbase configuration."
+      (throw (ex-info "Missing :agiladmin :auth :pocketbase configuration."
                       {:type ::missing-pocketbase-config})))))
