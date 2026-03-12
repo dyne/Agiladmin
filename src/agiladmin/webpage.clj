@@ -200,6 +200,30 @@
     [:li [:a {:class "gap-2" :href href}
           (icon icon-name "h-5 w-5") label]]))
 
+(defn- admin-role?
+  [account]
+  (= "admin" (:role account)))
+
+(defn- manager-role?
+  [account]
+  (= "manager" (:role account)))
+
+(defn- project-access?
+  [account]
+  (or (admin-role? account)
+      (manager-role? account)))
+
+(defn- account-nav-links
+  [account]
+  (cond-> [{:href "/persons/list" :icon :user-circle :label "Personnel"}
+           {:href "/timesheets" :icon :plus :label "Upload"}]
+    (project-access? account)
+    (conj {:href "/projects/list" :icon :paper-airplane :label "Projects"})
+
+    (admin-role? account)
+    (conj {:href "/reload" :icon :arrow-path :label "Reload"}
+          {:href "/config" :icon :document-text :label "Configuration"})))
+
 (defn- theme-toggle
   []
   [:label {:class "swap swap-rotate btn btn-ghost btn-circle"
@@ -278,8 +302,8 @@
                    :data-theme-dark "dim"
                    :class "min-h-screen bg-base-200 text-base-content"}
             (if (empty? account)
-                    navbar-guest
-                    navbar-account)
+              navbar-guest
+              (navbar-account account))
             [:main {:class "mx-auto w-full max-w-screen-2xl px-4 pb-12 pt-6 md:px-6"} body]
             (render-footer)
             [:div {:data-page-loading "true"
@@ -349,13 +373,9 @@
             :icon :user-circle
             :label "Login"}]))
 
-(def navbar-account
-  (navbar "account-nav"
-          [{:href "/persons/list" :icon :user-circle :label "Personnel"}
-           {:href "/projects/list" :icon :paper-airplane :label "Projects"}
-           {:href "/timesheets" :icon :plus :label "Upload"}
-           {:href "/reload" :icon :arrow-path :label "Reload"}
-           {:href "/config" :icon :document-text :label "Configuration"}]))
+(defn navbar-account
+  [account]
+  (navbar "account-nav" (account-nav-links account)))
 
 (defn render-footer []
   [:footer {:class "mt-16 border-t border-base-300 bg-base-100/80"}
