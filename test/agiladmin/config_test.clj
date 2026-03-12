@@ -198,6 +198,27 @@
         (get-in conf [:agiladmin :auth :backend]) => "pocket-id"
         (get-in conf [:agiladmin :auth :pocket-id :issuer-url]) => "https://pocket-id.example.org"))
 
+(fact "Pocket ID config defaults scopes to the standard OIDC set"
+      (let [path "/tmp/agiladmin-auth-pocket-id-default-scopes.yaml"
+            _ (spit path
+                    (str "agiladmin:\n"
+                         "  budgets:\n"
+                         "    git: ssh://dyne.org/dyne/budgets\n"
+                         "    ssh-key: id_rsa\n"
+                         "    path: test/assets/\n"
+                         "  auth:\n"
+                         "    backend: pocket-id\n"
+                         "    pocket-id:\n"
+                         "      issuer-url: https://pocket-id.example.org\n"
+                         "      client-id: agiladmin\n"
+                         "      client-secret: secret\n"
+                         "      redirect-uri: https://agiladmin.example.org/auth/pocket-id/callback\n"
+                         "      admin-group: agiladmin-admin\n"
+                         "      manager-group: agiladmin-manager\n"))
+            conf (conf/load-config path conf/default-settings)]
+        (f/failed? conf) => false
+        (get-in conf [:agiladmin :auth :pocket-id :scopes]) => conf/default-pocket-id-scopes))
+
 (fact "Application config loader rejects ambiguous nested auth providers without a backend selector"
       (let [path "/tmp/agiladmin-auth-ambiguous.yaml"
             _ (spit path

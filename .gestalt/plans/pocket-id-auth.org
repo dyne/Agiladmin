@@ -43,7 +43,7 @@ Effort: M
 Goal: Allow Agiladmin to run with PocketBase, Pocket ID, or dev auth through explicit configuration instead of implicit presence checks.
 Notes: This is the key architectural cleanup. The current `ring/init` behavior picks PocketBase if the config exists, otherwise maybe dev auth. That will become ambiguous once two real providers exist.
 
-** WIP [#A] Introduce an explicit auth backend selector in config
+** DONE [#A] Introduce an explicit auth backend selector in config
 Why: Two optional provider blocks are not enough. Startup must know which backend is authoritative, and failures must be clear.
 Change: Extend `src/agiladmin/config.clj` with a dedicated auth section, for example:
 `agiladmin.auth.backend: pocketbase | pocket-id | dev`
@@ -58,7 +58,7 @@ invalid mixed config,
 dev backend config.
 Done when: `conf/load-config` can unambiguously resolve the active auth backend and returns actionable validation errors.
 
-** TODO [#A] Define the Pocket ID config schema around OIDC, not ad hoc endpoints
+** WIP [#A] Define the Pocket ID config schema around OIDC, not ad hoc endpoints
 Why: Pocket ID is standards-based. Agiladmin should configure issuer/discovery data and client credentials, then derive endpoints from OIDC discovery instead of hardcoding URLs.
 Change: Add a minimal Pocket ID config schema such as:
 `issuer-url`

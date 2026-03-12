@@ -98,6 +98,9 @@
 
 (def run-mode (atom :web))
 
+(def default-pocket-id-scopes
+  ["openid" "profile" "email" "groups"])
+
 (def default-settings {:budgets
                        {:git "ssh://git@my.server.org/admin-budgets"
                         :ssh-key "id_rsa"
@@ -260,17 +263,23 @@
   (let [app-key :agiladmin
         app-conf (get conf app-key)
         auth-conf (:auth app-conf)
-        pocketbase-conf (:pocketbase app-conf)]
-    (cond
-      (and auth-conf pocketbase-conf (not (:pocketbase auth-conf)))
-      (assoc-in conf [app-key :auth :pocketbase] pocketbase-conf)
+        pocketbase-conf (:pocketbase app-conf)
+        with-provider
+        (cond
+          (and auth-conf pocketbase-conf (not (:pocketbase auth-conf)))
+          (assoc-in conf [app-key :auth :pocketbase] pocketbase-conf)
 
-      (and (nil? auth-conf) pocketbase-conf)
-      (assoc-in conf [app-key :auth] {:backend "pocketbase"
-                                      :pocketbase pocketbase-conf})
+          (and (nil? auth-conf) pocketbase-conf)
+          (assoc-in conf [app-key :auth] {:backend "pocketbase"
+                                          :pocketbase pocketbase-conf})
 
-      :else
-      conf)))
+          :else
+          conf)]
+    (if-let [pocket-id-conf (get-in with-provider [app-key :auth :pocket-id])]
+      (update-in with-provider
+                 [app-key :auth :pocket-id]
+                 #(merge {:scopes default-pocket-id-scopes} %))
+      with-provider)))
 
 (defn- validate-auth-selection
   [conf path-label]
