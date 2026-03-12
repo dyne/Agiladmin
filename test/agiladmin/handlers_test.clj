@@ -25,10 +25,10 @@
           :name "Admin User"
           :role "admin"}})
 
-(fact "Root route renders the bundled readme"
+(fact "Root route redirects logged-out visitors to the login page"
       (let [response (handlers/app-routes (mock/request :get "/"))]
-        (:status response) => 200
-        (:body response) => (contains "Welcome to Agiladmin!")))
+        (:status response) => 302
+        (get-in response [:headers "Location"]) => "/login"))
 
 (fact "Protected timesheet route falls back to the login form for guests"
       (let [response (handlers/app-routes (mock/request :get "/timesheets"))]

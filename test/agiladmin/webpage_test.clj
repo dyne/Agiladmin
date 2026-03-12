@@ -54,3 +54,7 @@
         html =not=> (contains "Upload")
         html => (contains "Reload")
         html => (contains "Configuration")))
+
+(fact "Guest navigation does not render a redundant login link"
+      (let [html (:body (webpage/render [:div "body"]))]
+        html =not=> (contains ">Login<")))

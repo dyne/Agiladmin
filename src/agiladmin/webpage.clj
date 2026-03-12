@@ -391,9 +391,7 @@
 
 (def navbar-guest
   (navbar "guest-nav"
-          [{:href "/login"
-            :icon :user-circle
-            :label "Login"}]
+          []
           "/"))
 
 (defn navbar-account
@@ -414,7 +412,8 @@
             :data-theme-logo-light "/static/img/dyne-logotype-black.svg"
             :data-theme-logo-dark "/static/img/dyne-logotype-white.svg"}]]
     [:p
-     "Software By Denis \"Jaromil\" Roio and Manuela Annibali<br/>"
+     [:a {:href "https://github.com/dyne/agiladmin"} "Software"]
+     " by Denis \"Jaromil\" Roio and Manuela Annibali<br/>"
      "Copyright (C) 2016-2026 by the Dyne.org Foundation"]
     [:div {:class "flex items-center gap-4 self-start md:self-auto"}
      [:img {:src "/static/img/AGPLv3.png"
@@ -505,7 +504,9 @@
                :placeholder "Password"
                :class "input input-bordered w-full"}]
       [:input {:type "submit" :value "Login"
-               :class "btn btn-primary btn-lg w-full"}]]]]])
+               :class "btn btn-primary btn-lg w-full"}]
+      [:p {:class "text-sm text-base-content/70"}
+       "🛡️ Unauthorized access is prohibited. Every visit is recorded."]]]]])
 
 (defonce signup-form
   [:div {:class "mx-auto max-w-lg"}
