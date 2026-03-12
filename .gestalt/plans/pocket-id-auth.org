@@ -92,7 +92,7 @@ Effort: L
 Goal: Add the Pocket ID adapter plus the request/endpoint/response flow for passkey login.
 Notes: Keep this slice narrow. Do not attempt full identity management in Agiladmin. Pocket ID should own authentication; Agiladmin should only initiate login, verify the callback, and store a small session user.
 
-** WIP [#A] Build a Pocket ID OIDC adapter under the auth hex boundary
+** DONE [#A] Build a Pocket ID OIDC adapter under the auth hex boundary
 Why: The new adapter is the core IO integration. It must handle discovery, authorization redirect generation, token exchange, and claim extraction without leaking OIDC details to the rest of the app.
 Change: Add `src/agiladmin/auth/pocket_id.clj` with small functions for:
 OIDC discovery fetch and validation,
@@ -107,7 +107,7 @@ Model this as a classic Hex adapter: config and HTTP are adapter concerns; user 
 Tests: Add adapter unit tests with stubbed HTTP calls for discovery, token exchange, JWKS retrieval, and claims normalization. Include failure cases for bad issuer, state mismatch, nonce mismatch, missing claims, and unknown role groups.
 Done when: The adapter can transform a valid Pocket ID callback into the existing Agiladmin session user map without any view-specific branching.
 
-** TODO [#A] Add REPR route handling for login start and callback completion
+** WIP [#A] Add REPR route handling for login start and callback completion
 Why: The current auth REPR is a simple form POST. Pocket ID needs a request flow with redirect initiation and callback completion.
 Change: Replace or branch the auth route handling so the active backend drives the flow:
 GET `/login` remains the entry page.
