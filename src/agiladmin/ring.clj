@@ -3,6 +3,7 @@
    [clojure.java.io :as io]
    [agiladmin.auth.core :as auth-core]
    [agiladmin.auth.dev :as dev-auth]
+   [agiladmin.auth.pocket-id :as pocket-id]
    [agiladmin.auth.pocketbase :as pocketbase]
    [agiladmin.pocketbase-process :as pocketbase-process]
    [agiladmin.config :as conf]
@@ -32,6 +33,29 @@
       (f/fail (str "Authentication backend health check failed: "
                    (.getMessage ex))))))
 
+(defn- configured-auth-backend
+  [config]
+  (let [auth-conf (get-in config [:agiladmin :auth])
+        backend (:backend auth-conf)]
+    (cond
+      (= backend "pocketbase")
+      [:pocketbase (:pocketbase auth-conf)]
+
+      (= backend "pocket-id")
+      [:pocket-id (:pocket-id auth-conf)]
+
+      (= backend "dev")
+      [:dev nil]
+
+      (:pocketbase auth-conf)
+      [:pocketbase (:pocketbase auth-conf)]
+
+      (:pocket-id auth-conf)
+      [:pocket-id (:pocket-id auth-conf)]
+
+      :else
+      [nil nil])))
+
 (defn init []
   (log/merge-config! {:level :debug
                       ;; #{:trace :debug :info :warn :error :fatal :report}
@@ -59,13 +83,27 @@
 
   (trans/init "resources/lang/agiladmin-en.yml")
 
-  (let [auth-enabled?
-        (if-let [pocketbase-conf (get-in @config [:agiladmin :pocketbase])]
+  (let [[configured-backend backend-config] (configured-auth-backend @config)
+        auth-enabled?
+        (case configured-backend
+          :pocketbase
           (do
-            (when (:manage-process pocketbase-conf)
-              (pocketbase-process/start! pocketbase-conf))
-            (auth-core/init! (pocketbase/backend pocketbase-conf))
+            (when (:manage-process backend-config)
+              (pocketbase-process/start! backend-config))
+            (auth-core/init! (pocketbase/backend backend-config))
             true)
+
+          :pocket-id
+          (do
+            (auth-core/init! (pocket-id/backend backend-config))
+            true)
+
+          :dev
+          (do
+            (auth-core/init! (dev-auth/backend))
+            (log/warn "Starting with development auth backend enabled.")
+            true)
+
           (if (dev-auth-enabled?)
             (do
               (auth-core/init! (dev-auth/backend))
@@ -73,7 +111,7 @@
               true)
             (do
               (auth-core/init! nil)
-              (log/warn "Skipping auth initialization: missing :agiladmin :pocketbase")
+              (log/warn "Skipping auth initialization: missing :agiladmin :auth backend")
               false)))
         healthy? (when auth-enabled?
                    (auth-health-status))]

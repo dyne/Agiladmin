@@ -58,7 +58,7 @@ invalid mixed config,
 dev backend config.
 Done when: `conf/load-config` can unambiguously resolve the active auth backend and returns actionable validation errors.
 
-** WIP [#A] Define the Pocket ID config schema around OIDC, not ad hoc endpoints
+** DONE [#A] Define the Pocket ID config schema around OIDC, not ad hoc endpoints
 Why: Pocket ID is standards-based. Agiladmin should configure issuer/discovery data and client credentials, then derive endpoints from OIDC discovery instead of hardcoding URLs.
 Change: Add a minimal Pocket ID config schema such as:
 `issuer-url`
@@ -76,7 +76,7 @@ Avoid adding settings for Pocket ID user management unless Agiladmin truly needs
 Tests: Add schema validation coverage for required fields and reasonable defaults.
 Done when: The Pocket ID config is small, OIDC-native, and enough to bootstrap login without provider-specific hardcoding in views.
 
-** TODO [#A] Refactor startup wiring to select adapters through one place
+** WIP [#A] Refactor startup wiring to select adapters through one place
 Why: `src/agiladmin/ring.clj` currently knows too much about PocketBase process management and backend initialization. Adding Pocket ID there without cleanup will make startup logic fragile.
 Change: Add a small auth bootstrap decision point in `ring/init` that selects one backend from config and initializes `agiladmin.auth.core` with it. Keep PocketBase process management isolated to PocketBase only. Pocket ID should never share those code paths. Ensure health checks run only against the selected backend.
 Tests: Extend `test/agiladmin/ring_test.clj` to cover:
