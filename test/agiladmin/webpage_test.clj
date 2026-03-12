@@ -17,3 +17,36 @@
         html => (contains "value=\"2021\"")
         html => (contains "name=\"person\"")
         html => (contains "value=\"Denis Roio\"")))
+
+(fact "Authenticated navigation hides inaccessible links for generic users"
+      (let [html (:body (webpage/render {:email "user@example.org"
+                                         :name "User Name"
+                                         :role nil}
+                                        [:div "body"]))]
+        html => (contains "Personnel")
+        html => (contains "Upload")
+        html =not=> (contains "Projects")
+        html =not=> (contains "Reload")
+        html =not=> (contains "Configuration")))
+
+(fact "Authenticated navigation shows project access for managers only"
+      (let [html (:body (webpage/render {:email "manager@example.org"
+                                         :name "Manager User"
+                                         :role "manager"}
+                                        [:div "body"]))]
+        html => (contains "Personnel")
+        html => (contains "Projects")
+        html => (contains "Upload")
+        html =not=> (contains "Reload")
+        html =not=> (contains "Configuration")))
+
+(fact "Authenticated navigation shows admin-only links for admins"
+      (let [html (:body (webpage/render {:email "admin@example.org"
+                                         :name "Admin User"
+                                         :role "admin"}
+                                        [:div "body"]))]
+        html => (contains "Personnel")
+        html => (contains "Projects")
+        html => (contains "Upload")
+        html => (contains "Reload")
+        html => (contains "Configuration")))
