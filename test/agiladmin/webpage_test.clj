@@ -23,8 +23,10 @@
                                          :name "User Name"
                                          :role nil}
                                         [:div "body"]))]
-        html => (contains "Personnel")
-        html => (contains "Upload")
+        html => (contains "Logout")
+        html => (contains "href=\"/persons/list\"")
+        html =not=> (contains ">Personnel<")
+        html =not=> (contains "Upload")
         html =not=> (contains "Projects")
         html =not=> (contains "Reload")
         html =not=> (contains "Configuration")))
@@ -36,7 +38,8 @@
                                         [:div "body"]))]
         html => (contains "Personnel")
         html => (contains "Projects")
-        html => (contains "Upload")
+        html => (contains "Logout")
+        html =not=> (contains "Upload")
         html =not=> (contains "Reload")
         html =not=> (contains "Configuration")))
 
@@ -47,6 +50,7 @@
                                         [:div "body"]))]
         html => (contains "Personnel")
         html => (contains "Projects")
-        html => (contains "Upload")
+        html => (contains "Logout")
+        html =not=> (contains "Upload")
         html => (contains "Reload")
         html => (contains "Configuration")))

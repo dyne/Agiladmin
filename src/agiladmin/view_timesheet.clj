@@ -39,6 +39,27 @@
   [body]
   [:div {:id workspace-id :class "space-y-6"} body])
 
+(defn upload-card
+  []
+  [:div {:class "card mx-auto max-w-3xl bg-base-100 shadow-xl"}
+   [:div {:class "card-body gap-4"}
+    [:h1 {:class "card-title text-3xl"} "Upload a new timesheet"]
+    [:p "Choose the file in your computer and click 'Submit' to proceed to validation."]
+    [:form {:action "/timesheets/upload"
+            :method "post"
+            :class "space-y-4"
+            :enctype "multipart/form-data"
+            :hx-post "/timesheets/upload"
+            :hx-target (str "#" workspace-id)
+            :hx-swap "outerHTML"
+            :hx-encoding "multipart/form-data"}
+     [:input {:name "file"
+              :type "file"
+              :class "file-input file-input-bordered w-full"}]
+     [:input {:class "btn btn-primary btn-lg"
+              :id "field-submit" :type "submit"
+              :name "submit" :value "submit"}]]]])
+
 (defn- render-workspace
   [request account body]
   (let [fragment (workspace body)]
@@ -88,24 +109,7 @@ window.onload = dodiff;\n")]]])
 
 (def upload-form
   (workspace
-   [:div {:class "card mx-auto max-w-3xl bg-base-100 shadow-xl"}
-    [:div {:class "card-body gap-4"}
-     [:h1 {:class "card-title text-3xl"} "Upload a new timesheet"]
-     [:p "Choose the file in your computer and click 'Submit' to proceed to validation."]
-     [:form {:action "/timesheets/upload"
-             :method "post"
-             :class "space-y-4"
-             :enctype "multipart/form-data"
-             :hx-post "/timesheets/upload"
-             :hx-target (str "#" workspace-id)
-             :hx-swap "outerHTML"
-             :hx-encoding "multipart/form-data"}
-      [:input {:name "file"
-               :type "file"
-               :class "file-input file-input-bordered w-full"}]
-      [:input {:class "btn btn-primary btn-lg"
-               :id "field-submit" :type "submit"
-               :name "submit" :value "submit"}]]]]))
+   (upload-card)))
 
 (defn cancel [request config account]
   (f/if-let-ok? [tempfile (s/param request :tempfile)]
