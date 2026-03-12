@@ -240,7 +240,10 @@ gantt.parse(tasks);
           :content [:div {:class "space-y-3"}
                     [:h2 "Detail of monthly hours used per person on each task"]
                     [:div {:class "overflow-x-auto"}
-                     (-> project-hours (sort :month :desc) to-table)]]}])]])
+                     (-> project-hours
+                         (tab/select-cols [:month :name :task :hours])
+                         (sort :month :desc)
+                         to-table)]]}])]])
    (f/when-failed [e]
      (web/render account (web/render-error (f/message e))))))
 
