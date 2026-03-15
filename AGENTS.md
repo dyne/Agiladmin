@@ -5,7 +5,7 @@
 - The app reads monthly `.xlsx` timesheets, loads project definitions from YAML files in a separate budgets repository, derives hours and costs, and renders HTML reports.
 - The storage model is mixed:
   - project metadata and uploaded spreadsheets live in a Git-backed budgets directory;
-  - authentication uses MongoDB via `just-auth`.
+  - authentication goes through an auth boundary, with PocketBase currently implemented and a dev-only fallback for local testing.
 
 ## Stack
 - Language: Clojure 1.12.4
@@ -13,7 +13,7 @@
 - Web: Ring + Compojure
 - HTML: Hiccup-style vectors rendered by view namespaces
 - Data processing: Incanter datasets, Docjure/Apache POI for Excel, YAML parsing via `yaml.core`
-- Auth: `just-auth`
+- Auth: PocketBase via `src/agiladmin/auth/core.clj`, plus a development auth backend
 - Git integration: `clj-jgit`
 
 ## Entry Points
@@ -54,9 +54,17 @@
 - The app expects access to:
   - a writable budgets Git repository;
   - an SSH private key path from config, generating one if missing;
-  - MongoDB for auth initialization.
+  - a reachable PocketBase instance for real auth flows, unless `AGILADMIN_DEV_AUTH=1` is enabled.
 - Timesheet upload and commit logic assumes a Unix-style temp path `/tmp/...` in `src/agiladmin/view_timesheet.clj`. That is a portability risk on Windows.
 - Session cookie configuration depends on `@ring/config`; changes to init order can break middleware setup.
+
+## Current Role Logic
+- Accounts are normalized from the auth backend response in `src/agiladmin/session.clj`.
+- Supported roles are `admin`, `manager`, or empty / nil.
+- `admin` can access the personnel list, project area, reload page, configuration page, and project editing.
+- `manager` can access the project area, but `/persons/list` resolves to that manager's own person page instead of the global personnel list.
+- Empty-role or regular accounts are limited to their own person page.
+- The authenticated home target is `/persons/list`; route dispatch decides whether that becomes the personnel list or a single person view.
 
 ## Developer Workflow
 - Likely local start command: `clj -M:run`
@@ -75,7 +83,8 @@
 - Covered areas:
   - config parsing and schema validation
   - spreadsheet ingestion and cost derivation
-  - utility functions
+  - auth backends and session behavior
+  - selected route and view behavior
   - minimal `ring/init` smoke test
 - Not well covered:
   - HTTP route behavior
@@ -101,6 +110,7 @@
 
 ## Guidance For Future Agents
 - Read the relevant view namespace plus `core.clj` before changing behavior. Many screens are thin wrappers around shared dataset logic.
+- Keep root navigation and navbar home links aligned with the `/persons/list` landing behavior for authenticated users.
 - When changing spreadsheet parsing, validate against `test/assets/2016_timesheet_Luca-Pacioli.xlsx` and the expectations in `test/agiladmin/timesheet_test.clj`.
 - When changing config handling, verify both global config loading and per-project YAML loading.
 - Be conservative around `view_timesheet/commit`; it mutates the budgets repo and pushes over SSH.

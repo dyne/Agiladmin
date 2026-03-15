@@ -230,9 +230,7 @@
 
 (defn- account-home-href
   [account]
-  (if (project-access? account)
-    "/"
-    "/persons/list"))
+  "/persons/list")
 
 (defn- theme-toggle
   []

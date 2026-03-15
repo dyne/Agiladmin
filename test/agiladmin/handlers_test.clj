@@ -30,6 +30,27 @@
         (:status response) => 302
         (get-in response [:headers "Location"]) => "/login"))
 
+(fact "Root route redirects authenticated users to the logged-in landing page"
+      (let [response (handlers/app-routes
+                      (assoc (mock/request :get "/")
+                             :session user-session))]
+        (:status response) => 302
+        (get-in response [:headers "Location"]) => "/persons/list"))
+
+(fact "Root route redirects managers to the logged-in landing page"
+      (let [response (handlers/app-routes
+                      (assoc (mock/request :get "/")
+                             :session manager-session))]
+        (:status response) => 302
+        (get-in response [:headers "Location"]) => "/persons/list"))
+
+(fact "Root route redirects admins to the personnel landing page"
+      (let [response (handlers/app-routes
+                      (assoc (mock/request :get "/")
+                             :session admin-session))]
+        (:status response) => 302
+        (get-in response [:headers "Location"]) => "/persons/list"))
+
 (fact "Protected timesheet route falls back to the login form for guests"
       (let [response (handlers/app-routes (mock/request :get "/timesheets"))]
         (:status response) => 200

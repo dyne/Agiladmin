@@ -56,9 +56,13 @@
 (defroutes app-routes
 
   (GET "/" request
-       {:status 302
-        :headers {"Location" "/login"}
-        :body ""})
+       (if (get-in request [:session :auth])
+         {:status 302
+          :headers {"Location" "/persons/list"}
+          :body ""}
+         {:status 302
+          :headers {"Location" "/login"}
+          :body ""}))
 
   (GET "/projects/list" request
        (->> (fn [req conf acct]
