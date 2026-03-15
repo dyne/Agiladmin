@@ -14,14 +14,14 @@ backend is available for local manual testing.
 ## Current State
 
 - Runtime: Ring + Compojure on Jetty
-- Data processing: Incanter datasets, Docjure / Apache POI, YAML files
+- Data processing: core.matrix, Docjure / Apache POI, YAML files
 - Storage model:
   - project metadata and uploaded spreadsheets live in a Git-managed budgets directory
   - authentication is handled through a backend abstraction, with PocketBase currently implemented
 - Build: Clojure CLI with `deps.edn`
 - Tests: Midje
 
-The app is old and fairly stateful. Startup performs real side effects:
+The app is well tested and fairly stateful. Startup performs real side effects:
 
 - configuration is loaded from YAML
 - an SSH keypair is generated if the configured private key does not exist
@@ -29,8 +29,8 @@ The app is old and fairly stateful. Startup performs real side effects:
 
 ## Requirements
 
-- Java and the Clojure CLI
-- a writable budgets Git checkout or clone target
+- Java (JRE) and the Clojure CLI
+- a writable budgets Git checkout or clone target in `budgets/`
 - a valid `agiladmin.yaml` configuration file, or an explicit config path via `AGILADMIN_CONF`
 - for real auth flows: a reachable PocketBase instance
 
@@ -56,12 +56,9 @@ This sets `AGILADMIN_DEV_AUTH=1` and enables a simple in-memory development auth
 
 Use these credentials:
 
-- username: `admin`
-- password: `admin`
-- username: `manager`
-- password: `manager`
-- username: `guest`
-- password: `guest`
+- `admin:admin`
+- `manager:manager`
+- `guest:guest`
 
 The dev auth backend only supports sign-in. Sign-up and pending-user flows are intentionally disabled there.
 
