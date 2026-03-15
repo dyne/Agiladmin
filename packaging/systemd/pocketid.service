@@ -6,9 +6,9 @@ After=network.target
 Type=simple
 User=pocketid
 Group=pocketid
-WorkingDirectory=/opt/pocket-id
-ExecStart=/opt/pocket-id/pocket-id
-EnvironmentFile=/opt/pocket-id/.env
+WorkingDirectory=/home/pocketid
+ExecStart=/usr/local/bin/pocket-id
+EnvironmentFile=/home/pocketid/.env
 
 Restart=always
 RestartSec=10
