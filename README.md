@@ -87,6 +87,13 @@ Agiladmin expects the PocketBase `users` auth collection to have a `role` select
 
 Role-based features are enabled from the PocketBase user record returned at login. If a user role changes in PocketBase, they need to log out and log back in before Agiladmin sees the change.
 
+Current role logic:
+
+- `admin`: can reach the personnel list, project views, reload, configuration, and project editing
+- `manager`: can reach project views and is routed to their own personnel page when opening the personnel landing
+- empty role or regular user: is limited to their own personnel page
+- the shared home entry point for authenticated users is `/persons/list`; that route sends admins to the personnel list and everyone else to their own person view
+
 Initialize the users collection field on a fresh PocketBase instance with:
 
 ```sh
