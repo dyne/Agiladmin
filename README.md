@@ -101,6 +101,8 @@ If `agiladmin.pocketbase.manage-process` is `true`, Agiladmin starts PocketBase 
 
 PocketBase HTTP calls use bounded timeouts by default so startup does not hang forever if the service is unreachable. Override them with `agiladmin.pocketbase.connect-timeout-ms` and `agiladmin.pocketbase.socket-timeout-ms` if needed.
 
+Packaging and systemd deployment notes live in [packaging/README.md](/home/jrml/devel/agiladmin/packaging/README.md).
+
 ## Testing
 
 Run the test suite with:

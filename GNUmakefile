@@ -20,7 +20,7 @@ help:
 	  '  make dev    Start with request-time code reload enabled' \
 	  '  make run-pocketbase CONF=doc/agiladmin.pocketbase.yaml  Start with a PocketBase config' \
 	  '  make build  Build the standalone uberjar' \
-	  '  make install  Install the jar, docs, examples, and systemd unit' \
+	  '  make install  Install the jar, docs, examples, and systemd units' \
 	  '  make clean  Remove build outputs'
 
 test:
@@ -64,17 +64,26 @@ install: build
 	install -m 0644 LICENSE.txt "$(DESTDIR)$(APP_HOME)/doc/LICENSE.txt"
 	install -m 0644 doc/agiladmin.pocketbase.yaml "$(DESTDIR)$(APP_HOME)/etc/agiladmin.yaml"
 	install -m 0644 doc/agiladmin.pocketbase.yaml "$(DESTDIR)$(APP_HOME)/etc/agiladmin.yaml.example"
+	install -m 0644 packaging/systemd/pocketbase.env.example "$(DESTDIR)$(APP_HOME)/etc/pocketbase.env.example"
 	install -m 0644 pb_migrations/*.js "$(DESTDIR)$(POCKETBASE_MIGRATIONS_DIR)/"
 	sed \
 		-e 's|@APP_HOME@|$(APP_HOME)|g' \
 		-e 's|@APP_NAME@|$(APP_NAME)|g' \
 		-e 's|@AGILADMIN_VERSION@|$(AGILADMIN_VERSION)|g' \
-		packaging/systemd/agiladmin.service.in > "$(DESTDIR)$(SYSTEMD_UNIT_DIR)/agiladmin.service"
-	chmod 0644 "$(DESTDIR)$(SYSTEMD_UNIT_DIR)/agiladmin.service"
+		packaging/systemd/agiladmin.service.in > "$(DESTDIR)$(SYSTEMD_UNIT_DIR)/$(APP_NAME).service"
+	chmod 0644 "$(DESTDIR)$(SYSTEMD_UNIT_DIR)/$(APP_NAME).service"
+	sed \
+		-e 's|@APP_HOME@|$(APP_HOME)|g' \
+		-e 's|@APP_NAME@|$(APP_NAME)|g' \
+		-e 's|@AGILADMIN_VERSION@|$(AGILADMIN_VERSION)|g' \
+		packaging/systemd/pocketbase.service.in > "$(DESTDIR)$(SYSTEMD_UNIT_DIR)/$(APP_NAME)-pocketbase.service"
+	chmod 0644 "$(DESTDIR)$(SYSTEMD_UNIT_DIR)/$(APP_NAME)-pocketbase.service"
 	@printf '%s\n' \
 	  "Installed $(APP_NAME) under $(DESTDIR)$(APP_HOME)" \
-	  "Systemd unit: $(DESTDIR)$(SYSTEMD_UNIT_DIR)/agiladmin.service" \
-	  "To enable on the target host: systemctl enable --now agiladmin.service"
+	  "Systemd unit: $(DESTDIR)$(SYSTEMD_UNIT_DIR)/$(APP_NAME).service" \
+	  "Systemd unit: $(DESTDIR)$(SYSTEMD_UNIT_DIR)/$(APP_NAME)-pocketbase.service" \
+	  "PocketBase env example: $(DESTDIR)$(APP_HOME)/etc/pocketbase.env.example" \
+	  "To enable on the target host: systemctl enable --now $(APP_NAME)-pocketbase.service $(APP_NAME).service"
 
 clean:
 	$(CLOJURE) -T:build clean

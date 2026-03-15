@@ -1,0 +1,27 @@
+[Unit]
+Description=PocketBase for @APP_NAME@
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=@APP_NAME@
+Group=@APP_NAME@
+WorkingDirectory=@APP_HOME@
+Environment=POCKETBASE_BIN=@APP_HOME@/bin/pocketbase
+Environment=POCKETBASE_DIR=@APP_HOME@/var/pocketbase
+Environment=POCKETBASE_HTTP=127.0.0.1:8090
+Environment=POCKETBASE_MIGRATIONS_DIR=@APP_HOME@/pocketbase/migrations
+EnvironmentFile=-@APP_HOME@/etc/pocketbase.env
+ExecStart=/bin/sh -lc 'exec "$POCKETBASE_BIN" serve --http "$POCKETBASE_HTTP" --dir "$POCKETBASE_DIR" ${POCKETBASE_MIGRATIONS_DIR:+--migrationsDir "$POCKETBASE_MIGRATIONS_DIR"}'
+Restart=always
+RestartSec=5s
+LimitNOFILE=4096
+SyslogIdentifier=@APP_NAME@-pocketbase
+RuntimeDirectory=@APP_NAME@-pocketbase
+RuntimeDirectoryMode=0755
+StateDirectory=@APP_NAME@-pocketbase
+StateDirectoryMode=0755
+
+[Install]
+WantedBy=multi-user.target
