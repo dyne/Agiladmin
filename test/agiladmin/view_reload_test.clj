@@ -1,5 +1,6 @@
 (ns agiladmin.view-reload-test
-  (:require [agiladmin.view-reload :as view-reload]
+  (:require [clojure.string :as str]
+            [agiladmin.view-reload :as view-reload]
             [midje.sweet :refer :all]))
 
 (fact "Reload page explains missing budgets git configuration"
@@ -24,6 +25,69 @@
                                                :ssh-key "id_rsa"}}}
                         {:email "admin"})]
           (:body response) => (contains "Budgets path exists but is not a git repository yet: budgets/"))))
+
+(fact "Reload page clones the budgets repository when the path is missing"
+      (let [clone-calls (atom [])]
+        (with-redefs [clojure.java.io/file
+                      (fn [path]
+                        (proxy [java.io.File] [path]
+                          (isDirectory [] false)
+                          (exists [] (str/ends-with? path ".pub"))))
+                      agiladmin.view-reload/safe-load-repo
+                      (fn [_] :repo)
+                      clj-jgit.porcelain/with-identity
+                      (fn [_ thunk]
+                        (thunk))
+                      clj-jgit.porcelain/git-clone
+                      (fn [uri path]
+                        (swap! clone-calls conj [uri path])
+                        :cloned)
+                      clj-jgit.porcelain/git-status
+                      (fn [_] {:clean true})
+                      agiladmin.webpage/render-git-log
+                      (fn [_] [:div "log"])]
+          (let [response (view-reload/start
+                          {}
+                          {:agiladmin {:budgets {:path "budgets/"
+                                                 :git "git@example.org:repo.git"
+                                                 :ssh-key "id_rsa"}}}
+                          {:email "admin"})]
+            @clone-calls => [["git@example.org:repo.git" "budgets/"]]
+            (:body response) => (contains "Cloned successfully from git@example.org:repo.git")))))
+
+(fact "Reload page clones the budgets repository when the directory is empty"
+      (let [clone-calls (atom [])
+            repo-calls (atom 0)]
+        (with-redefs [clojure.java.io/file
+                      (fn [path]
+                        (proxy [java.io.File] [path]
+                          (isDirectory [] (not (str/ends-with? path ".pub")))
+                          (exists [] true)
+                          (listFiles [] (into-array java.io.File []))))
+                      clj-jgit.porcelain/with-identity
+                      (fn [_ thunk]
+                        (thunk))
+                      clj-jgit.porcelain/git-clone
+                      (fn [uri path]
+                        (swap! clone-calls conj [uri path])
+                        :cloned)
+                      clj-jgit.porcelain/git-status
+                      (fn [_] {:clean true})
+                      agiladmin.webpage/render-git-log
+                      (fn [_] [:div "log"])
+                      agiladmin.view-reload/safe-load-repo
+                      (fn [_]
+                        (swap! repo-calls inc)
+                        (when (> @repo-calls 1)
+                          :repo))]
+          (let [response (view-reload/start
+                          {}
+                          {:agiladmin {:budgets {:path "budgets/"
+                                                 :git "git@example.org:repo.git"
+                                                 :ssh-key "id_rsa"}}}
+                          {:email "admin"})]
+            @clone-calls => [["git@example.org:repo.git" "budgets/"]]
+            (:body response) => (contains "Cloned successfully from git@example.org:repo.git")))))
 
 (fact "Reload page renders an error when git pull fails"
       (with-redefs [clojure.java.io/file

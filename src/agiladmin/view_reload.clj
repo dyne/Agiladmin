@@ -23,8 +23,7 @@
    [agiladmin.webpage :as web]
    [agiladmin.config :as conf]
    [taoensso.timbre :as log]
-   [clj-jgit.porcelain :as git
-    :refer [with-identity load-repo git-clone git-pull]]))
+   [clj-jgit.porcelain :as git]))
 
 (defn- render-reload-message
   [account message]
@@ -53,11 +52,27 @@
       (log/error [:p "Error in git/load-repo: " ex])
       nil)))
 
-(defn- render-repo-state
-  [account repo]
+(defn- empty-directory?
+  [^java.io.File path]
+  (when (.isDirectory path)
+    (let [entries (.listFiles path)]
+      (or (nil? entries)
+          (zero? (alength entries))))))
+
+(defn- clone-budgets!
+  [budgets]
+  (git/with-identity {:name (:ssh-key budgets)
+                      :passphrase ""
+                      :exclusive true}
+    (git/git-clone (:git budgets) (:path budgets))))
+
+(defn- render-repo-state-with-message
+  [account repo message]
   (web/render
    account
    [:div {:class "space-y-6"}
+    [:div {:class "alert alert-success shadow-sm"}
+     message]
     [:div [:h1 {:class "text-3xl font-semibold"} "Git status"]
      (web/render-yaml (git/git-status repo))]
     [:div [:h1 {:class "text-3xl font-semibold"} "Log (last 20 changes)"]
@@ -66,51 +81,72 @@
 (defn start [request config account]
   (let [budgets (conf/q config [:agiladmin :budgets])
         keypath (:ssh-key budgets)
-        path (io/file (:path budgets))]
+        path (io/file (:path budgets))
+        repo (when (and (.exists path)
+                        (.isDirectory path))
+               (safe-load-repo (:path budgets)))]
     (cond
       (not (git-ready? budgets))
       (render-reload-message
        account
        "Reload is unavailable until :agiladmin :budgets has git, path, and ssh-key configured.")
 
-      (.isDirectory path)
-      ;; the directory exists (we assume also is a correct
-      ;; one) TODO: analyse contents of path, detect git
-      ;; repo and correct agiladmin environment, detect
-      ;; errors and report them
-      (if-let [repo (safe-load-repo (:path budgets))]
-        (do
-          (log/info
-           (str "Path is a directory, trying to pull in: "
-                (:path budgets)))
-          (try
-            (let [pull-result
-                  (git/with-identity {:name (:ssh-key budgets)
-                                      :passphrase ""
-                                      :exclusive true}
-                    (git/git-pull repo))]
-              (web/render
-               account
-               [:div {:class "space-y-6"}
-                (when (= (type pull-result) org.eclipse.jgit.api.PullResult)
-                  [:div {:class "alert alert-success shadow-sm"}
-                   (str "Reloaded successfully from " (:git budgets))])
-                [:div [:h1 {:class "text-3xl font-semibold"} "Git status"]
-                 (web/render-yaml (git/git-status repo))]
-                [:div [:h1 {:class "text-3xl font-semibold"} "Log (last 20 changes)"]
-                 (web/render-git-log repo)]]))
-            (catch Exception ex
-              (log/error
-               [:div
-                [:p (str "Error in git-pull: " (.getMessage ex))]
-                [:p (-> ex Throwable->map :cause)]])
-              (render-reload-error
-               account
-               (str "Error in git-pull: " (.getMessage ex))))))
+      repo
+      (let [repo repo]
+        (log/info
+         (str "Path is a directory, trying to pull in: "
+              (:path budgets)))
+        (try
+          (let [pull-result
+                (git/with-identity {:name (:ssh-key budgets)
+                                    :passphrase ""
+                                    :exclusive true}
+                  (git/git-pull repo))]
+            (render-repo-state-with-message
+             account
+             repo
+             (if (= (type pull-result) org.eclipse.jgit.api.PullResult)
+               (str "Reloaded successfully from " (:git budgets))
+               "Reload completed.")))
+          (catch Exception ex
+            (log/error
+             [:div
+              [:p (str "Error in git-pull: " (.getMessage ex))]
+              [:p (-> ex Throwable->map :cause)]])
+            (render-reload-error
+             account
+             (str "Error in git-pull: " (.getMessage ex))))))
+
+      (and (.exists path)
+           (.isDirectory path)
+           (not repo)
+           (not (empty-directory? path)))
+      (render-reload-message
+       account
+       (str "Budgets path exists but is not a git repository yet: " (:path budgets)))
+
+      (or (not (.exists path))
+          (and (.isDirectory path)
+               (empty-directory? path)))
+      (if (.exists (io/file (str keypath ".pub")))
+        (try
+          (clone-budgets! budgets)
+          (if-let [repo (safe-load-repo (:path budgets))]
+            (render-repo-state-with-message
+             account
+             repo
+             (str "Cloned successfully from " (:git budgets)))
+            (render-reload-message
+             account
+             (str "No budgets repository is available yet at " (:path budgets))))
+          (catch Exception ex
+            (render-reload-error
+             account
+             (str "Error cloning git repo: " (.getMessage ex)))))
         (render-reload-message
          account
-         (str "Budgets path exists but is not a git repository yet: " (:path budgets))))
-
+         (str "No budgets repository is available yet. Generate or configure SSH keys first: "
+              keypath ".pub")))
 
       (.exists path)
       ;; exists but is not a directory
@@ -121,33 +157,8 @@
           (str "Invalid budgets directory: " (:path budgets))))
 
       :else
-      ;; doesn't exists at all
-      (if (.exists (io/file (str keypath ".pub")))
-        (let [clone-result
-              (git/with-identity {:name keypath
-                                  :passphrase ""
-                                  :exclusive true}
-                                 (try (git/git-clone (:path budgets) "budgets")
-                                      (catch Exception ex
-                                        (web/render-error
-                                         (log/spy :error
-                                                  [:p "Error cloning git repo" ex
-                                                   "Add your public key to the repository to access it:"
-                                                   (-> (str keypath ".pub") slurp str)])))))]
-          (web/render
-           account
-           [:div {:class "space-y-6"}
-            clone-result
-            (if-let [repo (safe-load-repo (:path budgets))]
-              [:div
-               [:div [:h1 {:class "text-3xl font-semibold"} "Git status"]
-                (web/render-yaml (git/git-status repo))]
-               [:div [:h1 {:class "text-3xl font-semibold"} "Log (last 20 changes)"] (web/render-git-log repo)]]
-              [:div {:class "alert alert-info shadow-sm"}
-               (str "No budgets repository is available yet at " (:path budgets))])]))
-        (render-reload-message
-         account
-         (str "No budgets repository is available yet. Generate or configure SSH keys first: "
-              keypath ".pub")))
+      (render-reload-error
+       account
+       (str "Unsupported budgets directory state: " (:path budgets)))
       ;; end of POST /reload
       )))
