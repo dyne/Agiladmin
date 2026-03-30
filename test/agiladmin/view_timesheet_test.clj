@@ -105,12 +105,16 @@
           (:body response) => (contains "Where is this file gone?! /tmp/upload.xlsx"))))
 
 (fact "Timesheet submit archives the upload and renders the success page"
-      (let [calls (atom [])]
+      (let [calls (atom [])
+            invalidations (atom [])]
         (with-redefs [clojure.java.io/file
                       (fn [path]
                         (proxy [java.io.File] [path]
                           (exists [] true)
                           (isDirectory [] (= path "budgets/"))))
+                      agiladmin.core/invalidate-timesheet-cache!
+                      (fn [path]
+                        (swap! invalidations conj path))
                       agiladmin.view-timesheet/safe-load-repo
                       (fn [_] :gitrepo)
                       agiladmin.view-timesheet/archive-timesheet!
@@ -137,6 +141,26 @@
                         "id_rsa"
                         {:name "Admin User"
                          :email "admin@example.org"}]]
+            @invalidations => ["budgets/"]
             (:body response) => (contains "Timesheet archived: upload.xlsx")
             (:body response) => (contains "Go back to Upload User")
             (:body response) => (contains "git log")))))
+
+(fact "Timesheet submit does not invalidate the cache on repository errors"
+      (let [invalidations (atom [])]
+        (with-redefs [clojure.java.io/file
+                      (fn [path]
+                        (proxy [java.io.File] [path]
+                          (exists [] true)
+                          (isDirectory [] true)))
+                      agiladmin.core/invalidate-timesheet-cache!
+                      (fn [path]
+                        (swap! invalidations conj path))
+                      agiladmin.view-timesheet/safe-load-repo
+                      (fn [_] nil)]
+          (let [response (view-timesheet/commit
+                          {:params {:path "/tmp/upload.xlsx"}}
+                          {:agiladmin {:budgets {:path "budgets/"}}}
+                          {:email "admin"})]
+            @invalidations => []
+            (:body response) => (contains "Timesheet submit is unavailable until the budgets directory is a git repository: budgets/")))))

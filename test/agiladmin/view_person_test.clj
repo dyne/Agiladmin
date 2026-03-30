@@ -6,7 +6,7 @@
 
 (fact "Admin personnel view renders a compact filterable persons list"
       (with-redefs [agiladmin.utils/now (fn [] {:year 2026})
-                    agiladmin.utils/list-files-matching
+                    agiladmin.utils/list-direct-files-matching
                     (fn [_ _]
                       [(java.io.File. "2026_timesheet_Ada-Lovelace.xlsx")
                        (java.io.File. "2026_timesheet_Grace-Hopper.xlsx")])]
@@ -105,20 +105,17 @@
           (:body response) => "User Name:2026:user@example.org")))
 
 (fact "Manager personnel view omits cost output and yearly export controls"
-      (with-redefs [agiladmin.config/q (fn [_ _] "ignored/")
-                    agiladmin.utils/name-year-to-timesheet (fn [_ _] "ignored.xlsx")
-                    agiladmin.core/load-timesheet (fn [_]
-                                                   {:sheets [{:month "2026-1" :days 20}]})
-                    agiladmin.core/load-all-projects (fn [_]
-                                                      {:CORE {:idx {:TASK-1 {:text "Task one"}}}})
-                    agiladmin.core/map-timesheets
-                    (fn [& _]
-                      {:column-names [:month :project :task :tag :hours]
-                       :rows [{:month "2026-1"
-                               :project "CORE"
-                               :task "TASK-1"
-                               :tag ""
-                               :hours 12}]})]
+      (with-redefs [agiladmin.view-person/load-person-page-data
+                    (fn [_ _ _]
+                      {:ts-file "ignored.xlsx"
+                       :timesheet {:sheets [{:month "2026-1" :days 20}]}
+                       :projects {:CORE {:idx {:TASK-1 {:text "Task one"}}}}
+                       :hours {:column-names [:month :project :task :tag :hours]
+                               :rows [{:month "2026-1"
+                                       :project "CORE"
+                                       :task "TASK-1"
+                                       :tag ""
+                                       :hours 12}]}})]
         (let [response (view-person/list-person
                         {}
                         {:role "manager"
@@ -132,10 +129,8 @@
           (:body response) =not=> (contains "with 21% VAT added"))))
 
 (fact "Personnel view keeps the upload form visible when timesheet loading fails"
-      (with-redefs [agiladmin.config/q (fn [_ _] "ignored/")
-                    agiladmin.utils/name-year-to-timesheet (fn [_ _] "missing.xlsx")
-                    agiladmin.core/load-timesheet
-                    (fn [_]
+      (with-redefs [agiladmin.view-person/load-person-page-data
+                    (fn [_ _ _]
                       (failjure.core/fail "Missing timesheet"))]
         (let [response (view-person/list-person
                         {}
@@ -146,9 +141,64 @@
           (:body response) => (contains "Upload a new timesheet")
           (:body response) => (contains "Missing timesheet"))))
 
+(fact "Admin personnel view derives cost per hour once per request"
+      (let [cph-calls (atom 0)]
+        (with-redefs [agiladmin.view-person/load-person-page-data
+                      (fn [_ _ _]
+                        {:ts-file "ignored.xlsx"
+                         :timesheet {:sheets [{:month "2026-1" :days 20}
+                                              {:month "2026-2" :days 18}]}
+                         :projects {:CORE {:idx {:TASK-1 {:text "Task one"}}}}
+                         :hours {:column-names [:month :name :project :task :tag :hours]
+                                 :rows [{:month "2026-1"
+                                         :name "Admin User"
+                                         :project "CORE"
+                                         :task "TASK-1"
+                                         :tag ""
+                                         :hours 12}
+                                        {:month "2026-2"
+                                         :name "Admin User"
+                                         :project "CORE"
+                                         :task "TASK-1"
+                                         :tag ""
+                                         :hours 10}]}})
+                      agiladmin.core/derive-costs
+                      (fn [_ _ _]
+                        {:column-names [:month :name :project :task :tag :hours :cost]
+                         :rows [{:month "2026-1"
+                                 :name "Admin User"
+                                 :project "CORE"
+                                 :task "TASK-1"
+                                 :tag ""
+                                 :hours 12
+                                 :cost 1200}
+                                {:month "2026-2"
+                                 :name "Admin User"
+                                 :project "CORE"
+                                 :task "TASK-1"
+                                 :tag ""
+                                 :hours 10
+                                 :cost 1000}]})
+                      agiladmin.core/derive-cost-per-hour
+                      (fn [dataset _ _]
+                        (swap! cph-calls inc)
+                        (assoc dataset
+                               :column-names [:month :name :project :task :tag :hours :cost :cph]
+                               :rows (mapv #(assoc % :cph 100) (:rows dataset))))]
+          (let [response (view-person/list-person
+                          {}
+                          {:role "admin"
+                           :name "Admin User"}
+                          "Admin User"
+                          2026)]
+            @cph-calls => 1
+            (:body response) => (contains "Download yearly totals:")
+            (:body response) => (contains "2026-1")
+            (:body response) => (contains "2026-2")))))
+
 (fact "Admin personnel view ignores xlsx files that do not match the timesheet naming pattern"
       (with-redefs [agiladmin.utils/now (fn [] {:year 2026})
-                    agiladmin.utils/list-files-matching
+                    agiladmin.utils/list-direct-files-matching
                     (fn [_ _]
                       [(java.io.File. "2026_timesheet_User-Name.xlsx")
                        (java.io.File. "notes_timesheet_backup.xlsx")])
@@ -162,3 +212,16 @@
           (:body response) => (contains "Upload a new timesheet")
           (:body response) => (contains "User-Name")
           (:body response) =not=> (contains "notes_timesheet_backup"))))
+
+(fact "Admin personnel view collapses duplicate people discovered from timesheets"
+      (with-redefs [agiladmin.utils/now (fn [] {:year 2026})
+                    agiladmin.utils/list-direct-files-matching
+                    (fn [_ _]
+                      [(java.io.File. "2026_timesheet_Ada-Lovelace.xlsx")
+                       (java.io.File. "2025_timesheet_Ada-Lovelace.xlsx")])]
+        (let [response (view-person/list-all
+                        {}
+                        {:agiladmin {:budgets {:path "ignored/"}}}
+                        {:email "admin@example.org"
+                         :role "admin"})]
+          (count (re-seq #"data-text-filter-value=\"Ada-Lovelace\"" (:body response))) => 1)))

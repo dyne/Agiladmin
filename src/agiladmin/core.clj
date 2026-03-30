@@ -44,6 +44,9 @@
 ;; Memory-only project cache keyed by budgets path. Reload invalidates it when
 ;; the repo state changes, so no filesystem metadata or watcher is needed.
 (def project-cache (atom {}))
+;; Memory-only timesheet cache keyed by budgets path. Successful timesheet
+;; commits invalidate it after the repository adopts new workbook content.
+(def timesheet-cache (atom {}))
 
 (declare load-all-timesheets)
 (declare load-all-projects)
@@ -353,12 +356,25 @@
   ;;     wb))
 
   (defn load-all-timesheets
-    "load all timesheets in a directory matching a certain filename pattern"
+    "Load direct-child timesheets from a budgets directory, reusing an
+    in-memory cache until invalidate-timesheet-cache! is called for that path."
     [path regex]
-    (let [ts (util/list-files-matching path regex)]
-      (for [l (map #(.getName %) ts)]
-        (if (not= (first l) '\.)
-          (load-timesheet (str path l))))))
+    (let [cache-key path]
+      (if-let [cached-timesheets (get @timesheet-cache cache-key)]
+        cached-timesheets
+        (let [timesheets
+              (vec
+               (for [l (map #(.getName %) (util/list-direct-files-matching path regex))
+                     :when (not= (first l) '\.)]
+                 (load-timesheet (str path l))))]
+          (swap! timesheet-cache assoc cache-key timesheets)
+          timesheets))))
+
+(defn invalidate-timesheet-cache!
+  "Clear cached timesheets for one budgets path, or all paths with no arg."
+  ([] (reset! timesheet-cache {}))
+  ([path]
+   (swap! timesheet-cache dissoc path)))
 
 (defn- projects-cache-key
   [conf]

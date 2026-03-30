@@ -45,3 +45,13 @@
       (fact "dotted name"
             (dotname (timesheet-to-name "2017_timesheet_Luca-Pacioli.xlsx")) => "L.Pacioli")
       )
+
+(fact "Direct file discovery ignores nested entries and hidden files"
+      (let [base "/tmp/agiladmin-utils-direct"
+            nested (str base "/nested")
+            _ (.mkdirs (java.io.File. nested))
+            _ (spit (str base "/2026_timesheet_Ada-Lovelace.xlsx") "ok")
+            _ (spit (str base "/.2026_timesheet_Hidden.xlsx") "hidden")
+            _ (spit (str nested "/2026_timesheet_Grace-Hopper.xlsx") "nested")
+            files (list-direct-files-matching base #".*_timesheet_.*xlsx$")]
+        (map #(.getName %) files) => ["2026_timesheet_Ada-Lovelace.xlsx"]))

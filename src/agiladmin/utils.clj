@@ -82,6 +82,17 @@
             (map #(let [f (str/lower-case (.getName %))]
                     (if (re-find regex f) %)) files))))
 
+(defn list-direct-files-matching
+  "Return the direct child files of a directory whose names match a regexp.
+  Personnel and timesheet discovery use this on the budgets root only."
+  [directory regex]
+  (let [dir (io/file directory)
+        files (when (.isDirectory dir) (.listFiles dir))]
+    (->> files
+         (filter #(.isFile %))
+         (remove #(.startsWith (.getName %) "."))
+         (filter #(re-find regex (str/lower-case (.getName %)))))))
+
 (def regex-timesheet-to-name      (re-pattern "^\\d+_\\w+_(.*).xlsx$"))
 (def regex-budget-to-project-name (re-pattern "^.udget_(.*).xlsx$"))
 
@@ -139,4 +150,3 @@
      repo
      (qgit/find-rev-commit repo rev-walk "HEAD")
      path)))
-
