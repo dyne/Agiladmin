@@ -35,6 +35,10 @@
   (clean nil)
   (b/copy-dir {:src-dirs ["src" "resources"]
                :target-dir class-dir})
+  (b/compile-clj {:basis @basis
+                  :src-dirs ["src"]
+                  :class-dir class-dir
+                  :ns-compile ['agiladmin.main]})
   (b/uber {:class-dir class-dir
            :uber-file uber-file
            :basis @basis

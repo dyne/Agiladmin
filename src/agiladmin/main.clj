@@ -1,4 +1,5 @@
 (ns agiladmin.main
+  (:gen-class)
   (:require [agiladmin.handlers :as handlers]
             [agiladmin.ring :as ring]
             [ring.adapter.jetty :refer [run-jetty]]))
