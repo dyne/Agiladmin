@@ -1,10 +1,11 @@
 CLOJURE ?= clj
 AGILADMIN_VERSION ?= $(shell if [ -d .git ]; then v=$$(git describe --tags --match 'v[0-9]*.[0-9]*.[0-9]*' --abbrev=0 2>/dev/null | sed 's/^v//'); if [ -n "$$v" ]; then printf '%s' "$$v"; else printf '%s' DEV-SNAPSHOT; fi; else printf '%s' DEV-SNAPSHOT; fi)
-PREFIX ?= /usr/local
+PREFIX ?= /opt
 DESTDIR ?=
 APP_NAME ?= agiladmin
 APP_HOME ?= $(PREFIX)/$(APP_NAME)
-SYSTEMD_UNIT_DIR ?= $(PREFIX)/lib/systemd/system
+SYSTEMD_UNIT_DIR ?= /etc/systemd/system
+DEFAULT_INSTANCE ?= $(if $(AGILADMIN_INSTANCE),$(AGILADMIN_INSTANCE),main)
 POCKETBASE_APP_DIR ?= $(APP_HOME)/pocketbase
 POCKETBASE_MIGRATIONS_DIR ?= $(POCKETBASE_APP_DIR)/migrations
 JAR ?= target/$(AGILADMIN_VERSION)-standalone.jar
@@ -55,7 +56,8 @@ install: build
 	install -d "$(DESTDIR)$(APP_HOME)/lib" \
 		"$(DESTDIR)$(APP_HOME)/doc" \
 		"$(DESTDIR)$(APP_HOME)/etc" \
-		"$(DESTDIR)$(APP_HOME)/etc/main" \
+		"$(DESTDIR)$(APP_HOME)/$(DEFAULT_INSTANCE)" \
+		"$(DESTDIR)$(APP_HOME)/$(DEFAULT_INSTANCE)/etc" \
 		"$(DESTDIR)$(APP_HOME)/run" \
 		"$(DESTDIR)$(APP_HOME)/log" \
 		"$(DESTDIR)$(POCKETBASE_MIGRATIONS_DIR)" \
@@ -63,8 +65,16 @@ install: build
 	install -m 0644 "$(JAR)" "$(DESTDIR)$(APP_HOME)/lib/agiladmin.jar"
 	install -m 0644 README.md "$(DESTDIR)$(APP_HOME)/doc/README.md"
 	install -m 0644 LICENSE.txt "$(DESTDIR)$(APP_HOME)/doc/LICENSE.txt"
-	install -m 0644 doc/agiladmin.pocketbase.yaml "$(DESTDIR)$(APP_HOME)/etc/main/agiladmin.yaml"
-	install -m 0644 doc/agiladmin.pocketbase.yaml "$(DESTDIR)$(APP_HOME)/etc/main/agiladmin.yaml.example"
+	sed \
+		-e 's|@APP_HOME@|$(APP_HOME)|g' \
+		-e 's|@INSTANCE@|$(DEFAULT_INSTANCE)|g' \
+		doc/agiladmin.pocketbase.yaml.in > "$(DESTDIR)$(APP_HOME)/$(DEFAULT_INSTANCE)/etc/agiladmin.yaml"
+	chmod 0644 "$(DESTDIR)$(APP_HOME)/$(DEFAULT_INSTANCE)/etc/agiladmin.yaml"
+	sed \
+		-e 's|@APP_HOME@|$(APP_HOME)|g' \
+		-e 's|@INSTANCE@|$(DEFAULT_INSTANCE)|g' \
+		doc/agiladmin.pocketbase.yaml.in > "$(DESTDIR)$(APP_HOME)/$(DEFAULT_INSTANCE)/etc/agiladmin.yaml.example"
+	chmod 0644 "$(DESTDIR)$(APP_HOME)/$(DEFAULT_INSTANCE)/etc/agiladmin.yaml.example"
 	install -m 0644 packaging/systemd/pocketbase.env.example "$(DESTDIR)$(APP_HOME)/etc/pocketbase.env.example"
 	install -m 0644 pb_migrations/*.js "$(DESTDIR)$(POCKETBASE_MIGRATIONS_DIR)/"
 	sed \
@@ -83,8 +93,9 @@ install: build
 	  "Installed $(APP_NAME) under $(DESTDIR)$(APP_HOME)" \
 	  "Systemd unit: $(DESTDIR)$(SYSTEMD_UNIT_DIR)/$(APP_NAME)@.service" \
 	  "Systemd unit: $(DESTDIR)$(SYSTEMD_UNIT_DIR)/$(APP_NAME)-pocketbase.service" \
+	  "Default Agiladmin instance: $(DEFAULT_INSTANCE)" \
 	  "PocketBase env example: $(DESTDIR)$(APP_HOME)/etc/pocketbase.env.example" \
-	  "To enable on the target host: systemctl enable --now $(APP_NAME)-pocketbase.service $(APP_NAME)@main.service"
+	  "To enable on the target host: systemctl enable --now $(APP_NAME)-pocketbase.service $(APP_NAME)@$(DEFAULT_INSTANCE).service"
 
 clean:
 	$(CLOJURE) -T:build clean
