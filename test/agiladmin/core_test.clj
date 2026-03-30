@@ -138,3 +138,47 @@
                     :start_date "01-03-2026"
                     :duration 4
                     :pm 2}]}))
+
+(fact "Timesheet loads are cached per budgets path until invalidated"
+      (let [calls (atom 0)]
+        (core/invalidate-timesheet-cache!)
+        (with-redefs [agiladmin.utils/list-direct-files-matching
+                      (fn [_ _]
+                        [(java.io.File. "2026_timesheet_Ada-Lovelace.xlsx")])
+                      agiladmin.core/load-timesheet
+                      (fn [path]
+                        (swap! calls inc)
+                        {:file path})]
+          (core/load-all-timesheets "budgets/" #".*_timesheet_.*xlsx$")
+          (core/load-all-timesheets "budgets/" #".*_timesheet_.*xlsx$")
+          @calls => 1)))
+
+(fact "Timesheet caches are separated by budgets path"
+      (let [calls (atom [])]
+        (core/invalidate-timesheet-cache!)
+        (with-redefs [agiladmin.utils/list-direct-files-matching
+                      (fn [path _]
+                        [(java.io.File. (str path "2026_timesheet_User.xlsx"))])
+                      agiladmin.core/load-timesheet
+                      (fn [path]
+                        (swap! calls conj path)
+                        {:file path})]
+          (core/load-all-timesheets "budgets-a/" #".*_timesheet_.*xlsx$")
+          (core/load-all-timesheets "budgets-b/" #".*_timesheet_.*xlsx$")
+          @calls => ["budgets-a/2026_timesheet_User.xlsx"
+                     "budgets-b/2026_timesheet_User.xlsx"])))
+
+(fact "Timesheet cache invalidation forces a fresh reload"
+      (let [calls (atom 0)]
+        (core/invalidate-timesheet-cache!)
+        (with-redefs [agiladmin.utils/list-direct-files-matching
+                      (fn [_ _]
+                        [(java.io.File. "2026_timesheet_Ada-Lovelace.xlsx")])
+                      agiladmin.core/load-timesheet
+                      (fn [path]
+                        (swap! calls inc)
+                        {:file path})]
+          (core/load-all-timesheets "budgets/" #".*_timesheet_.*xlsx$")
+          (core/invalidate-timesheet-cache! "budgets/")
+          (core/load-all-timesheets "budgets/" #".*_timesheet_.*xlsx$")
+          @calls => 2)))

@@ -21,6 +21,7 @@
    [clojure.string :as str]
    [clojure.java.io :as io]
    [agiladmin.core :refer :all]
+   [agiladmin.core :as core]
    [agiladmin.tabular :as tab]
    [agiladmin.utils :as util]
    [agiladmin.graphics :refer :all]
@@ -244,6 +245,7 @@ window.onload = dodiff;\n")]]])
           (if-let [gitrepo (safe-load-repo repo)]
             (let [keypath (conf/q conf [:agiladmin :budgets :ssh-key])
                   base-path (archive-timesheet! gitrepo path dst keypath req)]
+              (core/invalidate-timesheet-cache! repo)
               (render-workspace
                req
                acct
