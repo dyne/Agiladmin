@@ -6,16 +6,17 @@ Wants=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=@APP_HOME@
-Environment=AGILADMIN_CONF=@APP_HOME@/etc/agiladmin.yaml
+Environment=AGILADMIN_INSTANCE=%i
+Environment=AGILADMIN_CONF=@APP_HOME@/etc/%i/agiladmin.yaml
 Environment=AGILADMIN_VERSION=@AGILADMIN_VERSION@
 Environment=JAVA_OPTS=
 ExecStart=/bin/sh -lc 'exec /usr/bin/java $$JAVA_OPTS -jar @APP_HOME@/lib/agiladmin.jar'
 Restart=on-failure
 RestartSec=5s
-SyslogIdentifier=@APP_NAME@
-RuntimeDirectory=@APP_NAME@
+SyslogIdentifier=@APP_NAME@-%i
+RuntimeDirectory=@APP_NAME@-%i
 RuntimeDirectoryMode=0755
-StateDirectory=@APP_NAME@
+StateDirectory=@APP_NAME@-%i
 StateDirectoryMode=0755
 
 [Install]
