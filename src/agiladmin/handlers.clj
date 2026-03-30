@@ -93,7 +93,12 @@
            (s/admin? account) (view-person/list-all request config account)
            ;; user is not an admin, redirect to own personnel page
            (not (s/admin? account))
-           (view-person/list-person config account (:name account) (:year (util/now)))
+           (if-let [person (:name account)]
+             (view-person/list-person config account person (:year (util/now)))
+             (web/render
+              account
+              [:div
+               (web/render-error "Authenticated account is missing :name.")]))
            :else
            (web/render [:div (web/render-error "Unauthorized access.")]))
          (f/when-failed [e]

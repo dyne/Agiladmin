@@ -46,10 +46,15 @@
         html =not=> (contains "Configuration")))
 
 (fact "Authenticated navigation shows admin-only links for admins"
-      (let [html (:body (webpage/render {:email "admin@example.org"
+      (let [links (#'agiladmin.webpage/account-nav-links
+                   {:email "admin@example.org"
+                    :name "Admin User"
+                    :role "admin"})
+            html (:body (webpage/render {:email "admin@example.org"
                                          :name "Admin User"
                                          :role "admin"}
                                         [:div "body"]))]
+        (count (filter #(= "/persons/list" (:href %)) links)) => 1
         html => (contains "Personnel")
         html => (contains "Projects")
         html => (contains "Logout")

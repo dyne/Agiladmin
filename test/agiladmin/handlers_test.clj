@@ -78,6 +78,17 @@
                         "User Name"
                         2026]]))))
 
+(fact "Personnel list route renders an error when a non-admin account is missing a name"
+      (with-redefs [agiladmin.ring/config (atom admin-config)]
+        (let [response (handlers/app-routes
+                        (assoc (mock/request :get "/persons/list")
+                               :session {:auth {:email "manager@example.org"
+                                                :role "manager"}}))]
+          (:status response) => 200
+          (:body response) => (contains "Authenticated account is missing :name.")
+          (:body response) => (contains "Logout")
+          (:body response) =not=> (contains "Login into Agiladmin"))))
+
 (fact "Personnel list route sends admins to the admin listing"
       (let [calls (atom [])]
         (with-redefs [agiladmin.ring/config (atom admin-config)

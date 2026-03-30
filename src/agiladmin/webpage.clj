@@ -222,8 +222,7 @@
           {:href "/projects/list" :icon :paper-airplane :label "Projects"})
 
     (admin-role? account)
-    (conj {:href "/persons/list" :icon :user-circle :label "Personnel"}
-          {:href "/reload" :icon :arrow-path :label "Reload"}
+    (conj {:href "/reload" :icon :arrow-path :label "Reload"}
           {:href "/config" :icon :document-text :label "Configuration"})
 
     true
