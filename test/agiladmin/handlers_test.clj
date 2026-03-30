@@ -8,20 +8,17 @@
   {:agiladmin {:budgets {:path "test/assets/"}}})
 
 (def user-session
-  {:config admin-config
-   :auth {:email "user@example.org"
+  {:auth {:email "user@example.org"
           :name "User Name"
           :role nil}})
 
 (def manager-session
-  {:config admin-config
-   :auth {:email "manager@example.org"
+  {:auth {:email "manager@example.org"
           :name "Manager User"
           :role "manager"}})
 
 (def admin-session
-  {:config admin-config
-   :auth {:email "admin@example.org"
+  {:auth {:email "admin@example.org"
           :name "Admin User"
           :role "admin"}})
 
@@ -63,7 +60,8 @@
 
 (fact "Personnel list route sends non-admin users to their own person page"
       (let [calls (atom [])]
-        (with-redefs [agiladmin.utils/now (fn [] {:year 2026})
+        (with-redefs [agiladmin.ring/config (atom admin-config)
+                      agiladmin.utils/now (fn [] {:year 2026})
                       agiladmin.view-person/list-person
                       (fn [config account person year]
                         (swap! calls conj [config account person year])
@@ -82,7 +80,8 @@
 
 (fact "Personnel list route sends admins to the admin listing"
       (let [calls (atom [])]
-        (with-redefs [agiladmin.view-person/list-all
+        (with-redefs [agiladmin.ring/config (atom admin-config)
+                      agiladmin.view-person/list-all
                       (fn [request config account]
                         (swap! calls conj [config account])
                         {:status 200 :body "all persons"})]
@@ -105,7 +104,8 @@
 
 (fact "Project list route allows managers"
       (let [calls (atom [])]
-        (with-redefs [agiladmin.view-project/list-all
+        (with-redefs [agiladmin.ring/config (atom admin-config)
+                      agiladmin.view-project/list-all
                       (fn [request config account]
                         (swap! calls conj [config account])
                         {:status 200 :body "projects"})]
@@ -129,7 +129,8 @@
 
 (fact "Project route allows managers"
       (let [calls (atom [])]
-        (with-redefs [agiladmin.view-project/start
+        (with-redefs [agiladmin.ring/config (atom admin-config)
+                      agiladmin.view-project/start
                       (fn [request config account]
                         (swap! calls conj [config account (get-in request [:params :project])])
                         {:status 200 :body "project"})]
@@ -154,7 +155,8 @@
 
 (fact "Personnel route forces non-admin users to their own person"
       (let [calls (atom [])]
-        (with-redefs [agiladmin.view-person/start
+        (with-redefs [agiladmin.ring/config (atom admin-config)
+                      agiladmin.view-person/start
                       (fn [request config account]
                         (swap! calls conj (get-in request [:params :person]))
                         {:status 200 :body "person"})]
@@ -220,7 +222,8 @@
 
 (fact "Timesheet upload route delegates to the upload view for authenticated users"
       (let [calls (atom [])]
-        (with-redefs [agiladmin.view-timesheet/upload
+        (with-redefs [agiladmin.ring/config (atom admin-config)
+                      agiladmin.view-timesheet/upload
                       (fn [request config account]
                         (swap! calls conj [config account])
                         {:status 200 :body "uploaded"})]
@@ -236,7 +239,8 @@
                          :role "admin"}]]))))
 
 (fact "Project route keeps the authenticated shell when project loading fails"
-      (with-redefs [agiladmin.config/load-project
+      (with-redefs [agiladmin.ring/config (atom admin-config)
+                    agiladmin.config/load-project
                     (fn [_ _]
                       (failjure.core/fail
                        "Project configuration file is missing, empty, or invalid YAML: budgets/CODE.yaml"))]
@@ -250,7 +254,8 @@
           (:body response) =not=> (contains "Login into Agiladmin"))))
 
 (fact "Timesheet download returns the spreadsheet file when present"
-      (with-redefs [clojure.java.io/as-file
+      (with-redefs [agiladmin.ring/config (atom admin-config)
+                    clojure.java.io/as-file
                     (fn [_]
                       (proxy [java.io.File] ["test/assets/2026_timesheet_User.xlsx"]
                         (exists [] true)))
@@ -265,7 +270,8 @@
           (:body response) => "test/assets/2026_timesheet_User.xlsx")))
 
 (fact "Timesheet download reports a missing spreadsheet"
-      (with-redefs [clojure.java.io/as-file
+      (with-redefs [agiladmin.ring/config (atom admin-config)
+                    clojure.java.io/as-file
                     (fn [_]
                       (proxy [java.io.File] ["missing.xlsx"]
                         (exists [] false)))]

@@ -23,10 +23,7 @@
    [agiladmin.webpage :as web]
    [agiladmin.session :as s]
    [agiladmin.ring :as ring]
-   [agiladmin.config :as conf]
    [failjure.core :as f]))
-
-(defonce config (conf/load-config "agiladmin" conf/default-settings))
 
 (defn- get-client-ip [req]
   (if-let [ips (get-in req [:headers "x-forwarded-for"])]
@@ -53,8 +50,7 @@
                  (f/fail "Parameter not found: :email"))
    password (s/param request :password)
     logged (auth/sign-in username password {:ip-address (get-client-ip request)})]
-   (let [session {:session {:config config
-                            :auth (s/normalize-role logged)}}
+   (let [session {:session {:auth (s/normalize-role logged)}}
          account (s/normalize-role logged)]
      (if (or (s/admin? account)
              (s/manager? account))
@@ -73,7 +69,7 @@
       (str "Login failed: " (f/message e))))))
 
 (defn logout-get [request]
-  (conj {:session {:config config}}
+  (conj {:session {}}
         (web/render [:h1 "Logged out."])))
 
 (defn signup-get [request]

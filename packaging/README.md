@@ -17,7 +17,7 @@ Default packaging paths:
 
 Expected runtime configuration files:
 
-- Agiladmin app config per instance: `@APP_HOME@/<instance>/etc/agiladmin.yaml`
+- Agiladmin app config per instance: `@APP_HOME@/<instance>/agiladmin.yaml`
 - optional PocketBase unit env file: `@APP_HOME@/etc/pocketbase.env`
 
 Programs started by the units:
@@ -56,13 +56,13 @@ The Agiladmin unit is a systemd template unit. `systemctl start <app-name>@<inst
 
 - `WorkingDirectory` to `@APP_HOME@/%i`
 - `AGILADMIN_HOME` to `@APP_HOME@/%i`
-- `AGILADMIN_CONF` to `@APP_HOME@/%i/etc/agiladmin.yaml`
+- `AGILADMIN_CONF` to `@APP_HOME@/%i/agiladmin.yaml`
 - `AGILADMIN_INSTANCE` to `%i`
 - runtime and state directories to `<app-name>-%i`
 
 That layout lets each instance keep its own config and data tree under `@APP_HOME@/%i/`, for example `etc/` plus any instance-specific budgets or uploaded files.
 
-Agiladmin reads the budgets directory from the instance config file, not from `%i` directly. To keep budgets under the instance tree, set `:agiladmin :budgets :path` in `@APP_HOME@/%i/etc/agiladmin.yaml` to an instance-local path such as `@APP_HOME@/%i/budgets/`.
+Agiladmin reads the budgets directory from the instance config file, not from `%i` directly. To keep budgets under the instance tree, set `:agiladmin :budgets :path` in `@APP_HOME@/%i/agiladmin.yaml` to an instance-local path such as `@APP_HOME@/%i/budgets/`.
 
 The top-level `make install` now renders the default instance config from a template, so the installed `agiladmin.yaml` uses the active `APP_HOME` and instance name instead of copying a static sample verbatim.
 

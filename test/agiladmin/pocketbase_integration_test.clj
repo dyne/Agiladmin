@@ -141,7 +141,7 @@
           (throw (ex-info "Expected second login to return role=admin."
                           {:user admin-user}))))
       (auth/init! (pocketbase/backend config))
-      (let [login-response (with-redefs [agiladmin.view-auth/config {:agiladmin {:pocketbase config}}]
+      (let [login-response (with-redefs [agiladmin.ring/config (atom {:agiladmin {:pocketbase config}})]
                              (view-auth/login-post {:params {:email email
                                                              :password password}
                                                     :remote-addr "127.0.0.1"}))]

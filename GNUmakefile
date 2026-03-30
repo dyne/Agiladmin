@@ -57,7 +57,6 @@ install: build
 		"$(DESTDIR)$(APP_HOME)/doc" \
 		"$(DESTDIR)$(APP_HOME)/etc" \
 		"$(DESTDIR)$(APP_HOME)/$(DEFAULT_INSTANCE)" \
-		"$(DESTDIR)$(APP_HOME)/$(DEFAULT_INSTANCE)/etc" \
 		"$(DESTDIR)$(APP_HOME)/run" \
 		"$(DESTDIR)$(APP_HOME)/log" \
 		"$(DESTDIR)$(POCKETBASE_MIGRATIONS_DIR)" \
@@ -68,13 +67,13 @@ install: build
 	sed \
 		-e 's|@APP_HOME@|$(APP_HOME)|g' \
 		-e 's|@INSTANCE@|$(DEFAULT_INSTANCE)|g' \
-		doc/agiladmin.pocketbase.yaml.in > "$(DESTDIR)$(APP_HOME)/$(DEFAULT_INSTANCE)/etc/agiladmin.yaml"
-	chmod 0644 "$(DESTDIR)$(APP_HOME)/$(DEFAULT_INSTANCE)/etc/agiladmin.yaml"
+		doc/agiladmin.pocketbase.yaml.in > "$(DESTDIR)$(APP_HOME)/$(DEFAULT_INSTANCE)/agiladmin.yaml"
+	chmod 0644 "$(DESTDIR)$(APP_HOME)/$(DEFAULT_INSTANCE)/agiladmin.yaml"
 	sed \
 		-e 's|@APP_HOME@|$(APP_HOME)|g' \
 		-e 's|@INSTANCE@|$(DEFAULT_INSTANCE)|g' \
-		doc/agiladmin.pocketbase.yaml.in > "$(DESTDIR)$(APP_HOME)/$(DEFAULT_INSTANCE)/etc/agiladmin.yaml.example"
-	chmod 0644 "$(DESTDIR)$(APP_HOME)/$(DEFAULT_INSTANCE)/etc/agiladmin.yaml.example"
+		doc/agiladmin.pocketbase.yaml.in > "$(DESTDIR)$(APP_HOME)/$(DEFAULT_INSTANCE)/agiladmin.yaml.example"
+	chmod 0644 "$(DESTDIR)$(APP_HOME)/$(DEFAULT_INSTANCE)/agiladmin.yaml.example"
 	install -m 0644 packaging/systemd/pocketbase.env.example "$(DESTDIR)$(APP_HOME)/etc/pocketbase.env.example"
 	install -m 0644 pb_migrations/*.js "$(DESTDIR)$(POCKETBASE_MIGRATIONS_DIR)/"
 	sed \

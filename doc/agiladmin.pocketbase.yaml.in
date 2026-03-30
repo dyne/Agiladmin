@@ -9,7 +9,7 @@ agiladmin:
 
   budgets:
     git: ssh://git@example.org/admin-budgets
-    ssh-key: @APP_HOME@/@INSTANCE@/etc/id_rsa
+    ssh-key: @APP_HOME@/@INSTANCE@/id_rsa
     path: @APP_HOME@/@INSTANCE@/budgets/
 
   source:

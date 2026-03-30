@@ -1,8 +1,7 @@
 (ns agiladmin.session
   (:refer-clojure :exclude [get])
   (:require
-   [agiladmin.config :as conf]
-   [taoensso.timbre :as log]
+   [agiladmin.ring :as ring]
    [failjure.core :as f]
    [agiladmin.webpage :as web]))
 
@@ -23,11 +22,8 @@
     (f/fail (str "Value not found in session: " (str arrk)))))
 
 (defn check-config [request]
-  ;; reload configuration from file all the time if in debug mode
-  (if-let [session (:session request)]
-    (if (contains? session :config)
-      (:config session)
-      (conf/load-config "agiladmin" conf/default-settings))
+  (if (:session request)
+    @ring/config
     (f/fail "Session not found. ")))
 
 (defn normalize-role
@@ -80,7 +76,7 @@
   [request account]
   (assoc-in request [:params :person] (effective-person account request)))
 
-(defn check-account [config request]
+(defn check-account [_config request]
   ;; check if login is present in session
   (let [login (get-in request [:session :auth])]
     (cond

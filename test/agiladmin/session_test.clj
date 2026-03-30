@@ -31,8 +31,7 @@
           :role "admin"})
 
 (fact "Session check does not require a live auth backend"
-      (session/check {:session {:config config
-                                :auth {:email "user@example.org"
+      (session/check {:session {:auth {:email "user@example.org"
                                        :name "User"}}}
                      (fn [_ _ account] account))
       => {:email "user@example.org"
@@ -40,7 +39,7 @@
           :role nil})
 
 (fact "Session check fails without a login in the session"
-      (f/failed? (session/check-account config {:session {:config config}})) => truthy)
+      (f/failed? (session/check-account config {:session {}})) => truthy)
 
 (fact "Project access is granted to admins and managers only"
       (session/can-access-projects? {:role "admin"}) => true
@@ -64,8 +63,7 @@
 
 (fact "Session check keeps the authenticated shell for downstream failures"
       (let [response (session/check
-                      {:session {:config config
-                                 :auth {:email "user@example.org"
+                      {:session {:auth {:email "user@example.org"
                                         :name "User"}}}
                       (fn [_ _ _]
                         (f/fail "Project configuration file is missing, empty, or invalid YAML: budgets/CODE.yaml")))]
