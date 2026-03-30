@@ -20,12 +20,17 @@
 
 (def lib 'agiladmin/agiladmin)
 (def version
-  (or (System/getenv "AGILADMIN_VERSION")
-      (git-version)
+  (or (git-version)
       "DEV-SNAPSHOT"))
 (def class-dir "target/classes")
 (def basis (delay (b/create-basis {:project "deps.edn"})))
 (def uber-file (format "target/%s-standalone.jar" version))
+
+(defn- write-version-resource!
+  []
+  (let [target (io/file class-dir "agiladmin" "version.edn")]
+    (.mkdirs (.getParentFile target))
+    (spit target (pr-str {:version version}))))
 
 (defn clean [_]
   (b/delete {:path "target"})
@@ -35,6 +40,7 @@
   (clean nil)
   (b/copy-dir {:src-dirs ["src" "resources"]
                :target-dir class-dir})
+  (write-version-resource!)
   (b/compile-clj {:basis @basis
                   :src-dirs ["src"]
                   :class-dir class-dir

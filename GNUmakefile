@@ -1,5 +1,5 @@
 CLOJURE ?= clj
-AGILADMIN_VERSION ?= $(shell if [ -d .git ]; then v=$$(git describe --tags --match 'v[0-9]*.[0-9]*.[0-9]*' --abbrev=0 2>/dev/null | sed 's/^v//'); if [ -n "$$v" ]; then printf '%s' "$$v"; else printf '%s' DEV-SNAPSHOT; fi; else printf '%s' DEV-SNAPSHOT; fi)
+BUILD_VERSION := $(shell if [ -d .git ]; then v=$$(git describe --tags --match 'v[0-9]*.[0-9]*.[0-9]*' --abbrev=0 2>/dev/null | sed 's/^v//'); if [ -n "$$v" ]; then printf '%s' "$$v"; else printf '%s' DEV-SNAPSHOT; fi; else printf '%s' DEV-SNAPSHOT; fi)
 PREFIX ?= /opt
 DESTDIR ?=
 APP_NAME ?= agiladmin
@@ -8,7 +8,7 @@ SYSTEMD_UNIT_DIR ?= /etc/systemd/system
 DEFAULT_INSTANCE ?= $(if $(AGILADMIN_INSTANCE),$(AGILADMIN_INSTANCE),main)
 POCKETBASE_APP_DIR ?= $(APP_HOME)/pocketbase
 POCKETBASE_MIGRATIONS_DIR ?= $(POCKETBASE_APP_DIR)/migrations
-JAR ?= target/$(AGILADMIN_VERSION)-standalone.jar
+JAR ?= target/$(BUILD_VERSION)-standalone.jar
 
 .PHONY: help test test-pocketbase-integration run dev run-pocketbase build install clean
 
@@ -49,7 +49,7 @@ run-pocketbase:
 	AGILADMIN_CONF=$(CONF) $(CLOJURE) -M:run
 
 build:
-	AGILADMIN_VERSION=$(AGILADMIN_VERSION) $(CLOJURE) -T:build uber
+	$(CLOJURE) -T:build uber
 	@printf 'Built %s\n' "$(JAR)"
 
 install: build
@@ -79,13 +79,11 @@ install: build
 	sed \
 		-e 's|@APP_HOME@|$(APP_HOME)|g' \
 		-e 's|@APP_NAME@|$(APP_NAME)|g' \
-		-e 's|@AGILADMIN_VERSION@|$(AGILADMIN_VERSION)|g' \
 		packaging/systemd/agiladmin@.service.in > "$(DESTDIR)$(SYSTEMD_UNIT_DIR)/$(APP_NAME)@.service"
 	chmod 0644 "$(DESTDIR)$(SYSTEMD_UNIT_DIR)/$(APP_NAME)@.service"
 	sed \
 		-e 's|@APP_HOME@|$(APP_HOME)|g' \
 		-e 's|@APP_NAME@|$(APP_NAME)|g' \
-		-e 's|@AGILADMIN_VERSION@|$(AGILADMIN_VERSION)|g' \
 		packaging/systemd/pocketbase.service.in > "$(DESTDIR)$(SYSTEMD_UNIT_DIR)/$(APP_NAME)-pocketbase.service"
 	chmod 0644 "$(DESTDIR)$(SYSTEMD_UNIT_DIR)/$(APP_NAME)-pocketbase.service"
 	@printf '%s\n' \

@@ -5,7 +5,6 @@ PREFIX ?= /opt
 APP_HOME ?= $(PREFIX)/$(APP_NAME)
 SYSTEMD_UNIT_DIR ?= /etc/systemd/system
 DEFAULT_INSTANCE ?= $(if $(AGILADMIN_INSTANCE),$(AGILADMIN_INSTANCE),main)
-AGILADMIN_VERSION ?= $(shell if git -C "$(REPO_ROOT)" rev-parse --git-dir >/dev/null 2>&1; then v=$$(git -C "$(REPO_ROOT)" describe --tags --match 'v[0-9]*.[0-9]*.[0-9]*' --abbrev=0 2>/dev/null | sed 's/^v//'); if [ -n "$$v" ]; then printf '%s' "$$v"; else printf '%s' "DEV-SNAPSHOT"; fi; else printf '%s' "DEV-SNAPSHOT"; fi)
 
 UNIT_TARGETS := \
 	$(DESTDIR)$(SYSTEMD_UNIT_DIR)/$(APP_NAME)@.service \
@@ -26,8 +25,7 @@ help:
 	  '  APP_HOME=$(APP_HOME)' \
 	  '  SYSTEMD_UNIT_DIR=$(SYSTEMD_UNIT_DIR)' \
 	  '  DEFAULT_INSTANCE=$(DEFAULT_INSTANCE)' \
-	  '  DESTDIR=$(DESTDIR)' \
-	  '  AGILADMIN_VERSION=$(AGILADMIN_VERSION)'
+	  '  DESTDIR=$(DESTDIR)'
 
 render: $(UNIT_TARGETS)
 
@@ -40,7 +38,6 @@ $(DESTDIR)$(SYSTEMD_UNIT_DIR)/$(APP_NAME)@.service: agiladmin@.service.in
 	sed \
 		-e 's|@APP_HOME@|$(APP_HOME)|g' \
 		-e 's|@APP_NAME@|$(APP_NAME)|g' \
-		-e 's|@AGILADMIN_VERSION@|$(AGILADMIN_VERSION)|g' \
 		"$<" > "$@"
 	chmod 0644 "$@"
 
@@ -49,7 +46,6 @@ $(DESTDIR)$(SYSTEMD_UNIT_DIR)/$(APP_NAME)-pocketbase.service: pocketbase.service
 	sed \
 		-e 's|@APP_HOME@|$(APP_HOME)|g' \
 		-e 's|@APP_NAME@|$(APP_NAME)|g' \
-		-e 's|@AGILADMIN_VERSION@|$(AGILADMIN_VERSION)|g' \
 		"$<" > "$@"
 	chmod 0644 "$@"
 

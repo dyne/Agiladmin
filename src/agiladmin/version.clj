@@ -1,7 +1,17 @@
 (ns agiladmin.version
   (:require [clojure.java.io :as io]
+            [clojure.edn :as edn]
             [clojure.java.shell :as shell]
             [clojure.string :as str]))
+
+(defn- resource-version
+  []
+  (when-let [resource (io/resource "agiladmin/version.edn")]
+    (some-> resource
+            slurp
+            edn/read-string
+            :version
+            not-empty)))
 
 (defn- git-present?
   []
@@ -18,6 +28,6 @@
                 not-empty)))))
 
 (def current
-  (or (System/getenv "AGILADMIN_VERSION")
+  (or (resource-version)
       (git-version)
       "DEV-SNAPSHOT"))
