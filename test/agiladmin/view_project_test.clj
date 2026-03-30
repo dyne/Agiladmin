@@ -4,13 +4,15 @@
             [midje.sweet :refer :all]))
 
 (fact "Project start dispatches infra projects to the infra view"
-      (let [calls (atom [])]
+      (let [calls (atom [])
+            load-calls (atom 0)]
         (with-redefs [agiladmin.config/load-project
                       (fn [_ _]
+                        (swap! load-calls inc)
                         {:CORE {:type "infra"}})
                       agiladmin.view-project/infra
-                      (fn [config account projname]
-                        (swap! calls conj [config account projname])
+                      (fn [config account projname project-conf project]
+                        (swap! calls conj [config account projname project-conf project])
                         {:status 200 :body "infra"})
                       agiladmin.view-project/rolling
                       (fn [& _] (throw (ex-info "unexpected rolling call" {})))
@@ -22,9 +24,12 @@
                           {:email "admin@example.org"})]
             (:status response) => 200
             (:body response) => "infra"
+            @load-calls => 1
             @calls => [[{:agiladmin {}}
                         {:email "admin@example.org"}
-                        "CORE"]]))))
+                        "CORE"
+                        {:CORE {:type "infra"}}
+                        {:type "infra"}]]))))
 
 (fact "Project list renders a compact filterable project list"
       (with-redefs [agiladmin.config/project-names
@@ -40,39 +45,45 @@
           (:body response) => (contains "inline-flex max-w-full w-full"))))
 
 (fact "Project start dispatches rolling projects to the rolling view"
-      (with-redefs [agiladmin.config/load-project
-                    (fn [_ _]
-                      {:CORE {:type "rolling"}})
+      (let [load-calls (atom 0)]
+        (with-redefs [agiladmin.config/load-project
+                      (fn [_ _]
+                        (swap! load-calls inc)
+                        {:CORE {:type "rolling"}})
                     agiladmin.view-project/rolling
-                    (fn [config account projname]
+                    (fn [config account projname project-conf project]
                       {:status 200 :body (str "rolling:" projname)})
                     agiladmin.view-project/infra
                     (fn [& _] (throw (ex-info "unexpected infra call" {})))
                     agiladmin.view-project/h2020
                     (fn [& _] (throw (ex-info "unexpected h2020 call" {})))]
-        (let [response (view-project/start
-                        {:params {:project "CORE"}}
-                        {}
-                        {:email "admin@example.org"})]
-          (:body response) => "rolling:CORE")))
+          (let [response (view-project/start
+                          {:params {:project "CORE"}}
+                          {}
+                          {:email "admin@example.org"})]
+            @load-calls => 1
+            (:body response) => "rolling:CORE"))))
 
 (fact "Project start dispatches default projects to the h2020 view"
-      (with-redefs [agiladmin.config/load-project
-                    (fn [_ _]
-                      {:CORE {:type "h2020"}})
+      (let [load-calls (atom 0)]
+        (with-redefs [agiladmin.config/load-project
+                      (fn [_ _]
+                        (swap! load-calls inc)
+                        {:CORE {:type "h2020"}})
                     agiladmin.view-project/h2020
-                    (fn [request config account]
+                    (fn [request config account projname project-conf project]
                       {:status 200
-                       :body (str "h2020:" (get-in request [:params :project]))})
+                       :body (str "h2020:" projname)})
                     agiladmin.view-project/infra
                     (fn [& _] (throw (ex-info "unexpected infra call" {})))
                     agiladmin.view-project/rolling
                     (fn [& _] (throw (ex-info "unexpected rolling call" {})))]
-        (let [response (view-project/start
-                        {:params {:project "CORE"}}
-                        {}
-                        {:email "admin@example.org"})]
-          (:body response) => "h2020:CORE")))
+          (let [response (view-project/start
+                          {:params {:project "CORE"}}
+                          {}
+                          {:email "admin@example.org"})]
+            @load-calls => 1
+            (:body response) => "h2020:CORE"))))
 
 (fact "Project edit renders an editor form when no edited yaml is submitted"
       (with-redefs [agiladmin.config/load-project

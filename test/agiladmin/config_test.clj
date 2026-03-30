@@ -1,6 +1,7 @@
 (ns agiladmin.config-test
   (:use midje.sweet)
   (:require [agiladmin.config :as conf]
+            [agiladmin.core :as core]
             [failjure.core :as f]
             [schema.core :as s]))
 
@@ -160,6 +161,73 @@
             proj (conf/load-project broken-config "INVALIDYAML")]
         (f/failed? proj) => true
         (f/message proj) => (contains "Invalid YAML at test/assets/INVALIDYAML.yaml")))
+
+(fact "Bulk project loads reuse one project file scan"
+      (let [calls (atom 0)
+            original-project-files @#'agiladmin.config/project-files
+            counting-config {:agiladmin {:budgets {:path "test/assets/"}}
+                             :filename "agiladmin.yaml"}]
+        (core/invalidate-project-cache! counting-config)
+        (with-redefs [agiladmin.config/project-files
+                      (fn [cfg]
+                        (swap! calls inc)
+                        (original-project-files cfg))]
+          (set (keys (core/load-all-projects counting-config)))
+          => #{:DIRECT :DUE :TRE :UNO}
+          @calls => 1)))
+
+(fact "Bulk project loads keep valid projects and skip invalid ones"
+      (let [projects (core/load-all-projects {:agiladmin {:budgets {:path "test/assets/"}}
+                                              :filename "agiladmin.yaml"})]
+        (set (keys projects)) => #{:DIRECT :DUE :TRE :UNO}
+        (get-in projects [:DIRECT :cph]) => 25
+        (get-in projects [:UNO :cph]) => 45
+        (contains? projects :BADFIELDS) => false
+        (contains? projects :BROKEN) => false
+        (contains? projects :INVALIDYAML) => false))
+
+(fact "Bulk project loads reuse cached projects for the same budgets path"
+      (let [calls (atom 0)
+            original-project-files @#'agiladmin.config/project-files
+            counting-config {:agiladmin {:budgets {:path "test/assets/"}}
+                             :filename "agiladmin.yaml"}]
+        (core/invalidate-project-cache! counting-config)
+        (with-redefs [agiladmin.config/project-files
+                      (fn [cfg]
+                        (swap! calls inc)
+                        (original-project-files cfg))]
+          (core/load-all-projects counting-config)
+          (core/load-all-projects counting-config)
+          @calls => 1)))
+
+(fact "Bulk project loads keep cache entries separated by budgets path"
+      (let [dir-a "/tmp/agiladmin-project-cache-a/"
+            dir-b "/tmp/agiladmin-project-cache-b/"
+            _ (.mkdirs (java.io.File. dir-a))
+            _ (.mkdirs (java.io.File. dir-b))
+            _ (spit (str dir-a "ALPHA.yaml") "ALPHA:\n  duration: 1\n")
+            _ (spit (str dir-b "BETA.yaml") "BETA:\n  duration: 2\n")
+            conf-a {:agiladmin {:budgets {:path dir-a}} :filename "agiladmin.yaml"}
+            conf-b {:agiladmin {:budgets {:path dir-b}} :filename "agiladmin.yaml"}]
+        (core/invalidate-project-cache! conf-a)
+        (core/invalidate-project-cache! conf-b)
+        (set (keys (core/load-all-projects conf-a))) => #{:ALPHA}
+        (set (keys (core/load-all-projects conf-b))) => #{:BETA}))
+
+(fact "Bulk project loads refresh after explicit cache invalidation"
+      (let [calls (atom 0)
+            original-project-files @#'agiladmin.config/project-files
+            counting-config {:agiladmin {:budgets {:path "test/assets/"}}
+                             :filename "agiladmin.yaml"}]
+        (core/invalidate-project-cache! counting-config)
+        (with-redefs [agiladmin.config/project-files
+                      (fn [cfg]
+                        (swap! calls inc)
+                        (original-project-files cfg))]
+          (core/load-all-projects counting-config)
+          (core/invalidate-project-cache! counting-config)
+          (core/load-all-projects counting-config)
+          @calls => 2)))
 
 (fact "Application config loader currently rejects runtime-only keys missing from the schema"
       (let [conf (conf/load-config "extra-keys-config" conf/default-settings)]

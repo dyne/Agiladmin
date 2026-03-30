@@ -92,220 +92,234 @@
    (f/when-failed [e]
      (web/render-error-page (f/message e)))))
 
-(defn h2020 [request config account]
-  (f/attempt-all
-   [projname     (s/param request :project)
-    project-conf (conf/load-project config projname)
-    conf         (get project-conf (keyword projname))
-    project-hours (if (s/can-view-costs? account)
-                    (project-costs config project-conf projname)
-                    (project-hours config projname))
-    task-details (-> project-hours
-                     (aggr :hours [:project :task])
-                     (derive-task-details project-conf))
-    empty-tasks (-> project-conf (derive-empty-tasks task-details))]
-   (web/render
-    account
-    [:div {:class "space-y-6"}
-     (if-not (empty? (:tasks conf))
-       [:div {:class "space-y-4"}
-        [:div {:class "flex flex-wrap items-center gap-3"}
-         [:h1 {:class "text-4xl font-semibold"} projname]
-         [:button {:class "btn btn-info ml-auto"
-                   :onclick "toggleMode(this)"} "Scale to Fit"]]
-        [:div {:class "rounded-box border border-base-300 bg-base-100 p-2 shadow-sm"}
-         [:div {:class "w-full min-h-80" :style "position: relative;" :id "gantt"}]]
-        (let [today (util/now)
-              gantt-tasks (map (fn [task]
-                                 (conj task {:progress
-                                             (some-> (tab/filter-by task-details {:task (:id task)})
-                                                     :rows
-                                                     first
-                                                     :progress)}))
-                               (:tasks conf))]
-          [:script {:type "text/javascript"}
-           (str "\nvar today = new Date("
-                (:year today)", "
-                (dec (:month today))", "
-                (:day today)");\n")
-           (str (slurp (io/resource "gantt-loader.js")) "
+(defn h2020
+  ([request config account]
+   (f/attempt-all
+    [projname (s/param request :project)
+     project-conf (conf/load-project config projname)
+     conf (get project-conf (keyword projname))]
+    (h2020 request config account projname project-conf conf)
+    (f/when-failed [e]
+      (web/render account (web/render-error (f/message e))))))
+  ([request config account projname project-conf conf]
+   (f/attempt-all
+    [project-hours (if (s/can-view-costs? account)
+                     (project-costs config project-conf projname)
+                     (project-hours config projname))
+     task-details (-> project-hours
+                      (aggr :hours [:project :task])
+                      (derive-task-details project-conf))
+     empty-tasks (-> project-conf (derive-empty-tasks task-details))]
+    (web/render
+     account
+     [:div {:class "space-y-6"}
+      (if-not (empty? (:tasks conf))
+        [:div {:class "space-y-4"}
+         [:div {:class "flex flex-wrap items-center gap-3"}
+          [:h1 {:class "text-4xl font-semibold"} projname]
+          [:button {:class "btn btn-info ml-auto"
+                    :onclick "toggleMode(this)"} "Scale to Fit"]]
+         [:div {:class "rounded-box border border-base-300 bg-base-100 p-2 shadow-sm"}
+          [:div {:class "w-full min-h-80" :style "position: relative;" :id "gantt"}]]
+         (let [today (util/now)
+               gantt-tasks (map (fn [task]
+                                  (conj task {:progress
+                                              (some-> (tab/filter-by task-details {:task (:id task)})
+                                                      :rows
+                                                      first
+                                                      :progress)}))
+                                (:tasks conf))]
+           [:script {:type "text/javascript"}
+            (str "\nvar today = new Date("
+                 (:year today)", "
+                 (dec (:month today))", "
+                 (:day today)");\n")
+            (str (slurp (io/resource "gantt-loader.js")) "
 var tasks = { data:" (chesh/generate-string gantt-tasks) "};
 gantt.init('gantt');
 gantt.parse(tasks);
 ")])]
-       [:h1 {:class "text-4xl font-semibold"} projname])
-     (when (s/admin? account)
-       (web/button "/projects/edit" "Edit project configuration"
-                   (hf/hidden-field "project" projname)
-                   "btn btn-primary btn-lg edit-project"))
-     [:div {:class "grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"}
-      [:div {:class "space-y-6"}
-       [:h1 (str "Totals - M "
-                 (let [lastm (:duration conf)
-                       currm (current-proj-month conf)]
-                   (str currm " / " lastm)))]
-       (let [hours (-> (tab/sum-col project-hours :hours) util/round)
-             tasks (:tasks conf)]
-         (if (s/can-view-costs? account)
-           (let [billed (-> (tab/sum-col project-hours :cost) util/round)]
-             (-> [{:total "Current"
-                   :cost billed
-                   :pm (-> hours (/ 150) util/round)
-                   :cph (if (or (zero? billed) (zero? hours))
-                          0
-                          (util/round (/ billed hours)))}]
-                 (concat
-                  (if (empty? tasks)
-                    []
-                    (let [max_hours (reduce + 0 (map #(* (get % :pm) 150) tasks))
-                          max_cost (* (:cph conf) max_hours)]
-                      [{:total "Progress"
-                        :cost (util/percentage billed max_cost)
-                        :pm (util/percentage hours max_hours)
-                        :CPH "⇧ ⇩"}
-                       {:total "Total"
-                        :cost max_cost
-                        :pm (/ max_hours 150)
-                        :CPH (:cph conf)}])))
-                 tab/dataset to-table))
-           (-> [{:total "Current"
-                 :hours hours
-                 :pm (-> hours (/ 150) util/round)}]
-               (concat
-                (if (empty? tasks)
-                  []
-                  (let [max_hours (reduce + 0 (map #(* (get % :pm) 150) tasks))]
-                    [{:total "Progress"
-                      :hours (util/percentage hours max_hours)
-                      :pm (util/percentage hours max_hours)}
-                     {:total "Total"
-                      :hours max_hours
-                      :pm (/ max_hours 150)}])))
-               tab/dataset to-table)))]
-       [:h2 "Overview of tasks"]
-       [:div {:class "overflow-x-auto"}
-        (let [overview-cols [:task :pm :h-left :start :end :progress :description]
-              used-tasks (tab/select-cols task-details overview-cols)
-              unused-tasks
-              (tab/dataset overview-cols
-                           (map (fn [row]
-                                  {:task (:id row)
-                                   :pm (:pm row)
-                                   :h-left nil
-                                   :start (:start_date row)
-                                   :end (:end_date row)
-                                   :progress nil
-                                   :description (:text row)})
-                                (:rows empty-tasks)))]
-          (-> (tab/append-rows overview-cols used-tasks unused-tasks)
-              (tab/order-by-col :task :asc)
-              to-table))]]
-      [:div {:class "space-y-4"}
-       [:h1 "Details " [:small "(switch views using tabs below)"]]
-       (web/tabs
-        (str "project-details-" projname)
-        [{:id "task-sum-hours"
-          :title "Task/Person totals"
-          :content [:div {:class "space-y-3"}
-                    [:h2 "Totals grouped per person and per task"]
-                    [:div {:class "overflow-x-auto"}
-                     (if (s/can-view-costs? account)
-                       (-> (map-col project-hours :tag #(if (= "VOL" %) "VOL" ""))
-                           (aggr [:hours :cost] [:name :tag :task])
-                           (tab/select-cols [:name :tag :task :hours :cost]) to-table)
-                       (-> (map-col project-hours :tag #(if (= "VOL" %) "VOL" ""))
-                           (aggr [:hours] [:name :tag :task])
-                           (tab/select-cols [:name :tag :task :hours]) to-table))]]}
-         {:id "task-totals"
-          :title "Task totals"
-          :content [:div {:class "space-y-3"}
-                    [:h2 "Totals per task"]
-                    [:div {:class "overflow-x-auto"}
-                     (-> task-details
-                         (tab/select-cols [:task :hours :tot-hours :pm :progress :description]) to-table)]]}
-         {:id "person-totals"
-          :title "Person totals"
-          :content [:div {:class "space-y-3"}
-                    [:h2 "Totals per person"]
-                    [:div {:class "overflow-x-auto"}
-                     (if (s/can-view-costs? account)
-                       (-> (map-col project-hours :tag #(if (= "VOL" %) "VOL" ""))
-                           (aggr [:hours :cost] [:name :tag])
-                           (tab/select-cols [:name :tag :hours :cost]) to-table)
-                       (-> (map-col project-hours :tag #(if (= "VOL" %) "VOL" ""))
-                           (aggr [:hours] [:name :tag])
-                           (tab/select-cols [:name :tag :hours]) to-table))]]}
-         {:id "monthly-details"
-          :title "Monthly details"
-          :content [:div {:class "space-y-3"}
-                    [:h2 "Detail of monthly hours used per person on each task"]
-                    [:div {:class "overflow-x-auto"}
-                     (if (s/can-view-costs? account)
-                       (-> project-hours
-                           (sort :month :desc)
-                           to-table)
-                       (-> project-hours
-                           (tab/select-cols [:month :name :task :hours])
-                           (sort :month :desc)
-                           to-table))]]}])]])
-   (f/when-failed [e]
-     (web/render account (web/render-error (f/message e))))))
+        [:h1 {:class "text-4xl font-semibold"} projname])
+      (when (s/admin? account)
+        (web/button "/projects/edit" "Edit project configuration"
+                    (hf/hidden-field "project" projname)
+                    "btn btn-primary btn-lg edit-project"))
+      [:div {:class "grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"}
+       [:div {:class "space-y-6"}
+        [:h1 (str "Totals - M "
+                  (let [lastm (:duration conf)
+                        currm (current-proj-month conf)]
+                    (str currm " / " lastm)))]
+        (let [hours (-> (tab/sum-col project-hours :hours) util/round)
+              tasks (:tasks conf)]
+          (if (s/can-view-costs? account)
+            (let [billed (-> (tab/sum-col project-hours :cost) util/round)]
+              (-> [{:total "Current"
+                    :cost billed
+                    :pm (-> hours (/ 150) util/round)
+                    :cph (if (or (zero? billed) (zero? hours))
+                           0
+                           (util/round (/ billed hours)))}]
+                  (concat
+                   (if (empty? tasks)
+                     []
+                     (let [max_hours (reduce + 0 (map #(* (get % :pm) 150) tasks))
+                           max_cost (* (:cph conf) max_hours)]
+                       [{:total "Progress"
+                         :cost (util/percentage billed max_cost)
+                         :pm (util/percentage hours max_hours)
+                         :CPH "⇧ ⇩"}
+                        {:total "Total"
+                         :cost max_cost
+                         :pm (/ max_hours 150)
+                         :CPH (:cph conf)}])))
+                  tab/dataset to-table))
+            (-> [{:total "Current"
+                  :hours hours
+                  :pm (-> hours (/ 150) util/round)}]
+                (concat
+                 (if (empty? tasks)
+                   []
+                   (let [max_hours (reduce + 0 (map #(* (get % :pm) 150) tasks))]
+                     [{:total "Progress"
+                       :hours (util/percentage hours max_hours)
+                       :pm (util/percentage hours max_hours)}
+                      {:total "Total"
+                       :hours max_hours
+                       :pm (/ max_hours 150)}])))
+                tab/dataset to-table)))]
+        [:h2 "Overview of tasks"]
+        [:div {:class "overflow-x-auto"}
+         (let [overview-cols [:task :pm :h-left :start :end :progress :description]
+               used-tasks (tab/select-cols task-details overview-cols)
+               unused-tasks
+               (tab/dataset overview-cols
+                            (map (fn [row]
+                                   {:task (:id row)
+                                    :pm (:pm row)
+                                    :h-left nil
+                                    :start (:start_date row)
+                                    :end (:end_date row)
+                                    :progress nil
+                                    :description (:text row)})
+                                 (:rows empty-tasks)))]
+           (-> (tab/append-rows overview-cols used-tasks unused-tasks)
+               (tab/order-by-col :task :asc)
+               to-table))]]
+       [:div {:class "space-y-4"}
+        [:h1 "Details " [:small "(switch views using tabs below)"]]
+        (web/tabs
+         (str "project-details-" projname)
+         [{:id "task-sum-hours"
+           :title "Task/Person totals"
+           :content [:div {:class "space-y-3"}
+                     [:h2 "Totals grouped per person and per task"]
+                     [:div {:class "overflow-x-auto"}
+                      (if (s/can-view-costs? account)
+                        (-> (map-col project-hours :tag #(if (= "VOL" %) "VOL" ""))
+                            (aggr [:hours :cost] [:name :tag :task])
+                            (tab/select-cols [:name :tag :task :hours :cost]) to-table)
+                        (-> (map-col project-hours :tag #(if (= "VOL" %) "VOL" ""))
+                            (aggr [:hours] [:name :tag :task])
+                            (tab/select-cols [:name :tag :task :hours]) to-table))]]}
+          {:id "task-totals"
+           :title "Task totals"
+           :content [:div {:class "space-y-3"}
+                     [:h2 "Totals per task"]
+                     [:div {:class "overflow-x-auto"}
+                      (-> task-details
+                          (tab/select-cols [:task :hours :tot-hours :pm :progress :description]) to-table)]]}
+          {:id "person-totals"
+           :title "Person totals"
+           :content [:div {:class "space-y-3"}
+                     [:h2 "Totals per person"]
+                     [:div {:class "overflow-x-auto"}
+                      (if (s/can-view-costs? account)
+                        (-> (map-col project-hours :tag #(if (= "VOL" %) "VOL" ""))
+                            (aggr [:hours :cost] [:name :tag])
+                            (tab/select-cols [:name :tag :hours :cost]) to-table)
+                        (-> (map-col project-hours :tag #(if (= "VOL" %) "VOL" ""))
+                            (aggr [:hours] [:name :tag])
+                            (tab/select-cols [:name :tag :hours]) to-table))]]}
+          {:id "monthly-details"
+           :title "Monthly details"
+           :content [:div {:class "space-y-3"}
+                     [:h2 "Detail of monthly hours used per person on each task"]
+                     [:div {:class "overflow-x-auto"}
+                      (if (s/can-view-costs? account)
+                        (-> project-hours
+                            (sort :month :desc)
+                            to-table)
+                        (-> project-hours
+                            (tab/select-cols [:month :name :task :hours])
+                            (sort :month :desc)
+                            to-table))]]}])]])
+    (f/when-failed [e]
+      (web/render account (web/render-error (f/message e)))))))
 
-(defn infra [config account projname]
-  (f/attempt-all
-   [project-conf (conf/load-project config projname)
-   conf         (get project-conf (keyword projname))
-   project-hours (-> (if (s/can-view-costs? account)
-                       (project-costs config project-conf projname)
-                       (project-hours config projname))
-                     (derive-years config project-conf))]
-  (web/render account [:div
-                       [:h1 (str projname " fixed costs overview")]
-                       [:h2 "Yearly totals"]
-                       (if (s/can-view-costs? account)
-                         (-> (aggr project-hours [:hours :cost] [:year :tag])
-                             (tab/select-cols [:year :tag :hours :cost])
-                             (sort :year :desc) to-table)
-                         (-> (aggr project-hours [:hours] [:year :tag])
-                             (tab/select-cols [:year :tag :hours])
-                             (sort :year :desc) to-table))
-                       [:h2 "Personnel totals"]
-                       (if (s/can-view-costs? account)
-                         (-> (aggr project-hours [:hours :cost] [:name :tag])
-                             (tab/select-cols [:name :tag :hours :cost])
-                             (sort :year :desc) to-table)
-                         (-> (aggr project-hours [:hours] [:name :tag])
-                             (tab/select-cols [:name :tag :hours])
-                             (sort :year :desc) to-table))
-                       ])))
+(defn infra
+  ([config account projname]
+   (f/attempt-all
+    [project-conf (conf/load-project config projname)
+     conf (get project-conf (keyword projname))]
+    (infra config account projname project-conf conf)))
+  ([config account projname project-conf conf]
+   (f/attempt-all
+    [project-hours (-> (if (s/can-view-costs? account)
+                         (project-costs config project-conf projname)
+                         (project-hours config projname))
+                       (derive-years config project-conf))]
+    (web/render account [:div
+                         [:h1 (str projname " fixed costs overview")]
+                         [:h2 "Yearly totals"]
+                         (if (s/can-view-costs? account)
+                           (-> (aggr project-hours [:hours :cost] [:year :tag])
+                               (tab/select-cols [:year :tag :hours :cost])
+                               (sort :year :desc) to-table)
+                           (-> (aggr project-hours [:hours] [:year :tag])
+                               (tab/select-cols [:year :tag :hours])
+                               (sort :year :desc) to-table))
+                         [:h2 "Personnel totals"]
+                         (if (s/can-view-costs? account)
+                           (-> (aggr project-hours [:hours :cost] [:name :tag])
+                               (tab/select-cols [:name :tag :hours :cost])
+                               (sort :year :desc) to-table)
+                           (-> (aggr project-hours [:hours] [:name :tag])
+                               (tab/select-cols [:name :tag :hours])
+                               (sort :year :desc) to-table))
+                         ]))))
 
-(defn rolling [config account projname]
-  (f/attempt-all
-   [project-conf (conf/load-project config projname)
-   conf         (get project-conf (keyword projname))
-   project-hours (-> (if (s/can-view-costs? account)
-                       (project-costs config project-conf projname)
-                       (project-hours config projname))
-                     (derive-years config project-conf))]
-  (web/render account [:div
-                       [:h1 (str projname " fixed costs overview")]
-                       [:h2 "Yearly totals"]
-                       (if (s/can-view-costs? account)
-                         (-> (aggr project-hours [:hours :cost] [:year :tag])
-                             (tab/select-cols [:year :tag :hours :cost])
-                             (sort :year :desc) to-table)
-                         (-> (aggr project-hours [:hours] [:year :tag])
-                             (tab/select-cols [:year :tag :hours])
-                             (sort :year :desc) to-table))
-                       [:h2 "Personnel totals"]
-                       (if (s/can-view-costs? account)
-                         (-> (aggr project-hours [:hours :cost] [:name :tag])
-                             (tab/select-cols [:name :tag :hours :cost])
-                             (sort :year :desc) to-table)
-                         (-> (aggr project-hours [:hours] [:name :tag])
-                             (tab/select-cols [:name :tag :hours])
-                             (sort :year :desc) to-table))
-                       ])))
+(defn rolling
+  ([config account projname]
+   (f/attempt-all
+    [project-conf (conf/load-project config projname)
+     conf (get project-conf (keyword projname))]
+    (rolling config account projname project-conf conf)))
+  ([config account projname project-conf conf]
+   (f/attempt-all
+    [project-hours (-> (if (s/can-view-costs? account)
+                         (project-costs config project-conf projname)
+                         (project-hours config projname))
+                       (derive-years config project-conf))]
+    (web/render account [:div
+                         [:h1 (str projname " fixed costs overview")]
+                         [:h2 "Yearly totals"]
+                         (if (s/can-view-costs? account)
+                           (-> (aggr project-hours [:hours :cost] [:year :tag])
+                               (tab/select-cols [:year :tag :hours :cost])
+                               (sort :year :desc) to-table)
+                           (-> (aggr project-hours [:hours] [:year :tag])
+                               (tab/select-cols [:year :tag :hours])
+                               (sort :year :desc) to-table))
+                         [:h2 "Personnel totals"]
+                         (if (s/can-view-costs? account)
+                           (-> (aggr project-hours [:hours :cost] [:name :tag])
+                               (tab/select-cols [:name :tag :hours :cost])
+                               (sort :year :desc) to-table)
+                           (-> (aggr project-hours [:hours] [:name :tag])
+                               (tab/select-cols [:name :tag :hours])
+                               (sort :year :desc) to-table))
+                         ]))))
 
 (defn start [request config account]
   (f/attempt-all
@@ -313,7 +327,7 @@ gantt.parse(tasks);
     project-conf (conf/load-project config projname)
     project      (get project-conf (keyword projname))]
    (cond
-     (= (:type project) "infra") (infra config account projname)
-     (= (:type project) "rolling") (rolling config account projname)
+     (= (:type project) "infra") (infra config account projname project-conf project)
+     (= (:type project) "rolling") (rolling config account projname project-conf project)
      :else
-     (h2020 request config account))))
+     (h2020 request config account projname project-conf project))))

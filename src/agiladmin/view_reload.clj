@@ -21,6 +21,7 @@
   (:require
    [clojure.java.io :as io]
    [agiladmin.webpage :as web]
+   [agiladmin.core :as core]
    [agiladmin.config :as conf]
    [taoensso.timbre :as log]
    [clj-jgit.porcelain :as git]))
@@ -102,6 +103,8 @@
                                     :passphrase ""
                                     :exclusive true}
                   (git/git-pull repo))]
+            ;; Adopted repo state changed, so request-time project reads must refresh.
+            (core/invalidate-project-cache! config)
             (render-repo-state-with-message
              account
              repo
@@ -131,6 +134,8 @@
       (if (.exists (io/file (str keypath ".pub")))
         (try
           (clone-budgets! budgets)
+          ;; First clone creates the live project tree for this budgets path.
+          (core/invalidate-project-cache! config)
           (if-let [repo (safe-load-repo (:path budgets))]
             (render-repo-state-with-message
              account
