@@ -137,29 +137,59 @@
   (if-not (s/admin? account)
     (web/render-error-page account "Unauthorized access")
     (let [year (:year (util/now))
-          people (->> (util/list-direct-files-matching
-                       (conf/q config [:agiladmin :budgets :path])
-                       #".*_timesheet_.*xlsx$")
-                      (keep #(util/timesheet-to-name (.getName %)))
-                      clojure.core/sort
-                      distinct)
-          person-buttons (mapv (fn [person]
-                                 [:div {:class "log-person"
-                                        :data-text-filter-item "true"
-                                        :data-text-filter-value person}
-                                  (web/button "/person" person
-                                              (list (hf/hidden-field "person" person)
-                                                    (hf/hidden-field "year" year))
-                                              "btn btn-outline w-full justify-start")])
-                               people)]
+          recent-cutoff (dec year)
+          timesheet-files (util/list-direct-files-matching
+                           (conf/q config [:agiladmin :budgets :path])
+                           #".*_timesheet_.*xlsx$")
+          people-by-latest-year
+          (reduce (fn [people file]
+                    (let [filename (.getName file)
+                          [_ y person] (re-find #"^(\d+)_timesheet_(.*)\.xlsx$" filename)
+                          timesheet-year (some-> y Integer/parseInt)]
+                      (if (and person timesheet-year)
+                        (update people person #(max (or % 0) timesheet-year))
+                        people)))
+                  {}
+                  timesheet-files)
+          recent-people (->> people-by-latest-year
+                             (filter (fn [[_ latest-year]]
+                                       (>= latest-year recent-cutoff)))
+                             (map first)
+                             clojure.core/sort)
+          old-people (->> people-by-latest-year
+                          (remove (fn [[_ latest-year]]
+                                    (>= latest-year recent-cutoff)))
+                          (map first)
+                          clojure.core/sort)
+          person-buttons
+          (fn [people]
+            (mapv (fn [person]
+                    [:div {:class "log-person"
+                           :data-text-filter-item "true"
+                           :data-text-filter-value person}
+                     (web/button "/person" person
+                                 (list (hf/hidden-field "person" person)
+                                       (hf/hidden-field "year" year))
+                                 "btn btn-outline w-full justify-start")])
+                  people))
+          old-members-section
+          (when (seq old-people)
+            [:section {:class "card bg-base-100 shadow-sm"}
+             [:div {:class "card-body gap-4"}
+              [:h2 "Old members"]
+              (into [:div {:class "grid gap-2 sm:grid-cols-2 xl:grid-cols-3"}]
+                    (person-buttons old-people))]])
+          page-body
+          (cond-> [:div {:class "space-y-4"}
+                   (view-timesheet/upload-card)
+                   (web/filterable-button-list "persons-list"
+                                               "Persons"
+                                               "No persons match the current filter."
+                                               (person-buttons recent-people))]
+            old-members-section (conj old-members-section))]
       (web/render
        account
-       [:div {:class "space-y-4"}
-        (view-timesheet/upload-card)
-        (web/filterable-button-list "persons-list"
-                                    "Persons"
-                                    "No persons match the current filter."
-                                    person-buttons)]))))
+       page-body))))
 
 (defn download
   [request config account]

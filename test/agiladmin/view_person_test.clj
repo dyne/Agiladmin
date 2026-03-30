@@ -31,6 +31,30 @@
           (:body response) =not=> (contains "For enquiries please contact")
           (:body response) =not=> (contains "Newcomers"))))
 
+(fact "Admin personnel view separates recent members from old members"
+      (with-redefs [agiladmin.utils/now (fn [] {:year 2026})
+                    agiladmin.utils/list-direct-files-matching
+                    (fn [_ _]
+                      [(java.io.File. "2026_timesheet_Ada-Lovelace.xlsx")
+                       (java.io.File. "2025_timesheet_Grace-Hopper.xlsx")
+                       (java.io.File. "2023_timesheet_Luca-Pacioli.xlsx")])]
+        (let [response (view-person/list-all
+                        {}
+                        {:agiladmin {:budgets {:path "ignored/"}}}
+                        {:email "admin@example.org"
+                         :role "admin"})
+              body (:body response)
+              ada-index (.indexOf body "data-text-filter-value=\"Ada-Lovelace\"")
+              grace-index (.indexOf body "data-text-filter-value=\"Grace-Hopper\"")
+              old-members-index (.indexOf body "Old members")
+              luca-index (.indexOf body "data-text-filter-value=\"Luca-Pacioli\"")]
+          body => (contains "Old members")
+          ada-index => pos?
+          grace-index => pos?
+          old-members-index => pos?
+          (> luca-index old-members-index) => true
+          (< grace-index old-members-index) => true)))
+
 (fact "Personnel list rejects non-admin access"
       (let [response (view-person/list-all
                       {}
@@ -224,4 +248,5 @@
                         {:agiladmin {:budgets {:path "ignored/"}}}
                         {:email "admin@example.org"
                          :role "admin"})]
-          (count (re-seq #"data-text-filter-value=\"Ada-Lovelace\"" (:body response))) => 1)))
+          (count (re-seq #"data-text-filter-value=\"Ada-Lovelace\"" (:body response))) => 1
+          (:body response) =not=> (contains "Old members"))))
