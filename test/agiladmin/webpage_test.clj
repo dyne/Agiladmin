@@ -36,9 +36,11 @@
                                          :name "Manager User"
                                          :role "manager"}
                                         [:div "body"]))]
+        html => (contains "<svg")
         html => (contains "Personnel")
         html => (contains "Projects")
         html => (contains "Logout")
+        html =not=> (contains ">h-5 w-5<")
         html =not=> (contains "Upload")
         html =not=> (contains "Reload")
         html =not=> (contains "Configuration")))

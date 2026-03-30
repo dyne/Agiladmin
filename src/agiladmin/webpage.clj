@@ -195,8 +195,9 @@
 
 (defn- nav-menu
   [links]
-  (for [{:keys [href icon label]} links
-        :let [icon-name icon]]
+  (for [link links
+        :let [{:keys [href label]} link
+              icon-name (:icon link)]]
     [:li [:a {:class "gap-2" :href href}
           (icon icon-name "h-5 w-5") label]]))
 
