@@ -15,7 +15,8 @@
                     (fn [_]
                       (proxy [java.io.File] ["budgets"]
                         (isDirectory [] true)
-                        (exists [] true)))
+                        (exists [] true)
+                        (listFiles [] (into-array java.io.File [(java.io.File. "placeholder")]))))
                     agiladmin.view-reload/safe-load-repo
                     (fn [_] nil)]
         (let [response (view-reload/start
@@ -105,7 +106,8 @@
                       (fn [_]
                         (proxy [java.io.File] ["budgets"]
                           (isDirectory [] true)
-                          (exists [] true)))
+                          (exists [] true)
+                          (listFiles [] (into-array java.io.File [(java.io.File. "placeholder")]))))
                       agiladmin.core/invalidate-project-cache!
                       (fn [config]
                         (swap! invalidations conj config))
