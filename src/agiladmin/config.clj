@@ -289,19 +289,24 @@
 
 
 
-(defn load-project [conf proj]
-  (log/debug (str "Loading project: " proj))
-  (if-let [path (get (project-files conf) (upper-case proj))]
-    (let [pconf (yaml-read-safe path)]
-      (f/attempt-all
-       [_ (if (f/failed? pconf) pconf true)
-        entry-data (project-entry pconf proj path)
-        _validated (validate-data ProjectEntry
-                                  (:entry entry-data)
-                                  "project configuration"
-                                  path)]
-       {(:project-key entry-data)
-        (normalize-project-entry (:entry entry-data))}
-       (f/when-failed [e]
-         e)))
-    (f/fail (str "Project not found in budgets path: " proj))))
+(defn load-project
+  "Load one project config. A precomputed project-files map may be passed to
+  reuse one directory scan across a bulk loading pass."
+  ([conf proj]
+   (load-project conf (project-files conf) proj))
+  ([conf files proj]
+   (log/debug (str "Loading project: " proj))
+   (if-let [path (get files (upper-case proj))]
+     (let [pconf (yaml-read-safe path)]
+       (f/attempt-all
+        [_ (if (f/failed? pconf) pconf true)
+         entry-data (project-entry pconf proj path)
+         _validated (validate-data ProjectEntry
+                                   (:entry entry-data)
+                                   "project configuration"
+                                   path)]
+        {(:project-key entry-data)
+         (normalize-project-entry (:entry entry-data))}
+        (f/when-failed [e]
+          e)))
+     (f/fail (str "Project not found in budgets path: " proj)))))

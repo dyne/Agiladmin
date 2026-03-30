@@ -113,6 +113,7 @@
 - Keep root navigation and navbar home links aligned with the `/persons/list` landing behavior for authenticated users.
 - When changing spreadsheet parsing, validate against `test/assets/2016_timesheet_Luca-Pacioli.xlsx` and the expectations in `test/agiladmin/timesheet_test.clj`.
 - When changing config handling, verify both global config loading and per-project YAML loading.
+- Project configs are cached in memory by budgets path in `src/agiladmin/core.clj`; invalidate that cache when a flow adopts new repo contents, currently via `view_reload.clj`.
 - Be conservative around `view_timesheet/commit`; it mutates the budgets repo and pushes over SSH.
 - Avoid “cleanup” changes that rename columns, normalize casing differently, or alter dataset shapes unless you also update all dependent views/tests.
 - Frontend styling uses TailwindCSS + DaisyUI with the `nord` theme; shared layout helpers live in `src/agiladmin/webpage.clj`.

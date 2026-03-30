@@ -41,6 +41,9 @@
 
 (def timesheet-cols-projects ["B" "C" "D" "E" "F" "G" "H"])
 (def timesheet-rows-hourtots [43 42 41 40 39 38])
+;; Memory-only project cache keyed by budgets path. Reload invalidates it when
+;; the repo state changes, so no filesystem metadata or watcher is needed.
+(def project-cache (atom {}))
 
 (declare load-all-timesheets)
 (declare load-all-projects)
@@ -357,18 +360,42 @@
         (if (not= (first l) '\.)
           (load-timesheet (str path l))))))
 
-  (defn load-all-projects [conf]
-    "load all project budgets specified in a directory"
-    (loop [[p & projects] (conf/project-names conf)
-           res {}]
-      (let [r (conf/load-project conf p)]
-        ;; cannot use failjure inside a loop/recur?
-        ;; tried (when (f/failed?)) here but no
-        ;; attempt all also cannot allow recur to be last
-        (if (f/failed? r)
-          (do
-            (log/warn (str "Skipping invalid project " p ": " (f/message r)))
-            (if (empty? projects) res
-                (recur projects res)))
-          (if (empty? projects) (conj r res)
-              (recur  projects  (conj r res)))))))
+(defn- projects-cache-key
+  [conf]
+  (get-in conf [:agiladmin :budgets :path]))
+
+(defn invalidate-project-cache!
+  "Clear cached project configs for one budgets path, or all paths with no arg."
+  ([] (reset! project-cache {}))
+  ([conf-or-path]
+   (swap! project-cache dissoc
+          (if (map? conf-or-path)
+            (projects-cache-key conf-or-path)
+            conf-or-path))))
+
+(defn- load-all-projects-fresh
+  [conf]
+  (let [files (conf/project-files conf)]
+    (reduce (fn [projects project-name]
+              (let [project (conf/load-project conf files project-name)]
+                (if (f/failed? project)
+                  (do
+                    (log/warn (str "Skipping invalid project "
+                                   project-name
+                                   ": "
+                                   (f/message project)))
+                    projects)
+                  (conj project projects))))
+            {}
+            (or (seq (get-in conf [:agiladmin :projects]))
+                (keys files)))))
+
+(defn load-all-projects [conf]
+  "Load project budgets for one budgets path, reusing an in-memory cache until
+  invalidate-project-cache! is called for that path."
+  (let [cache-key (projects-cache-key conf)]
+    (if-let [cached-projects (get @project-cache cache-key)]
+      cached-projects
+      (let [projects (load-all-projects-fresh conf)]
+        (swap! project-cache assoc cache-key projects)
+        projects))))

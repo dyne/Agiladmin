@@ -27,12 +27,16 @@
           (:body response) => (contains "Budgets path exists but is not a git repository yet: budgets/"))))
 
 (fact "Reload page clones the budgets repository when the path is missing"
-      (let [clone-calls (atom [])]
+      (let [clone-calls (atom [])
+            invalidations (atom [])]
         (with-redefs [clojure.java.io/file
                       (fn [path]
                         (proxy [java.io.File] [path]
                           (isDirectory [] false)
                           (exists [] (str/ends-with? path ".pub"))))
+                      agiladmin.core/invalidate-project-cache!
+                      (fn [config]
+                        (swap! invalidations conj config))
                       agiladmin.view-reload/safe-load-repo
                       (fn [_] :repo)
                       clj-jgit.porcelain/with-identity
@@ -53,17 +57,22 @@
                                                  :ssh-key "id_rsa"}}}
                           {:email "admin"})]
             @clone-calls => [["git@example.org:repo.git" "budgets/"]]
+            (count @invalidations) => 1
             (:body response) => (contains "Cloned successfully from git@example.org:repo.git")))))
 
 (fact "Reload page clones the budgets repository when the directory is empty"
       (let [clone-calls (atom [])
-            repo-calls (atom 0)]
+            repo-calls (atom 0)
+            invalidations (atom [])]
         (with-redefs [clojure.java.io/file
                       (fn [path]
                         (proxy [java.io.File] [path]
                           (isDirectory [] (not (str/ends-with? path ".pub")))
                           (exists [] true)
                           (listFiles [] (into-array java.io.File []))))
+                      agiladmin.core/invalidate-project-cache!
+                      (fn [config]
+                        (swap! invalidations conj config))
                       clj-jgit.porcelain/with-identity
                       (fn [_ thunk]
                         (thunk))
@@ -87,26 +96,62 @@
                                                  :ssh-key "id_rsa"}}}
                           {:email "admin"})]
             @clone-calls => [["git@example.org:repo.git" "budgets/"]]
+            (count @invalidations) => 1
             (:body response) => (contains "Cloned successfully from git@example.org:repo.git")))))
 
+(fact "Reload page invalidates the project cache after a successful git pull"
+      (let [invalidations (atom [])]
+        (with-redefs [clojure.java.io/file
+                      (fn [_]
+                        (proxy [java.io.File] ["budgets"]
+                          (isDirectory [] true)
+                          (exists [] true)))
+                      agiladmin.core/invalidate-project-cache!
+                      (fn [config]
+                        (swap! invalidations conj config))
+                      agiladmin.view-reload/safe-load-repo
+                      (fn [_] :repo)
+                      clj-jgit.porcelain/with-identity
+                      (fn [_ thunk]
+                        (thunk))
+                      clj-jgit.porcelain/git-pull
+                      (fn [_] :pulled)
+                      clj-jgit.porcelain/git-status
+                      (fn [_] {:clean true})
+                      agiladmin.webpage/render-git-log
+                      (fn [_] [:div "log"])]
+          (let [response (view-reload/start
+                          {}
+                          {:agiladmin {:budgets {:path "budgets/"
+                                                 :git "git@example.org:repo.git"
+                                                 :ssh-key "id_rsa"}}}
+                          {:email "admin"})]
+            (count @invalidations) => 1
+            (:body response) => (contains "Reload completed.")))))
+
 (fact "Reload page renders an error when git pull fails"
-      (with-redefs [clojure.java.io/file
-                    (fn [_]
-                      (proxy [java.io.File] ["budgets"]
-                        (isDirectory [] true)
-                        (exists [] true)))
-                    agiladmin.view-reload/safe-load-repo
-                    (fn [_] :repo)
-                    clj-jgit.porcelain/with-identity
-                    (fn [_ thunk]
-                      (thunk))
-                    clj-jgit.porcelain/git-pull
-                    (fn [_]
-                      (throw (ex-info "Remote origin did not advertise Ref for branch master." {})))]
-        (let [response (view-reload/start
-                        {}
-                        {:agiladmin {:budgets {:path "budgets/"
-                                               :git "git@example.org:repo.git"
-                                               :ssh-key "id_rsa"}}}
-                        {:email "admin"})]
-          (:body response) => (contains "Error in git-pull: Remote origin did not advertise Ref for branch master."))))
+      (let [invalidations (atom [])]
+        (with-redefs [clojure.java.io/file
+                      (fn [_]
+                        (proxy [java.io.File] ["budgets"]
+                          (isDirectory [] true)
+                          (exists [] true)))
+                      agiladmin.core/invalidate-project-cache!
+                      (fn [config]
+                        (swap! invalidations conj config))
+                      agiladmin.view-reload/safe-load-repo
+                      (fn [_] :repo)
+                      clj-jgit.porcelain/with-identity
+                      (fn [_ thunk]
+                        (thunk))
+                      clj-jgit.porcelain/git-pull
+                      (fn [_]
+                        (throw (ex-info "Remote origin did not advertise Ref for branch master." {})))]
+          (let [response (view-reload/start
+                          {}
+                          {:agiladmin {:budgets {:path "budgets/"
+                                                 :git "git@example.org:repo.git"
+                                                 :ssh-key "id_rsa"}}}
+                          {:email "admin"})]
+            @invalidations => []
+            (:body response) => (contains "Error in git-pull: Remote origin did not advertise Ref for branch master.")))))
