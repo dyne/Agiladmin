@@ -57,7 +57,7 @@
         (log/info "Generating SSH keypair...")
         (write-key-pair kp keypath))))
 
-  (trans/init "resources/lang/agiladmin-en.yml")
+  (trans/init "lang/agiladmin-en.yml")
 
   (let [auth-enabled?
         (if-let [pocketbase-conf (get-in @config [:agiladmin :pocketbase])]
