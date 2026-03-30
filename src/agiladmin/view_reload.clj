@@ -83,27 +83,30 @@
           (log/info
            (str "Path is a directory, trying to pull in: "
                 (:path budgets)))
-          (web/render
-           account
-           [:div {:class "space-y-6"}
-            (git/with-identity {:name (:ssh-key budgets)
-                                :passphrase ""
-                                :exclusive true}
-                               (let [res (try (git/git-pull repo)
-                                              (catch Exception ex
-                                                (web/render-error
-                                                 (log/spy :error
-                                                          [:div
-                                                           [:p (str "Error in git-pull: " (.getMessage ex))]
-                                                           [:p (-> ex Throwable->map :cause)]]))))]
-                                 (if (= (type res) org.eclipse.jgit.api.PullResult)
-                                   [:div {:class "alert alert-success shadow-sm"}
-                                    (str "Reloaded successfully from " (:git budgets))]
-                                   res)))
-            [:div [:h1 {:class "text-3xl font-semibold"} "Git status"]
-             (web/render-yaml (git/git-status repo))]
-            [:div [:h1 {:class "text-3xl font-semibold"} "Log (last 20 changes)"]
-             (web/render-git-log repo)]]))
+          (try
+            (let [pull-result
+                  (git/with-identity {:name (:ssh-key budgets)
+                                      :passphrase ""
+                                      :exclusive true}
+                    (git/git-pull repo))]
+              (web/render
+               account
+               [:div {:class "space-y-6"}
+                (when (= (type pull-result) org.eclipse.jgit.api.PullResult)
+                  [:div {:class "alert alert-success shadow-sm"}
+                   (str "Reloaded successfully from " (:git budgets))])
+                [:div [:h1 {:class "text-3xl font-semibold"} "Git status"]
+                 (web/render-yaml (git/git-status repo))]
+                [:div [:h1 {:class "text-3xl font-semibold"} "Log (last 20 changes)"]
+                 (web/render-git-log repo)]]))
+            (catch Exception ex
+              (log/error
+               [:div
+                [:p (str "Error in git-pull: " (.getMessage ex))]
+                [:p (-> ex Throwable->map :cause)]])
+              (render-reload-error
+               account
+               (str "Error in git-pull: " (.getMessage ex))))))
         (render-reload-message
          account
          (str "Budgets path exists but is not a git repository yet: " (:path budgets))))
