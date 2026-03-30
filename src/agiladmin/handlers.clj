@@ -145,8 +145,11 @@
 
   ;; login / logout
   (GET "/login" request (view-auth/login-get request))
+  (GET "/login/start" request (view-auth/login-start request))
 
   (POST "/login" request (view-auth/login-post request))
+
+  (GET "/auth/pocket-id/callback" request (view-auth/pocket-id-callback request))
 
   ;; (GET "/session" request
   ;;      (-> (:session request) web/render-yaml web/render))

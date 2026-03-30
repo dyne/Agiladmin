@@ -27,7 +27,8 @@
 
 (defn backend
   []
-  {:healthy? (fn [] true)
+  {:kind :dev
+   :healthy? (fn [] true)
    :sign-in (fn [username password _options]
               (cond
                 (and (= username "admin")
@@ -44,6 +45,8 @@
 
                 :else
                 (f/fail "Invalid development credentials.")))
+   :login-entry-response (fn [_request]
+                           nil)
    :sign-up (fn [_name _email _password _options _other-names]
               (f/fail "Development auth backend does not support signup."))
    :confirm-verification (fn [_email _token]

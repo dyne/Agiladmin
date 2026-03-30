@@ -28,6 +28,36 @@
             [yaml.core :as yaml]
             [cheshire.core :refer :all]))
 
+(s/defschema PocketBaseConfig
+  {:base-url s/Str
+   :users-collection s/Str
+   :superuser-email s/Str
+   :superuser-password s/Str
+   (s/optional-key :connect-timeout-ms) s/Num
+   (s/optional-key :socket-timeout-ms) s/Num
+   (s/optional-key :manage-process) s/Bool
+   (s/optional-key :binary) s/Str
+   (s/optional-key :dir) s/Str
+   (s/optional-key :migrations-dir) s/Str
+   (s/optional-key :version-file) s/Str})
+
+(s/defschema PocketIdConfig
+  {:issuer-url s/Str
+   :client-id s/Str
+   :client-secret s/Str
+   :redirect-uri s/Str
+   (s/optional-key :post-logout-redirect-uri) s/Str
+   (s/optional-key :scopes) [s/Str]
+   :admin-group s/Str
+   :manager-group s/Str
+   (s/optional-key :connect-timeout-ms) s/Num
+   (s/optional-key :socket-timeout-ms) s/Num})
+
+(s/defschema AuthConfig
+  {(s/optional-key :backend) s/Str
+   (s/optional-key :pocketbase) PocketBaseConfig
+   (s/optional-key :pocket-id) PocketIdConfig})
+
 (s/defschema Config
   {s/Keyword
    {:budgets {:git s/Str
@@ -40,17 +70,8 @@
                                  (s/optional-key :ssl-redirect) s/Bool}
     (s/optional-key :source) {:git s/Str
                               :update s/Bool}
-    (s/optional-key :pocketbase) {:base-url s/Str
-                                  :users-collection s/Str
-                                  :superuser-email s/Str
-                                  :superuser-password s/Str
-                                  (s/optional-key :connect-timeout-ms) s/Num
-                                  (s/optional-key :socket-timeout-ms) s/Num
-                                  (s/optional-key :manage-process) s/Bool
-                                  (s/optional-key :binary) s/Str
-                                  (s/optional-key :dir) s/Str
-                                  (s/optional-key :migrations-dir) s/Str
-                                  (s/optional-key :version-file) s/Str}
+    (s/optional-key :pocketbase) PocketBaseConfig
+    (s/optional-key :auth) AuthConfig
     }
    :appname s/Str
    :paths [s/Str]
@@ -76,6 +97,9 @@
   {s/Keyword ProjectEntry})
 
 (def run-mode (atom :web))
+
+(def default-pocket-id-scopes
+  ["openid" "profile" "email" "groups"])
 
 (def default-settings {:budgets
                        {:git "ssh://git@my.server.org/admin-budgets"
@@ -234,6 +258,62 @@
   ;;     (f/fail (log/spy :error ["Invalid configuration: " conf ex]))))
   (get-in conf path))
 
+(defn- normalize-auth-config
+  [conf]
+  (let [app-key :agiladmin
+        app-conf (get conf app-key)
+        auth-conf (:auth app-conf)
+        pocketbase-conf (:pocketbase app-conf)
+        with-provider
+        (cond
+          (and auth-conf pocketbase-conf (not (:pocketbase auth-conf)))
+          (assoc-in conf [app-key :auth :pocketbase] pocketbase-conf)
+
+          (and (nil? auth-conf) pocketbase-conf)
+          (assoc-in conf [app-key :auth] {:backend "pocketbase"
+                                          :pocketbase pocketbase-conf})
+
+          :else
+          conf)]
+    (if-let [pocket-id-conf (get-in with-provider [app-key :auth :pocket-id])]
+      (update-in with-provider
+                 [app-key :auth :pocket-id]
+                 #(merge {:scopes default-pocket-id-scopes} %))
+      with-provider)))
+
+(defn- validate-auth-selection
+  [conf path-label]
+  (let [app-key :agiladmin
+        auth-conf (get-in conf [app-key :auth])
+        backend (:backend auth-conf)
+        providers (cond-> []
+                    (:pocketbase auth-conf) (conj "pocketbase")
+                    (:pocket-id auth-conf) (conj "pocket-id"))]
+    (cond
+      (and backend (not (#{"pocketbase" "pocket-id" "dev"} backend)))
+      (f/fail (str "Invalid configuration at " path-label
+                   ": unsupported auth backend " backend))
+
+      (and (:pocketbase auth-conf)
+           (:pocket-id auth-conf)
+           (nil? backend))
+      (f/fail (str "Invalid configuration at " path-label
+                   ": auth.backend is required when multiple auth providers are configured"))
+
+      (and backend
+           (#{"pocketbase" "pocket-id"} backend)
+           (nil? (get auth-conf (keyword backend))))
+      (f/fail (str "Invalid configuration at " path-label
+                   ": missing config for auth backend " backend))
+
+      (and (= backend "dev")
+           (seq providers))
+      (f/fail (str "Invalid configuration at " path-label
+                   ": auth.backend dev cannot be combined with provider configs"))
+
+      :else
+      conf)))
+
 (defn- project-file?
   [conf file]
   (let [name (.getName file)
@@ -273,17 +353,21 @@
 (defn load-config [name default]
   (log/info (str "Loading configuration: " name))
   (let [conf (config-read name default)
-        loaded-paths (->> (:paths conf)
+        normalized-conf (if (f/failed? conf)
+                          conf
+                          (normalize-auth-config conf))
+        loaded-paths (->> (:paths normalized-conf)
                           (filter #(.exists (io/as-file %)))
                           vec)
         path-label (if (seq loaded-paths)
                      (clojure.string/join ", " loaded-paths)
                      (str "search path for " name ".yaml"))]
-    (if (f/failed? conf)
-      conf
+    (if (f/failed? normalized-conf)
+      normalized-conf
       (f/attempt-all
-       [_ (validate-data Config conf "configuration" path-label)]
-       conf
+       [_ (validate-data Config normalized-conf "configuration" path-label)
+        _ (validate-auth-selection normalized-conf path-label)]
+       normalized-conf
        (f/when-failed [e]
          e)))))
 

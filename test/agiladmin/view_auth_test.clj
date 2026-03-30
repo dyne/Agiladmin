@@ -68,6 +68,49 @@
                                               :remote-addr "127.0.0.1"})]
           (:body response) => (contains "Login failed: Invalid credentials."))))
 
+(fact "Pocket ID login get renders the Pocket ID entry card"
+      (with-redefs [agiladmin.auth.core/backend-kind (fn [] :pocket-id)]
+        (let [response (view-auth/login-get {})]
+          (:body response) => (contains "Sign in with Pocket ID"))))
+
+(fact "Pocket ID login start delegates through the auth boundary"
+      (let [request {:session {:config :present}}
+            response {:status 302
+                      :headers {"Location" "https://pocket-id.example.org/authorize"}
+                      :session {:config :present
+                                :auth-flow {:provider "pocket-id"}}}]
+        (with-redefs [agiladmin.auth.core/begin-login (fn [value]
+                                                        value => request
+                                                        response)]
+          (view-auth/login-start request) => response)))
+
+(fact "Pocket ID login callback stores the authenticated account in session"
+      (with-redefs [agiladmin.auth.core/complete-login (fn [_]
+                                                         {:id "user-1"
+                                                          :email "user@example.org"
+                                                          :name "User Name"
+                                                          :role "admin"
+                                                          :verified true})]
+        (let [response (view-auth/pocket-id-callback {:session {:auth-flow {:provider "pocket-id"}}
+                                                      :params {:code "abc"
+                                                               :state "state"}})]
+          (:status response) => 302
+          (get-in response [:headers "Location"]) => "/persons/list"
+          (get-in response [:session :auth :email]) => "user@example.org"
+          (get-in response [:session :auth :role]) => "admin")))
+
+(fact "Pocket ID signup routes render the disabled onboarding message"
+      (with-redefs [agiladmin.auth.core/backend-kind (fn [] :pocket-id)]
+        (let [get-response (view-auth/signup-get {})
+              post-response (view-auth/signup-post {:params {:name "User Name"}})]
+          (:body get-response) => (contains "Pocket ID manages user onboarding")
+          (:body post-response) => (contains "Pocket ID manages sign-up"))))
+
+(fact "Pocket ID activate route renders the disabled onboarding message"
+      (with-redefs [agiladmin.auth.core/backend-kind (fn [] :pocket-id)]
+        (let [response (view-auth/activate {} "token-1")]
+          (:body response) => (contains "Pocket ID manages account activation"))))
+
 (fact "Login get reports the active account when already authenticated"
       (let [response (view-auth/login-get {:session {:auth {:email "user@example.org"
                                                             :name "User Name"}}})]

@@ -186,6 +186,30 @@
             @calls => [{:email "user@example.org"
                         :password "secret"}]))))
 
+(fact "Login start routes to the auth view"
+      (with-redefs [agiladmin.view-auth/login-start
+                    (fn [_]
+                      {:status 302
+                       :headers {"Location" "https://pocket-id.example.org/authorize"}
+                       :body ""})]
+        (let [response (handlers/app-routes (mock/request :get "/login/start"))]
+          (:status response) => 302
+          (get-in response [:headers "Location"]) => "https://pocket-id.example.org/authorize")))
+
+(fact "Pocket ID callback routes to the auth view"
+      (with-redefs [agiladmin.view-auth/pocket-id-callback
+                    (fn [request]
+                      (select-keys (:params request) [:code :state])
+                      {:status 302
+                       :headers {"Location" "/persons/list"}
+                       :body ""})]
+        (let [response (handlers/app-routes
+                        (assoc (mock/request :get "/auth/pocket-id/callback?code=abc&state=xyz")
+                               :params {:code "abc"
+                                        :state "xyz"}))]
+          (:status response) => 302
+          (get-in response [:headers "Location"]) => "/persons/list")))
+
 (fact "Signup post routes submitted fields to the auth view"
       (let [calls (atom [])]
         (with-redefs [agiladmin.view-auth/signup-post

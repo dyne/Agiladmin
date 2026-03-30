@@ -1,0 +1,20 @@
+[Unit]
+Description=Pocket ID Application Server
+After=network.target
+
+[Service]
+Type=simple
+User=pocketid
+Group=pocketid
+WorkingDirectory=/home/pocketid
+ExecStart=/usr/local/bin/pocket-id
+EnvironmentFile=/home/pocketid/.env
+
+Restart=always
+RestartSec=10
+
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

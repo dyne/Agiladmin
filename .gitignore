@@ -16,3 +16,6 @@ node_modules/
 .envrc
 __pycache__
 *.xlsx
+timesheetpy/*.png
+timesheetpy/*.jpg
+

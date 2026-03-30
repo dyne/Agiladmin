@@ -9,10 +9,11 @@
         (with-redefs [agiladmin.config/load-config
                       (fn [_ _]
                         {:agiladmin {:budgets {:ssh-key "test/assets/id_rsa"}
-                                     :pocketbase {:base-url "http://127.0.0.1:8090"
-                                                  :users-collection "users"
-                                                  :superuser-email "admin@example.org"
-                                                  :superuser-password "secret"}}})
+                                     :auth {:backend "pocketbase"
+                                            :pocketbase {:base-url "http://127.0.0.1:8090"
+                                                         :users-collection "users"
+                                                         :superuser-email "admin@example.org"
+                                                         :superuser-password "secret"}}}})
                       clojure.java.io/as-file
                       (fn [_] (proxy [java.io.File] ["test/assets/id_rsa"]
                                 (exists [] true)))
@@ -48,13 +49,14 @@
         (with-redefs [agiladmin.config/load-config
                       (fn [_ _]
                         {:agiladmin {:budgets {:ssh-key "test/assets/id_rsa"}
-                                     :pocketbase {:base-url "http://127.0.0.1:8090"
-                                                  :users-collection "users"
-                                                  :superuser-email "admin@example.org"
-                                                  :superuser-password "secret"
-                                                  :manage-process true
-                                                  :binary "pocketbase"
-                                                  :dir "/tmp/pb"}}})
+                                     :auth {:backend "pocketbase"
+                                            :pocketbase {:base-url "http://127.0.0.1:8090"
+                                                         :users-collection "users"
+                                                         :superuser-email "admin@example.org"
+                                                         :superuser-password "secret"
+                                                         :manage-process true
+                                                         :binary "pocketbase"
+                                                         :dir "/tmp/pb"}}}})
                       clojure.java.io/as-file
                       (fn [_] (proxy [java.io.File] ["test/assets/id_rsa"]
                                 (exists [] true)))
@@ -124,6 +126,46 @@
                      [:init backend-instance]
                      [:healthy]])))
 
+(fact "Ring init wires the Pocket ID backend when configured"
+      (let [calls (atom [])
+            backend-instance {:healthy? (fn [] true)}]
+        (with-redefs [agiladmin.config/load-config
+                      (fn [_ _]
+                        {:agiladmin {:budgets {:ssh-key "test/assets/id_rsa"}
+                                     :auth {:backend "pocket-id"
+                                            :pocket-id {:issuer-url "https://pocket-id.example.org"
+                                                        :client-id "agiladmin"
+                                                        :client-secret "secret"
+                                                        :redirect-uri "https://agiladmin.example.org/auth/pocket-id/callback"
+                                                        :admin-group "agiladmin-admin"
+                                                        :manager-group "agiladmin-manager"}}}})
+                      clojure.java.io/as-file
+                      (fn [_] (proxy [java.io.File] ["test/assets/id_rsa"]
+                                (exists [] true)))
+                      auxiliary.translation/init
+                      (fn [& _] true)
+                      agiladmin.auth.pocket-id/backend
+                      (fn [config]
+                        (swap! calls conj [:backend config])
+                        backend-instance)
+                      agiladmin.auth.core/init!
+                      (fn [backend]
+                        (swap! calls conj [:init backend])
+                        backend)
+                      agiladmin.auth.core/healthy?
+                      (fn []
+                        (swap! calls conj [:healthy])
+                        true)]
+          (ring/init) => truthy
+          @calls => [[:backend {:issuer-url "https://pocket-id.example.org"
+                                :client-id "agiladmin"
+                                :client-secret "secret"
+                                :redirect-uri "https://agiladmin.example.org/auth/pocket-id/callback"
+                                :admin-group "agiladmin-admin"
+                                :manager-group "agiladmin-manager"}]
+                     [:init backend-instance]
+                     [:healthy]])))
+
 (fact "Ring init fails with the config validation message when config loading fails"
       (with-redefs [agiladmin.config/load-config
                     (fn [_ _]
@@ -138,16 +180,19 @@
       (with-redefs [agiladmin.config/load-config
                     (fn [_ _]
                       {:agiladmin {:budgets {:ssh-key "test/assets/id_rsa"}
-                                   :pocketbase {:base-url "http://127.0.0.1:8090"
-                                                :users-collection "users"
-                                                :superuser-email "admin@example.org"
-                                                :superuser-password "secret"}}})
+                                   :auth {:backend "pocket-id"
+                                          :pocket-id {:issuer-url "https://pocket-id.example.org"
+                                                      :client-id "agiladmin"
+                                                      :client-secret "secret"
+                                                      :redirect-uri "https://agiladmin.example.org/auth/pocket-id/callback"
+                                                      :admin-group "agiladmin-admin"
+                                                      :manager-group "agiladmin-manager"}}}})
                     clojure.java.io/as-file
                     (fn [_] (proxy [java.io.File] ["test/assets/id_rsa"]
                               (exists [] true)))
                     auxiliary.translation/init
                     (fn [& _] true)
-                    agiladmin.auth.pocketbase/backend
+                    agiladmin.auth.pocket-id/backend
                     (fn [_] {:healthy? (fn [] true)})
                     agiladmin.auth.core/init!
                     (fn [backend]
@@ -160,3 +205,22 @@
           false => true
           (catch clojure.lang.ExceptionInfo ex
             (.getMessage ex) => (contains "Authentication backend health check failed")))))
+
+(fact "Ring init skips auth when no backend is configured and dev auth is disabled"
+      (let [calls (atom [])]
+        (with-redefs [agiladmin.config/load-config
+                      (fn [_ _]
+                        {:agiladmin {:budgets {:ssh-key "test/assets/id_rsa"}}})
+                      clojure.java.io/as-file
+                      (fn [_] (proxy [java.io.File] ["test/assets/id_rsa"]
+                                (exists [] true)))
+                      auxiliary.translation/init
+                      (fn [& _] true)
+                      agiladmin.ring/dev-auth-enabled?
+                      (fn [] false)
+                      agiladmin.auth.core/init!
+                      (fn [backend]
+                        (swap! calls conj [:init backend])
+                        backend)]
+          (ring/init) => truthy
+          @calls => [[:init nil]])))

@@ -188,9 +188,12 @@
 
 (defn backend
   [config]
-  {:healthy? (fn [] (healthy? config))
+  {:kind :pocketbase
+   :healthy? (fn [] (healthy? config))
    :sign-in (fn [username password options]
               (sign-in config username password options))
+   :login-entry-response (fn [_request]
+                           nil)
    :sign-up (fn [name email password options other-names]
               (sign-up config name email password options other-names))
    :confirm-verification (fn [_email token]

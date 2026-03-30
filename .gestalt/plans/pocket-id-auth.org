@@ -1,0 +1,213 @@
+#+TITLE: Pocket ID Authentication Plan
+#+SUBTITLE: Add Pocket ID passkey-based authentication as an alternative to PocketBase
+#+DATE: 2026-03-12
+#+KEYWORDS: auth pocket-id oidc passkey pocketbase ring clojure
+
+* DONE [#A] Establish the target auth model and backend boundary
+Effort: M
+Goal: Define one stable auth contract that can support both PocketBase and Pocket ID without spreading provider-specific logic across routes and views.
+Notes: Keep the existing `agiladmin.auth.core` boundary, but challenge its current password-centric shape. Pocket ID is an OIDC provider, not a username/password API, so the boundary must model authentication as a use-case, not as a form post. Preserve the current session contract used by `agiladmin.session` and downstream views.
+
+** DONE [#A] Inventory the current auth use-cases and classify what remains valid
+Why: The current backend contract mixes three concerns: password login, user registration, and admin queries for pending users. Pocket ID supports a different model, so the plan must separate reusable use-cases from PocketBase-only behavior before any code changes start.
+Change: Read `src/agiladmin/auth/core.clj`, `src/agiladmin/view_auth.clj`, `src/agiladmin/ring.clj`, `src/agiladmin/session.clj`, `src/agiladmin/handlers.clj`, and tests touching login or signup. Produce a short design note inside the branch or commit message that classifies each existing operation as one of: provider-neutral (`healthy?`, session-user normalization, logout), PocketBase-only (`sign-in`, `sign-up`, verification, pending users), or needs replacement (`login-post`).
+Tests: No code changes expected. If no files change, skip tests.
+Done when: A written inventory exists and every current public auth operation has an explicit disposition for the Pocket ID migration.
+
+** DONE [#A] Define the provider-neutral auth port around browser redirect login
+Why: Pocket ID requires the OIDC authorization code flow. A password-based `sign-in` function is the wrong abstraction and will force hacks into the adapter if left unchanged.
+Change: Design a minimal auth port with operations shaped around the real use-cases:
+`healthy?`
+`login-entry-response` for the GET `/login` page behavior
+`begin-login` for redirect creation and CSRF state persistence
+`complete-login` for callback exchange, token validation, and session-user construction
+`logout-response` for provider-specific logout behavior if needed
+Optional operations should be explicit, not assumed: `signup-entry-response`, `list-pending-users`, `request-verification`, `confirm-verification`.
+Keep provider-neutral return values small and map them into the existing Ring session shape:
+`{:id ... :email ... :name ... :role ... :other-names [] :verified true}`
+Prefer a map-based port over protocols to stay consistent with the current codebase.
+Tests: Add or update unit tests for `agiladmin.auth.core` to prove missing optional functions fail clearly or are feature-gated cleanly.
+Done when: The port supports redirect-based auth cleanly and there is no requirement for Pocket ID to pretend it accepts passwords.
+
+** DONE [#A] Decide the Pocket ID role mapping and invariants
+Why: PocketBase currently stores the role directly on the user record, while Pocket ID uses OIDC plus group-based access controls. Agiladmin needs a deterministic rule for deriving `admin`, `manager`, or plain user from Pocket ID claims.
+Change: Choose one invariant and document it in code comments and config docs:
+Option A, preferred: derive Agiladmin role from Pocket ID `groups` claim by configured group names, such as `agiladmin-admin` and `agiladmin-manager`.
+Option B: derive from a custom claim if Pocket ID exposes one and the chosen OIDC client can rely on it.
+Document precedence, for example `admin` wins over `manager`, unknown groups yield nil role, and access checks continue to rely on `agiladmin.session`.
+Tests: Add normalization tests for role derivation from representative claims payloads.
+Done when: A single source of truth exists for role mapping and it is independent of view code.
+
+* DONE [#A] Add explicit backend selection and Pocket ID configuration
+Effort: M
+Goal: Allow Agiladmin to run with PocketBase, Pocket ID, or dev auth through explicit configuration instead of implicit presence checks.
+Notes: This is the key architectural cleanup. The current `ring/init` behavior picks PocketBase if the config exists, otherwise maybe dev auth. That will become ambiguous once two real providers exist.
+
+** DONE [#A] Introduce an explicit auth backend selector in config
+Why: Two optional provider blocks are not enough. Startup must know which backend is authoritative, and failures must be clear.
+Change: Extend `src/agiladmin/config.clj` with a dedicated auth section, for example:
+`agiladmin.auth.backend: pocketbase | pocket-id | dev`
+`agiladmin.auth.pocketbase: ...`
+`agiladmin.auth.pocket-id: ...`
+Preserve backward compatibility for one transition period by translating the current top-level `:pocketbase` block into the new shape at load time if `:auth.backend` is absent. Keep the schema minimal and reject ambiguous or partial config early.
+Tests: Add config parsing tests for:
+legacy PocketBase config,
+new PocketBase config,
+new Pocket ID config,
+invalid mixed config,
+dev backend config.
+Done when: `conf/load-config` can unambiguously resolve the active auth backend and returns actionable validation errors.
+
+** DONE [#A] Define the Pocket ID config schema around OIDC, not ad hoc endpoints
+Why: Pocket ID is standards-based. Agiladmin should configure issuer/discovery data and client credentials, then derive endpoints from OIDC discovery instead of hardcoding URLs.
+Change: Add a minimal Pocket ID config schema such as:
+`issuer-url`
+`client-id`
+`client-secret` or federated-client-auth settings
+`redirect-uri`
+`post-logout-redirect-uri` if used
+`scopes` defaulting to `openid profile email groups`
+`admin-group`
+`manager-group`
+`connect-timeout-ms`
+`socket-timeout-ms`
+Optionally include `require-pkce` as a local invariant if the implementation supports it.
+Avoid adding settings for Pocket ID user management unless Agiladmin truly needs them.
+Tests: Add schema validation coverage for required fields and reasonable defaults.
+Done when: The Pocket ID config is small, OIDC-native, and enough to bootstrap login without provider-specific hardcoding in views.
+
+** DONE [#A] Refactor startup wiring to select adapters through one place
+Why: `src/agiladmin/ring.clj` currently knows too much about PocketBase process management and backend initialization. Adding Pocket ID there without cleanup will make startup logic fragile.
+Change: Add a small auth bootstrap decision point in `ring/init` that selects one backend from config and initializes `agiladmin.auth.core` with it. Keep PocketBase process management isolated to PocketBase only. Pocket ID should never share those code paths. Ensure health checks run only against the selected backend.
+Tests: Extend `test/agiladmin/ring_test.clj` to cover:
+PocketBase selected,
+Pocket ID selected,
+dev selected,
+auth health failure for Pocket ID,
+missing backend selection.
+Done when: Startup contains one explicit branch per backend and no provider inference logic remains.
+
+* WIP [#A] Implement Pocket ID as an OIDC adapter and login slice
+Effort: L
+Goal: Add the Pocket ID adapter plus the request/endpoint/response flow for passkey login.
+Notes: Keep this slice narrow. Do not attempt full identity management in Agiladmin. Pocket ID should own authentication; Agiladmin should only initiate login, verify the callback, and store a small session user.
+
+** DONE [#A] Build a Pocket ID OIDC adapter under the auth hex boundary
+Why: The new adapter is the core IO integration. It must handle discovery, authorization redirect generation, token exchange, and claim extraction without leaking OIDC details to the rest of the app.
+Change: Add `src/agiladmin/auth/pocket_id.clj` with small functions for:
+OIDC discovery fetch and validation,
+authorization URL creation with state and nonce,
+PKCE generation if used,
+callback token exchange against `/token`,
+ID token verification using the provider JWKS,
+optional `/userinfo` fetch if required for `groups`,
+session-user normalization and role mapping.
+Use `clj-http.client` unless an existing dependency already covers JWT verification cleanly; do not add a dependency unless the current tree cannot verify JWTs safely.
+Model this as a classic Hex adapter: config and HTTP are adapter concerns; user role normalization is domain logic.
+Tests: Add adapter unit tests with stubbed HTTP calls for discovery, token exchange, JWKS retrieval, and claims normalization. Include failure cases for bad issuer, state mismatch, nonce mismatch, missing claims, and unknown role groups.
+Done when: The adapter can transform a valid Pocket ID callback into the existing Agiladmin session user map without any view-specific branching.
+
+** DONE [#A] Add REPR route handling for login start and callback completion
+Why: The current auth REPR is a simple form POST. Pocket ID needs a request flow with redirect initiation and callback completion.
+Change: Replace or branch the auth route handling so the active backend drives the flow:
+GET `/login` remains the entry page.
+For Pocket ID, POST `/login` should become either a redirect trigger or be replaced by GET `/login/start` for cleaner semantics.
+Add GET `/auth/pocket-id/callback` as the endpoint that validates state, exchanges the code, stores the Ring session, and redirects to the existing destination, likely `/persons/list`.
+Represent request parsing, endpoint behavior, and response building cleanly inside the auth slice instead of scattering logic across handlers and views.
+Keep PocketBase login behavior working unchanged when that backend is selected.
+Tests: Add route-level tests for:
+start login returns 302 to Pocket ID,
+callback success stores session and redirects,
+callback failure renders a clear login error,
+PocketBase still accepts the old login form path.
+Done when: Pocket ID login works as a browser redirect loop and the route contract is isolated to the auth slice.
+
+** DONE [#A] Define how logout behaves for Pocket ID
+Why: OIDC logout behavior is often different from local session clearing. The app must make a deliberate choice instead of assuming local logout is enough.
+Change: Decide between:
+local-only logout, which clears the Ring session and returns to `/login`;
+provider-aware logout, which redirects to Pocket ID’s logout or end-session URL when available and then back to Agiladmin.
+Choose the simplest viable approach first. If Pocket ID logout support is uncertain or unnecessary, explicitly keep local logout and document that the Pocket ID session may remain active for future logins.
+Tests: Add a route test covering the chosen logout response for the Pocket ID backend.
+Done when: Logout behavior is intentional, documented, and tested.
+
+* DONE [#B] Reconcile unsupported use-cases and adapt the UI
+Effort: M
+Goal: Keep the application coherent when Pocket ID is active, even though signup and verification do not map one-to-one from PocketBase.
+Notes: Pocket ID user creation and passkey bootstrap are admin-driven or token-driven. Agiladmin should not fake self-service flows that it does not control.
+
+** DONE [#A] Gate or replace signup and verification screens when Pocket ID is active
+Why: The current `/signup` and `/activate/...` screens assume the app itself can create accounts and request verification. That is not true for Pocket ID in the same way.
+Change: For the Pocket ID backend, change `view_auth` so signup routes either:
+render a provider-specific explanation page with next steps,
+or are disabled with a clear message pointing admins to Pocket ID user setup, signup tokens, or one-time access flow.
+Do not expose broken forms that submit nowhere.
+Keep PocketBase behavior intact when that backend is selected.
+Tests: Add view and route tests proving Pocket ID mode does not show misleading password or verification UI.
+Done when: A user on Pocket ID sees only valid actions and no dead-end signup flow.
+
+** DONE [#B] Remove PocketBase-specific language from shared login UI
+Why: The login page should describe the active auth mode accurately. A passkey redirect flow should not ask for a password.
+Change: Update `src/agiladmin/view_auth.clj` and shared login helpers in `src/agiladmin/webpage.clj` so the page renders backend-specific content:
+PocketBase: existing email/password form.
+Pocket ID: a single “Sign in with Pocket ID” action, short passkey explanation, and fallback guidance if the user has no enrolled passkey.
+Preserve full-page behavior first; HTMX is not required here.
+Tests: Add rendering tests that assert backend-specific login markup.
+Done when: The login page never presents the wrong authentication mechanism for the configured backend.
+
+** DONE [#B] Decide how admin workflows handle pending users under Pocket ID
+Why: PocketBase exposes pending verification users; Pocket ID has different user onboarding semantics. The admin people screen must not rely on a capability the backend does not provide.
+Change: Review where `list-pending-users` is used, especially in `view_person`. For Pocket ID choose one of:
+hide the pending-users section entirely,
+replace it with a static note that onboarding is managed in Pocket ID,
+or add a Pocket ID API-backed admin summary only if the API genuinely supports the needed behavior and the feature is worth the complexity.
+Prefer hiding over inventing partial admin sync logic.
+Tests: Add tests for the people/admin view in Pocket ID mode so the screen remains valid without pending-user data.
+Done when: Admin pages remain coherent in Pocket ID mode and no code assumes verification queues exist.
+
+* DONE [#B] Verify, document, and stage migration
+Effort: M
+Goal: Make the change operable for reviewers and operators, not just implementable in code.
+Notes: Since this adds a second real provider, rollout clarity matters. Keep docs minimal but concrete.
+
+** DONE [#A] Add focused tests for the Pocket ID happy path and failure modes
+Why: OIDC integrations fail in subtle ways. Without explicit tests, regressions will be hard to diagnose.
+Change: Add a test matrix that covers:
+config validation,
+startup backend selection,
+login start redirect,
+callback success,
+state/nonce mismatch,
+token exchange failure,
+missing `email` or identity claim,
+role mapping from groups,
+logout behavior.
+Keep tests local and stub HTTP rather than requiring a live Pocket ID instance unless a simple integration harness is practical.
+Tests: Run touched Midje namespaces during each L2 that changes code. After the full L1 is complete, run the whole test suite as required by the workflow.
+Done when: The new backend is covered by deterministic tests at the adapter, route, and startup layers.
+
+** DONE [#B] Update operator documentation and sample configuration
+Why: Reviewers and deployers need exact setup steps for Pocket ID client creation and Agiladmin config. Without docs, the feature will look incomplete.
+Change: Update `README.md` and add a sample config in `doc/`, following the current PocketBase pattern. Document:
+the exact redirect URI for Agiladmin,
+required scopes,
+recommended Pocket ID client settings,
+group names used for role mapping,
+whether PKCE is enabled,
+logout behavior,
+unsupported features compared with PocketBase.
+Keep the docs explicit about dates and current provider behavior, for example that Pocket ID documentation checked on 2026-03-12 describes allowed user groups, signup tokens, and OIDC client authentication with shared secret or federated credentials.
+Tests: No automated tests required for doc-only changes.
+Done when: A reviewer can configure Pocket ID from the repository docs without reading the implementation.
+
+** DONE [#B] Write a migration and rollback note from PocketBase to Pocket ID
+Why: “Alternative to PocketBase” implies operators may compare or switch providers. The plan should include a safe operational story.
+Change: Add a short migration note covering:
+what data does not migrate automatically,
+how roles move from PocketBase `role` to Pocket ID groups,
+how user onboarding changes,
+how to switch back by changing config,
+what session invalidation behavior to expect during cutover.
+Keep this note pragmatic and short.
+Tests: No automated tests required for doc-only changes.
+Done when: The repository includes a concise operator-facing migration path and rollback path.

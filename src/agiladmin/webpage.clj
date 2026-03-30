@@ -528,3 +528,29 @@
                :class "input input-bordered w-full"}]
       [:input {:type "submit" :value "Sign Up"
                :class "btn btn-primary btn-lg w-full"}]]]]])
+
+(defonce pocket-id-login-form
+  [:div {:class "mx-auto max-w-lg"}
+   [:div {:class "card bg-base-100 shadow-xl"}
+    [:div {:class "card-body gap-4"}
+     [:h1 {:class "card-title text-3xl"} "Login into Agiladmin"]
+     [:p {:class "text-base-content/80"}
+      "Authentication is handled by Pocket ID with a passkey-enabled sign-in flow."]
+     [:a {:href "/login/start"
+          :class "btn btn-primary btn-lg w-full"}
+      "Sign in with Pocket ID"]
+     [:p {:class "text-sm text-base-content/70"}
+      "Use your enrolled passkey on the Pocket ID screen after redirect."]
+     [:p {:class "text-sm text-base-content/70"}
+      "Unauthorized access is prohibited. Every visit is recorded."]]]])
+
+(defn signup-disabled-card
+  [message]
+  [:div {:class "mx-auto max-w-lg"}
+   [:div {:class "card bg-base-100 shadow-xl"}
+    [:div {:class "card-body gap-4"}
+     [:h1 {:class "card-title text-3xl"} "Sign Up Agiladmin"]
+     [:p {:class "text-base-content/80"} message]
+     [:a {:href "/login"
+          :class "btn btn-primary"}
+      "Back to login"]]]])
