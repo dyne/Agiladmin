@@ -1,5 +1,5 @@
 CLOJURE ?= clj
-BUILD_VERSION := $(shell if [ -d .git ]; then v=$$(git describe --tags --match 'v[0-9]*.[0-9]*.[0-9]*' --abbrev=0 2>/dev/null | sed 's/^v//'); if [ -n "$$v" ]; then printf '%s' "$$v"; else printf '%s' DEV-SNAPSHOT; fi; else printf '%s' DEV-SNAPSHOT; fi)
+BUILD_VERSION := $(if $(AGILADMIN_VERSION),$(AGILADMIN_VERSION),$(shell if [ -d .git ]; then v=$$(git describe --tags --match 'v[0-9]*.[0-9]*.[0-9]*' --abbrev=0 2>/dev/null | sed 's/^v//'); if [ -n "$$v" ]; then printf '%s' "$$v"; else printf '%s' DEV-SNAPSHOT; fi; else printf '%s' DEV-SNAPSHOT; fi))
 PREFIX ?= /opt
 DESTDIR ?=
 APP_NAME ?= agiladmin

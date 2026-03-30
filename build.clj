@@ -18,9 +18,16 @@
                 (str/replace #"^v" "")
                 not-empty)))))
 
+(defn- env-version
+  []
+  (some-> (System/getenv "AGILADMIN_VERSION")
+          str/trim
+          not-empty))
+
 (def lib 'agiladmin/agiladmin)
 (def version
-  (or (git-version)
+  (or (env-version)
+      (git-version)
       "DEV-SNAPSHOT"))
 (def class-dir "target/classes")
 (def basis (delay (b/create-basis {:project "deps.edn"})))
