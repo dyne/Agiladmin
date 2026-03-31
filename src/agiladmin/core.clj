@@ -47,6 +47,7 @@
 ;; Memory-only timesheet cache keyed by budgets path. Successful timesheet
 ;; commits invalidate it after the repository adopts new workbook content.
 (def timesheet-cache (atom {}))
+(def recent-projects-cache (atom {}))
 
 (declare load-all-timesheets)
 (declare load-all-projects)
@@ -372,9 +373,38 @@
 
 (defn invalidate-timesheet-cache!
   "Clear cached timesheets for one budgets path, or all paths with no arg."
-  ([] (reset! timesheet-cache {}))
+  ([] (do (reset! timesheet-cache {})
+          (reset! recent-projects-cache {})))
   ([path]
-   (swap! timesheet-cache dissoc path)))
+   (do
+     (swap! timesheet-cache dissoc path)
+     (swap! recent-projects-cache
+            (fn [cache]
+              (into {}
+                    (remove (fn [[[cache-path _] _]]
+                              (= cache-path path))
+                            cache)))))))
+
+(defn recent-project-names
+  "Return the uppercase project names with any recorded hour in the current or
+  previous year. Results are cached per budgets path and current year."
+  [path current-year]
+  (let [cache-key [path current-year]
+        recent-years #{current-year (dec current-year)}]
+    (if-let [cached-projects (get @recent-projects-cache cache-key)]
+      cached-projects
+      (let [projects
+            (->> (map-timesheets (load-all-timesheets path #".*_timesheet_.*xlsx$")
+                                 load-monthly-hours
+                                 (fn [info]
+                                   (when-let [month (:month info)]
+                                     (contains? recent-years
+                                                (some-> month str (split #"-") first Integer/parseInt)))))
+                 :rows
+                 (keep (comp upper-case trim :project))
+                 set)]
+        (swap! recent-projects-cache assoc cache-key projects)
+        projects))))
 
 (defn- projects-cache-key
   [conf]
@@ -388,6 +418,15 @@
           (if (map? conf-or-path)
             (projects-cache-key conf-or-path)
             conf-or-path))))
+
+(defn invalidate-runtime-caches!
+  "Clear all in-memory caches derived from a budgets path."
+  [conf-or-path]
+  (let [path (if (map? conf-or-path)
+               (projects-cache-key conf-or-path)
+               conf-or-path)]
+    (invalidate-project-cache! path)
+    (invalidate-timesheet-cache! path)))
 
 (defn- load-all-projects-fresh
   [conf]

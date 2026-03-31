@@ -21,7 +21,7 @@
 (ns agiladmin.view-project
   (:require
    [clojure.java.io :as io]
-   [clojure.string :refer [trim]]
+   [clojure.string :refer [trim upper-case]]
    [clj-time.format :as tf]
    [clj-time.core :as t]
    [agiladmin.core :refer :all]
@@ -48,13 +48,14 @@
       (derive-costs config project-conf)))
 
 (defn- active-project?
-  "Return true when a project is current by end date or recent activity."
-  [project today recent-projects project-name]
+  "Return true when a project has not expired yet. Projects without an end date
+  stay in the active section."
+  [project today]
   (let [start-date (:start_date project)
         duration (:duration project)]
     (cond
-      (or (nil? start-date) (nil? duration)) (contains? recent-projects project-name)
-      (not (pos? duration)) (contains? recent-projects project-name)
+      (or (nil? start-date) (nil? duration)) true
+      (not (pos? duration)) true
       :else
       (let [start (tf/parse time-format start-date)
             end (t/plus start (t/months duration))]
@@ -66,23 +67,11 @@
   [request config account]
   (let [today-map (util/now)
         today (t/date-time (:year today-map) (:month today-map) (:day today-map))
-        recent-years #{(:year today-map) (dec (:year today-map))}
-        ts-path (conf/q config [:agiladmin :budgets :path])
-        recent-projects
-        (->> (load-all-timesheets ts-path #".*_timesheet_.*xlsx$")
-             (map-timesheets load-monthly-hours
-                             (fn [info]
-                               (when-let [month (:month info)]
-                                 (contains? recent-years
-                                            (some-> month str (clojure.string/split #"-") first Integer/parseInt)))))
-             :rows
-             (keep :project)
-             set)
         projects (mapv (fn [project-name]
                          (let [project-map (conf/load-project config project-name)
                                project (get project-map (keyword project-name))]
                            {:name project-name
-                            :active? (boolean (active-project? project today recent-projects project-name))}))
+                            :active? (boolean (active-project? project today))}))
                        (conf/project-names config))
         active-projects (->> projects (filter :active?) (map :name) clojure.core/sort)
         old-projects (->> projects (remove :active?) (map :name) clojure.core/sort)
