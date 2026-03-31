@@ -98,13 +98,13 @@
          (str "Path is a directory, trying to pull in: "
               (:path budgets)))
         (try
-          (let [pull-result
+            (let [pull-result
                 (git/with-identity {:name (:ssh-key budgets)
                                     :passphrase ""
                                     :exclusive true}
                   (git/git-pull repo))]
-            ;; Adopted repo state changed, so request-time project reads must refresh.
-            (core/invalidate-project-cache! config)
+            ;; Adopted repo state changed, so all derived runtime reads must refresh.
+            (core/invalidate-runtime-caches! config)
             (render-repo-state-with-message
              account
              repo
@@ -135,7 +135,7 @@
         (try
           (clone-budgets! budgets)
           ;; First clone creates the live project tree for this budgets path.
-          (core/invalidate-project-cache! config)
+          (core/invalidate-runtime-caches! config)
           (if-let [repo (safe-load-repo (:path budgets))]
             (render-repo-state-with-message
              account

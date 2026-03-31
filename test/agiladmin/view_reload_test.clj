@@ -35,7 +35,7 @@
                         (proxy [java.io.File] [path]
                           (isDirectory [] false)
                           (exists [] (str/ends-with? path ".pub"))))
-                      agiladmin.core/invalidate-project-cache!
+                      agiladmin.core/invalidate-runtime-caches!
                       (fn [config]
                         (swap! invalidations conj config))
                       agiladmin.view-reload/safe-load-repo
@@ -71,7 +71,7 @@
                           (isDirectory [] (not (str/ends-with? path ".pub")))
                           (exists [] true)
                           (listFiles [] (into-array java.io.File []))))
-                      agiladmin.core/invalidate-project-cache!
+                      agiladmin.core/invalidate-runtime-caches!
                       (fn [config]
                         (swap! invalidations conj config))
                       clj-jgit.porcelain/with-identity
@@ -100,7 +100,7 @@
             (count @invalidations) => 1
             (:body response) => (contains "Cloned successfully from git@example.org:repo.git")))))
 
-(fact "Reload page invalidates the project cache after a successful git pull"
+(fact "Reload page invalidates all runtime caches after a successful git pull"
       (let [invalidations (atom [])]
         (with-redefs [clojure.java.io/file
                       (fn [_]
@@ -108,7 +108,7 @@
                           (isDirectory [] true)
                           (exists [] true)
                           (listFiles [] (into-array java.io.File [(java.io.File. "placeholder")]))))
-                      agiladmin.core/invalidate-project-cache!
+                      agiladmin.core/invalidate-runtime-caches!
                       (fn [config]
                         (swap! invalidations conj config))
                       agiladmin.view-reload/safe-load-repo
@@ -138,7 +138,7 @@
                         (proxy [java.io.File] ["budgets"]
                           (isDirectory [] true)
                           (exists [] true)))
-                      agiladmin.core/invalidate-project-cache!
+                      agiladmin.core/invalidate-runtime-caches!
                       (fn [config]
                         (swap! invalidations conj config))
                       agiladmin.view-reload/safe-load-repo
