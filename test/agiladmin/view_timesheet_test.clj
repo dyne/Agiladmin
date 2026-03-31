@@ -17,7 +17,9 @@
                                        :filename "upload.xlsx"
                                        :tempfile "/tmp/upload.xlsx"}}}
                       {}
-                      {:email "admin"})]
+                      {:email "admin@example.org"
+                       :name "Admin User"
+                       :role "admin"})]
         (:body response) => (contains "File too big in upload.")))
 
 (fact "Timesheet upload surfaces spreadsheet parse failures"
@@ -38,9 +40,82 @@
                                          :filename "upload.xlsx"
                                          :tempfile "/tmp/upload.xlsx"}}}
                         {:agiladmin {:budgets {:path "budgets/"}}}
-                        {:email "admin"})]
+                        {:email "admin@example.org"
+                         :name "Admin User"
+                         :role "admin"})]
           (:body response) => (contains "Error parsing timesheet")
           (:body response) => (contains "Spreadsheet is invalid."))))
+
+(fact "Member upload rejects a timesheet filename for another person"
+      (with-redefs [clojure.java.io/copy (fn [& _] nil)
+                    clojure.java.io/delete-file (fn [& _] nil)
+                    clojure.java.io/file
+                    (fn
+                      ([path]
+                       (proxy [java.io.File] [path]
+                         (exists [] (= path "/tmp/2026_timesheet_B.Bob.xlsx"))))
+                      ([parent child]
+                       (proxy [java.io.File] [(str parent "/" child)]
+                         (exists [] false))))]
+        (let [response (view-timesheet/upload
+                        {:params {:file {:size 1024
+                                         :filename "2026_timesheet_B.Bob.xlsx"
+                                         :tempfile "/tmp/upload.xlsx"}}}
+                        {:agiladmin {:budgets {:path "budgets/"}}}
+                        {:name "Alice Example"
+                         :role nil})]
+          (:body response) => (contains "Timesheet filename does not match the authenticated account")
+          (:body response) => (contains "Expected A.Example"))))
+
+(fact "Manager upload rejects a timesheet whose B3 owner does not match the account"
+      (with-redefs [clojure.java.io/copy (fn [& _] nil)
+                    clojure.java.io/delete-file (fn [& _] nil)
+                    clojure.java.io/file
+                    (fn
+                      ([path]
+                       (proxy [java.io.File] [path]
+                         (exists [] (= path "/tmp/2026_timesheet_A.Example.xlsx"))))
+                      ([parent child]
+                       (proxy [java.io.File] [(str parent "/" child)]
+                         (exists [] false))))
+                    agiladmin.view-timesheet/load-timesheet-owner
+                    (fn [_] "Bob Example")]
+        (let [response (view-timesheet/upload
+                        {:params {:file {:size 1024
+                                         :filename "2026_timesheet_A.Example.xlsx"
+                                         :tempfile "/tmp/upload.xlsx"}}}
+                        {:agiladmin {:budgets {:path "budgets/"}}}
+                        {:name "Alice Example"
+                         :role "manager"})]
+          (:body response) => (contains "Timesheet owner in cell B3 does not match the authenticated account")
+          (:body response) => (contains "Alice Example"))))
+
+(fact "Manager upload accepts a timesheet when filename and B3 owner both match"
+      (with-redefs [clojure.java.io/copy (fn [& _] nil)
+                    clojure.java.io/delete-file (fn [& _] nil)
+                    clojure.java.io/file
+                    (fn
+                      ([path]
+                       (proxy [java.io.File] [path]
+                         (exists [] (= path "/tmp/2026_timesheet_A.Example.xlsx"))))
+                      ([parent child]
+                       (proxy [java.io.File] [(str parent "/" child)]
+                         (exists [] false))))
+                    agiladmin.view-timesheet/load-timesheet-owner
+                    (fn [_] "Alice Example")
+                    agiladmin.core/load-timesheet (fn [_] {:sheets []})
+                    agiladmin.core/load-all-projects (fn [_] {})
+                    agiladmin.core/map-timesheets (fn [& _] {:rows []})
+                    agiladmin.graphics/to-table (fn [_] [:table "hours"])]
+        (let [response (view-timesheet/upload
+                        {:params {:file {:size 1024
+                                         :filename "2026_timesheet_A.Example.xlsx"
+                                         :tempfile "/tmp/upload.xlsx"}}}
+                        {:agiladmin {:budgets {:path "budgets/"}}}
+                        {:name "Alice Example"
+                         :role "manager"})]
+          (:body response) => (contains "Uploaded: 2026_timesheet_A.Example.xlsx")
+          (:body response) => (contains "This is a new timesheet, no historical information available to compare"))))
 
 (fact "Timesheet upload explains when there is no historical file to diff against"
       (with-redefs [clojure.java.io/copy (fn [& _] nil)
@@ -53,6 +128,7 @@
                       ([parent child]
                        (proxy [java.io.File] [(str parent "/" child)]
                          (exists [] false))))
+                    agiladmin.view-timesheet/load-timesheet-owner (fn [_] "Admin User")
                     agiladmin.core/load-timesheet (fn [_] {:sheets []})
                     agiladmin.core/load-all-projects (fn [_] {})
                     agiladmin.core/map-timesheets (fn [& _] {:rows []})
@@ -62,7 +138,9 @@
                                          :filename "upload.xlsx"
                                          :tempfile "/tmp/upload.xlsx"}}}
                         {:agiladmin {:budgets {:path "budgets/"}}}
-                        {:email "admin"})]
+                        {:email "admin@example.org"
+                         :name "Admin User"
+                         :role "admin"})]
           (:body response) => (contains "This is a new timesheet, no historical information available to compare")
           (:body response) => (contains "Uploaded: upload.xlsx"))))
 

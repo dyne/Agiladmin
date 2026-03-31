@@ -32,7 +32,8 @@
    [failjure.core :as f]
    [hiccup.form :as hf]
    [me.raynes.fs :as fs]
-   [clj-jgit.porcelain :as git]))
+   [clj-jgit.porcelain :as git]
+   [dk.ative.docjure.spreadsheet :refer [load-workbook sheet-seq]]))
 
 (def workspace-id "timesheet-workspace")
 
@@ -68,6 +69,62 @@
     (if (web/htmx-request? request)
       (web/render-fragment fragment)
       (web/render account fragment))))
+
+(defn- normalize-full-name
+  "Normalize a full name for exact member ownership checks."
+  [name]
+  (some-> name
+          str
+          str/trim
+          (str/replace #"\s+" " ")
+          str/lower-case))
+
+(defn- filename-owner
+  "Extract the owner token from a timesheet filename."
+  [filename]
+  (some-> filename util/timesheet-to-name (str/replace #"-" " ")))
+
+(defn- load-timesheet-owner
+  "Read the full owner name from cell B3 of an uploaded timesheet."
+  [path]
+  (f/attempt-all
+   [workbook (or (try
+                   (load-workbook path)
+                   (catch Exception ex
+                     (log/error ["Error in load-workbook:" (-> ex Throwable->map :cause)])))
+                 (f/fail (str "Error loading timesheet owner: " path)))
+    sheet (or (first (sheet-seq workbook))
+              (f/fail (str "Timesheet has no worksheets: " path)))
+    full-name (let [value (some-> (get-cell sheet 'B 3) str str/trim)]
+                (if (str/blank? value)
+                  (f/fail "Timesheet owner is missing in cell B3.")
+                  value))]
+   full-name))
+
+(defn- require-upload-ownership
+  "Ensure members and managers can upload only their own timesheets."
+  [account filename path]
+  (if (s/admin? account)
+    true
+    (f/attempt-all
+     [account-name (or (:name account)
+                       (f/fail "Authenticated account is missing :name."))
+      uploaded-name (or (filename-owner filename)
+                        (f/fail (str "Invalid timesheet filename: " filename)))
+      _ (if (util/namecmp uploaded-name account-name)
+          true
+          (f/fail
+           (str "Timesheet filename does not match the authenticated account. "
+                "Expected " (util/dotname account-name)
+                " in the uploaded filename.")))
+      owner-name (load-timesheet-owner path)
+      _ (if (= (normalize-full-name owner-name)
+               (normalize-full-name account-name))
+          true
+          (f/fail
+           (str "Timesheet owner in cell B3 does not match the authenticated account. "
+                "Expected " account-name ".")))]
+     true)))
 
 (defn- action-form
   [request url label fields class-name]
@@ -147,7 +204,8 @@ window.onload = dodiff;\n")]]])
                     [:h1 (str "Uploaded file not found: " filename)]))
           ;; else load into dataset
           (f/attempt-all
-           [ts (load-timesheet path)
+           [_ (require-upload-ownership account filename path)
+            ts (load-timesheet path)
             hours (map-timesheets [ts])]
            (render-workspace
             request
