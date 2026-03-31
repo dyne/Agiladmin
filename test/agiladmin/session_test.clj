@@ -30,6 +30,16 @@
           :admin true
           :role "admin"})
 
+(fact "Session normalization parses manager project access from a comma separated field"
+      (session/normalize-role {:email "manager@example.org"
+                               :name "Manager"
+                               :role "manager"
+                               :projects "alpha, BETA , gamma"})
+      => {:email "manager@example.org"
+          :name "Manager"
+          :role "manager"
+          :projects #{"ALPHA" "BETA" "GAMMA"}})
+
 (fact "Session check does not require a live auth backend"
       (session/check {:session {:auth {:email "user@example.org"
                                        :name "User"}}}

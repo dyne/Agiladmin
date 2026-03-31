@@ -100,6 +100,43 @@
           (> beta-index old-projects-index) => true
           (< infra-index old-projects-index) => true)))
 
+(fact "Manager project list shows only explicitly allowed projects when the projects field is present"
+      (with-redefs [agiladmin.utils/now (fn [] {:year 2026 :month 3 :day 31})
+                    agiladmin.config/project-names
+                    (fn [_] ["ALPHA" "BETA" "GAMMA"])
+                    agiladmin.config/load-project
+                    (fn [_ project-name]
+                      (case project-name
+                        "ALPHA" {:ALPHA {:start_date "01-01-2026" :duration 12}}
+                        "BETA" {:BETA {:start_date "01-01-2026" :duration 12}}
+                        "GAMMA" {:GAMMA {:start_date "01-01-2024" :duration 3}}))]
+        (let [response (view-project/list-all
+                        {}
+                        {}
+                        {:email "manager@example.org"
+                         :role "manager"
+                         :projects #{"ALPHA" "GAMMA"}})]
+          (:body response) => (contains "data-text-filter-value=\"ALPHA\"")
+          (:body response) => (contains "data-text-filter-value=\"GAMMA\"")
+          (:body response) =not=> (contains "data-text-filter-value=\"BETA\""))))
+
+(fact "Manager project list shows all projects when no projects field is present"
+      (with-redefs [agiladmin.utils/now (fn [] {:year 2026 :month 3 :day 31})
+                    agiladmin.config/project-names
+                    (fn [_] ["ALPHA" "BETA"])
+                    agiladmin.config/load-project
+                    (fn [_ project-name]
+                      (case project-name
+                        "ALPHA" {:ALPHA {:start_date "01-01-2026" :duration 12}}
+                        "BETA" {:BETA {:start_date "01-01-2026" :duration 12}}))]
+        (let [response (view-project/list-all
+                        {}
+                        {}
+                        {:email "manager@example.org"
+                         :role "manager"})]
+          (:body response) => (contains "data-text-filter-value=\"ALPHA\"")
+          (:body response) => (contains "data-text-filter-value=\"BETA\""))))
+
 (fact "Project start dispatches rolling projects to the rolling view"
       (let [load-calls (atom 0)]
         (with-redefs [agiladmin.config/load-project

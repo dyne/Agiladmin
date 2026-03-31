@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [get])
   (:require
    [agiladmin.ring :as ring]
+   [clojure.string :as str]
    [failjure.core :as f]
    [agiladmin.webpage :as web]))
 
@@ -26,12 +27,28 @@
     @ring/config
     (f/fail "Session not found. ")))
 
+(defn- normalize-projects
+  [login]
+  (if (contains? login :projects)
+    (update login :projects
+            (fn [projects]
+              (if (string? projects)
+                (->> (str/split projects #",")
+                     (map str/trim)
+                     (remove str/blank?)
+                     (map str/upper-case)
+                     set)
+                projects)))
+    login))
+
 (defn normalize-role
   [login]
   (let [role (or (:role login)
                  (when (true? (:admin login))
                    "admin"))]
-    (assoc login :role role)))
+    (-> login
+        (assoc :role role)
+        normalize-projects)))
 
 (defn admin?
   [account]

@@ -67,12 +67,18 @@
   [request config account]
   (let [today-map (util/now)
         today (t/date-time (:year today-map) (:month today-map) (:day today-map))
+        allowed-projects (when (and (s/manager? account)
+                                    (contains? account :projects))
+                           (:projects account))
         projects (mapv (fn [project-name]
                          (let [project-map (conf/load-project config project-name)
                                project (get project-map (keyword project-name))]
                            {:name project-name
                             :active? (boolean (active-project? project today))}))
-                       (conf/project-names config))
+                       (->> (conf/project-names config)
+                            (filter (fn [project-name]
+                                      (or (nil? allowed-projects)
+                                          (contains? allowed-projects (upper-case (trim project-name))))))))
         active-projects (->> projects (filter :active?) (map :name) clojure.core/sort)
         old-projects (->> projects (remove :active?) (map :name) clojure.core/sort)
         project-buttons
