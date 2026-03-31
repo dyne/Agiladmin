@@ -32,8 +32,15 @@
                         {:type "infra"}]]))))
 
 (fact "Project list renders a compact filterable project list"
-      (with-redefs [agiladmin.config/project-names
-                    (fn [_] ["CORE" "ALPHA" "BETA"])]
+      (with-redefs [agiladmin.utils/now (fn [] {:year 2026 :month 3 :day 31})
+                    agiladmin.config/project-names
+                    (fn [_] ["CORE" "ALPHA" "BETA"])
+                    agiladmin.config/load-project
+                    (fn [_ project-name]
+                      (case project-name
+                        "CORE" {:CORE {:start_date "01-01-2026" :duration 12}}
+                        "ALPHA" {:ALPHA {:start_date "01-01-2026" :duration 6}}
+                        "BETA" {:BETA {:start_date "01-01-2024" :duration 3}}))]
         (let [response (view-project/list-all
                         {}
                         {}
@@ -42,7 +49,56 @@
           (:body response) => (contains "Filter projects")
           (:body response) => (contains "Clear Projects filter")
           (:body response) => (contains "data-text-filter-value=\"ALPHA\"")
-          (:body response) => (contains "inline-flex max-w-full w-full"))))
+          (:body response) => (contains "inline-flex max-w-full w-full")
+          (:body response) => (contains "Old projects"))))
+
+(fact "Project list separates active projects from old projects"
+      (with-redefs [agiladmin.utils/now (fn [] {:year 2026 :month 3 :day 31})
+                    agiladmin.config/project-names
+                    (fn [_] ["CORE" "ALPHA" "BETA"])
+                    agiladmin.config/load-project
+                    (fn [_ project-name]
+                      (case project-name
+                        "CORE" {:CORE {:start_date "01-01-2026" :duration 12}}
+                        "ALPHA" {:ALPHA {:start_date "01-01-2025" :duration 18}}
+                        "BETA" {:BETA {:start_date "01-01-2024" :duration 3}}))]
+        (let [response (view-project/list-all
+                        {}
+                        {}
+                        {:email "admin@example.org"})
+              body (:body response)
+              alpha-index (.indexOf body "data-text-filter-value=\"ALPHA\"")
+              core-index (.indexOf body "data-text-filter-value=\"CORE\"")
+              old-projects-index (.indexOf body "Old projects")
+              beta-index (.indexOf body "data-text-filter-value=\"BETA\"")]
+          old-projects-index => pos?
+          alpha-index => pos?
+          core-index => pos?
+          (> beta-index old-projects-index) => true
+          (< alpha-index old-projects-index) => true
+          (< core-index old-projects-index) => true)))
+
+(fact "Project list keeps projects without an end date in the active section"
+      (with-redefs [agiladmin.utils/now (fn [] {:year 2026 :month 3 :day 31})
+                    agiladmin.config/project-names
+                    (fn [_] ["INFRA" "BETA"])
+                    agiladmin.config/load-project
+                    (fn [_ project-name]
+                      (case project-name
+                        "INFRA" {:INFRA {:type "infra"}}
+                        "BETA" {:BETA {:start_date "01-01-2024" :duration 3}}))]
+        (let [response (view-project/list-all
+                        {}
+                        {}
+                        {:email "admin@example.org"})
+              body (:body response)
+              infra-index (.indexOf body "data-text-filter-value=\"INFRA\"")
+              old-projects-index (.indexOf body "Old projects")
+              beta-index (.indexOf body "data-text-filter-value=\"BETA\"")]
+          infra-index => pos?
+          old-projects-index => pos?
+          (> beta-index old-projects-index) => true
+          (< infra-index old-projects-index) => true)))
 
 (fact "Project start dispatches rolling projects to the rolling view"
       (let [load-calls (atom 0)]

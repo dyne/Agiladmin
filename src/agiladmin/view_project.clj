@@ -47,25 +47,70 @@
   (-> (project-hours config projname)
       (derive-costs config project-conf)))
 
+(defn- active-project?
+  "Return true when a project is current by end date or recent activity."
+  [project today recent-projects project-name]
+  (let [start-date (:start_date project)
+        duration (:duration project)]
+    (cond
+      (or (nil? start-date) (nil? duration)) (contains? recent-projects project-name)
+      (not (pos? duration)) (contains? recent-projects project-name)
+      :else
+      (let [start (tf/parse time-format start-date)
+            end (t/plus start (t/months duration))]
+        (and (not (t/before? today start))
+             (not (t/after? today end)))))))
+
 (defn list-all
   "list all projects"
   [request config account]
-  (let [project-buttons
-        (mapv (fn [pj]
-                [:div {:class "log-project"
-                       :data-text-filter-item "true"
-                       :data-text-filter-value pj}
-                 (web/button "/project" pj
-                             (hf/hidden-field "project" pj)
-                             "btn btn-outline w-full justify-start")])
-              (conf/project-names config))]
-  (web/render
-   account
-   [:div {:class "space-y-4"}
-    (web/filterable-button-list "projects-list"
-                                "Projects"
-                                "No projects match the current filter."
-                                project-buttons)])))
+  (let [today-map (util/now)
+        today (t/date-time (:year today-map) (:month today-map) (:day today-map))
+        recent-years #{(:year today-map) (dec (:year today-map))}
+        ts-path (conf/q config [:agiladmin :budgets :path])
+        recent-projects
+        (->> (load-all-timesheets ts-path #".*_timesheet_.*xlsx$")
+             (map-timesheets load-monthly-hours
+                             (fn [info]
+                               (when-let [month (:month info)]
+                                 (contains? recent-years
+                                            (some-> month str (clojure.string/split #"-") first Integer/parseInt)))))
+             :rows
+             (keep :project)
+             set)
+        projects (mapv (fn [project-name]
+                         (let [project-map (conf/load-project config project-name)
+                               project (get project-map (keyword project-name))]
+                           {:name project-name
+                            :active? (boolean (active-project? project today recent-projects project-name))}))
+                       (conf/project-names config))
+        active-projects (->> projects (filter :active?) (map :name) clojure.core/sort)
+        old-projects (->> projects (remove :active?) (map :name) clojure.core/sort)
+        project-buttons
+        (fn [projects]
+          (mapv (fn [project-name]
+                  [:div {:class "log-project"
+                         :data-text-filter-item "true"
+                         :data-text-filter-value project-name}
+                   (web/button "/project" project-name
+                               (hf/hidden-field "project" project-name)
+                               "btn btn-outline w-full justify-start")])
+                projects))
+        old-projects-section
+        (when (seq old-projects)
+          [:section {:class "card bg-base-100 shadow-sm"}
+           [:div {:class "card-body gap-4"}
+            [:h2 "Old projects"]
+            (into [:div {:class "grid gap-2 sm:grid-cols-2 xl:grid-cols-3"}]
+                  (project-buttons old-projects))]])
+        page-body
+        (cond-> [:div {:class "space-y-4"}
+                 (web/filterable-button-list "projects-list"
+                                             "Projects"
+                                             "No projects match the current filter."
+                                             (project-buttons active-projects))]
+          old-projects-section (conj old-projects-section))]
+    (web/render account page-body)))
 
 (defn edit [request config account]
   (f/attempt-all
