@@ -26,20 +26,59 @@
    [taoensso.timbre :as log]
    [clj-jgit.porcelain :as git]))
 
-(defn- render-reload-message
-  [account message]
-  (web/render
+(def reload-result-id "reload-result")
+
+(defn- reload-result
+  [body]
+  [:div {:id reload-result-id
+         :class "space-y-4"}
+   body])
+
+(defn- render-reload-page
+  [request account result-body]
+  (let [body [:div {:class "space-y-6"}
+              [:div {:class "card bg-base-100 shadow-sm"}
+               [:div {:class "card-body gap-4"}
+                [:h1 {:class "card-title text-3xl"} "Reload budgets repository"]
+                [:p "Fetch the configured budgets repository and refresh runtime caches after new data is adopted."]
+                [:form {:action "/reload"
+                        :method "post"
+                        :class "inline-flex"
+                        :hx-post "/reload"
+                        :hx-target (str "#" reload-result-id)
+                        :hx-swap "outerHTML"}
+                 [:input {:type "submit"
+                          :value "Reload"
+                          :class "btn btn-primary btn-lg"}]]]
+              (reload-result result-body)]]]
+    (web/render account body)))
+
+(defn- render-reload-response
+  [request account body]
+  (let [fragment (reload-result body)]
+    (if (web/htmx-request? request)
+      (web/render-fragment fragment)
+      (render-reload-page request account body))))
+
+(defn page
+  [request _config account]
+  (render-reload-page
+   request
    account
-   [:div {:class "space-y-4"}
-    [:div {:class "alert alert-info shadow-sm"}
-     message]]))
+   [:div {:class "alert alert-info shadow-sm"}
+    "Press Reload to fetch the latest budgets repository state."]))
+
+(defn- render-reload-message
+  [request account message]
+  (render-reload-response
+   request
+   account
+   [:div {:class "alert alert-info shadow-sm"}
+    message]))
 
 (defn- render-reload-error
-  [account message]
-  (web/render
-   account
-   [:div {:class "space-y-4"}
-    (web/render-error message)]))
+  [request account message]
+  (render-reload-response request account (web/render-error message)))
 
 (defn- git-ready?
   [budgets]
@@ -68,8 +107,9 @@
     (git/git-clone (:git budgets) (:path budgets))))
 
 (defn- render-repo-state-with-message
-  [account repo message]
-  (web/render
+  [request account repo message]
+  (render-reload-response
+   request
    account
    [:div {:class "space-y-6"}
     [:div {:class "alert alert-success shadow-sm"}
@@ -89,6 +129,7 @@
     (cond
       (not (git-ready? budgets))
       (render-reload-message
+       request
        account
        "Reload is unavailable until :agiladmin :budgets has git, path, and ssh-key configured.")
 
@@ -106,6 +147,7 @@
             ;; Adopted repo state changed, so all derived runtime reads must refresh.
             (core/invalidate-runtime-caches! config)
             (render-repo-state-with-message
+             request
              account
              repo
              (if (= (type pull-result) org.eclipse.jgit.api.PullResult)
@@ -117,6 +159,7 @@
               [:p (str "Error in git-pull: " (.getMessage ex))]
               [:p (-> ex Throwable->map :cause)]])
             (render-reload-error
+             request
              account
              (str "Error in git-pull: " (.getMessage ex))))))
 
@@ -125,6 +168,7 @@
            (not repo)
            (not (empty-directory? path)))
       (render-reload-message
+       request
        account
        (str "Budgets path exists but is not a git repository yet: " (:path budgets)))
 
@@ -138,17 +182,21 @@
           (core/invalidate-runtime-caches! config)
           (if-let [repo (safe-load-repo (:path budgets))]
             (render-repo-state-with-message
+             request
              account
              repo
              (str "Cloned successfully from " (:git budgets)))
             (render-reload-message
+             request
              account
              (str "No budgets repository is available yet at " (:path budgets))))
           (catch Exception ex
             (render-reload-error
+             request
              account
              (str "Error cloning git repo: " (.getMessage ex)))))
         (render-reload-message
+         request
          account
          (str "No budgets repository is available yet. Generate or configure SSH keys first: "
               keypath ".pub")))
@@ -163,6 +211,7 @@
 
       :else
       (render-reload-error
+       request
        account
        (str "Unsupported budgets directory state: " (:path budgets)))
       ;; end of POST /reload

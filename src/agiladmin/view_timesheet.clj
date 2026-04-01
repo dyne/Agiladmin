@@ -61,7 +61,9 @@
                :class "file-input file-input-bordered w-full"}]
       [:input {:class "btn btn-primary btn-lg shrink-0"
                :id "field-submit" :type "submit"
-               :name "submit" :value "submit"}]]]]])
+               :name "submit" :value "submit"}]]
+     [:p {:class "htmx-indicator text-sm text-base-content/70"}
+      "Uploading and validating timesheet..."]]]])
 
 (defn- render-workspace
   [request account body]
@@ -176,13 +178,22 @@ window.onload = dodiff;\n")]]])
      request
      account
      [:div {:class "space-y-4"}
-      [:div {:class "alert alert-warning shadow-sm" :role "alert"}
+     [:div {:class "alert alert-warning shadow-sm" :role "alert"}
        [:span (str "Canceled upload of timesheet: " tempfile " ")]
        [:span (str "("
                    (if-not (str/blank? tempfile) (io/delete-file tempfile))
                    ")")]]
       upload-form])
     (web/render-error-page (f/message tempfile))))
+
+(defn- render-upload-error
+  [request account body]
+  (render-workspace
+   request
+   account
+   [:div {:class "space-y-4"}
+    body
+    (upload-card)]))
 
 (defn upload [request config account]
   (let
@@ -193,15 +204,21 @@ window.onload = dodiff;\n")]]])
       (> (get-in params [:file :size]) 500000)
       ;; max upload size in bytes
       ;; TODO: put in config
-      (web/render-error-page params "File too big in upload.")
+      (render-upload-error
+       request
+       account
+       (web/render-error "File too big in upload."))
       :else
       (let [_ (io/copy tempfile (io/file "/tmp" filename))
             path (str "/tmp/" filename)]
         (io/delete-file tempfile)
         (if (not (.exists (io/file path)))
-          (web/render-error-page
-           (log/spy :error
-                    [:h1 (str "Uploaded file not found: " filename)]))
+          (render-upload-error
+           request
+           account
+           (web/render-error
+            (log/spy :error
+                     [:h1 (str "Uploaded file not found: " filename)])))
           ;; else load into dataset
           (f/attempt-all
            [_ (require-upload-ownership account filename path)
@@ -254,7 +271,9 @@ window.onload = dodiff;\n")]]])
                            (to-table (tab/drop-cols hours [:name]))]]}])])
      ;; handle failjure of timesheet loading from the uploaded file
      (f/when-failed [e]
-       (web/render-error-page
+       (render-upload-error
+        request
+        account
         (log/spy :error [:div
                          [:h1 "Error parsing timesheet"]
                          (web/render-yaml e)])))))))))

@@ -118,6 +118,11 @@
   (GET "/reload" request
        (->> (fn [req conf acct]
               (f/attempt-all [_ (s/require-admin acct)]
+                (view-reload/page req conf acct)))
+            (s/check request)))
+  (POST "/reload" request
+       (->> (fn [req conf acct]
+              (f/attempt-all [_ (s/require-admin acct)]
                 (view-reload/start req conf acct)))
             (s/check request)))
 

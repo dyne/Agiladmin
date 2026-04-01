@@ -11,8 +11,8 @@
                         (swap! load-calls inc)
                         {:CORE {:type "infra"}})
                       agiladmin.view-project/infra
-                      (fn [config account projname project-conf project]
-                        (swap! calls conj [config account projname project-conf project])
+                      (fn [request config account projname project-conf project]
+                        (swap! calls conj [request config account projname project-conf project])
                         {:status 200 :body "infra"})
                       agiladmin.view-project/rolling
                       (fn [& _] (throw (ex-info "unexpected rolling call" {})))
@@ -25,7 +25,8 @@
             (:status response) => 200
             (:body response) => "infra"
             @load-calls => 1
-            @calls => [[{:agiladmin {}}
+            @calls => [[{:params {:project " CORE "}}
+                        {:agiladmin {}}
                         {:email "admin@example.org"}
                         "CORE"
                         {:CORE {:type "infra"}}
@@ -50,7 +51,26 @@
           (:body response) => (contains "Clear Projects filter")
           (:body response) => (contains "data-text-filter-value=\"ALPHA\"")
           (:body response) => (contains "inline-flex max-w-full w-full")
+          (:body response) => (contains "hx-post=\"/project\"")
+          (:body response) => (contains "id=\"project-details\"")
           (:body response) => (contains "Old projects"))))
+
+(fact "Project start returns only the detail fragment for HTMX requests"
+      (with-redefs [agiladmin.config/load-project
+                    (fn [_ _]
+                      {:CORE {:type "rolling"}})
+                    agiladmin.view-project/rolling
+                    (fn [request config account projname project-conf project]
+                      (#'agiladmin.view-project/render-project-response
+                       request account [:div "rolling fragment"]))]
+        (let [response (view-project/start
+                        {:params {:project "CORE"}
+                         :headers {"hx-request" "true"}}
+                        {}
+                        {:email "admin@example.org"})]
+          (:body response) => (contains "id=\"project-details\"")
+          (:body response) => (contains "rolling fragment")
+          (:body response) =not=> (contains "<!DOCTYPE html>"))))
 
 (fact "Project list separates active projects from old projects"
       (with-redefs [agiladmin.utils/now (fn [] {:year 2026 :month 3 :day 31})
@@ -144,7 +164,7 @@
                         (swap! load-calls inc)
                         {:CORE {:type "rolling"}})
                     agiladmin.view-project/rolling
-                    (fn [config account projname project-conf project]
+                    (fn [request config account projname project-conf project]
                       {:status 200 :body (str "rolling:" projname)})
                     agiladmin.view-project/infra
                     (fn [& _] (throw (ex-info "unexpected infra call" {})))

@@ -36,6 +36,21 @@
    [cheshire.core :as chesh :refer [generate-string]]
    [hiccup.form :as hf]))
 
+(def project-details-id "project-details")
+
+(defn- project-fragment
+  [body]
+  [:div {:id project-details-id
+         :class "space-y-4"}
+   body])
+
+(defn- render-project-response
+  [request account body]
+  (let [fragment (project-fragment body)]
+    (if (web/htmx-request? request)
+      (web/render-fragment fragment)
+      (web/render account fragment))))
+
 (defn project-hours
   [config projname]
   (let [ts-path (conf/q config [:agiladmin :budgets :path])
@@ -87,9 +102,16 @@
                   [:div {:class "log-project"
                          :data-text-filter-item "true"
                          :data-text-filter-value project-name}
-                   (web/button "/project" project-name
-                               (hf/hidden-field "project" project-name)
-                               "btn btn-outline w-full justify-start")])
+                   [:form {:action "/project"
+                           :method "post"
+                           :class "inline-flex max-w-full w-full"
+                           :hx-post "/project"
+                           :hx-target (str "#" project-details-id)
+                           :hx-swap "outerHTML"}
+                    (hf/hidden-field "project" project-name)
+                    [:input {:type "submit"
+                             :value project-name
+                             :class "btn btn-outline w-full justify-start"}]]])
                 projects))
         old-projects-section
         (when (seq old-projects)
@@ -103,7 +125,10 @@
                  (web/filterable-button-list "projects-list"
                                              "Projects"
                                              "No projects match the current filter."
-                                             (project-buttons active-projects))]
+                                             (project-buttons active-projects))
+                 (project-fragment
+                  [:div {:class "alert alert-info shadow-sm"}
+                   "Select a project to load its details without leaving the list."])]
           old-projects-section (conj old-projects-section))]
     (web/render account page-body)))
 
@@ -150,7 +175,8 @@
                       (aggr :hours [:project :task])
                       (derive-task-details project-conf))
      empty-tasks (-> project-conf (derive-empty-tasks task-details))]
-    (web/render
+    (render-project-response
+     request
      account
      [:div {:class "space-y-6"}
       (if-not (empty? (:tasks conf))
@@ -302,64 +328,66 @@ gantt.parse(tasks);
    (f/attempt-all
     [project-conf (conf/load-project config projname)
      conf (get project-conf (keyword projname))]
-    (infra config account projname project-conf conf)))
-  ([config account projname project-conf conf]
+    (infra nil config account projname project-conf conf)))
+  ([request config account projname project-conf conf]
    (f/attempt-all
     [project-hours (-> (if (s/can-view-costs? account)
                          (project-costs config project-conf projname)
                          (project-hours config projname))
                        (derive-years config project-conf))]
-    (web/render account [:div
-                         [:h1 (str projname " fixed costs overview")]
-                         [:h2 "Yearly totals"]
-                         (if (s/can-view-costs? account)
-                           (-> (aggr project-hours [:hours :cost] [:year :tag])
-                               (tab/select-cols [:year :tag :hours :cost])
-                               (sort :year :desc) to-table)
-                           (-> (aggr project-hours [:hours] [:year :tag])
-                               (tab/select-cols [:year :tag :hours])
-                               (sort :year :desc) to-table))
-                         [:h2 "Personnel totals"]
-                         (if (s/can-view-costs? account)
-                           (-> (aggr project-hours [:hours :cost] [:name :tag])
-                               (tab/select-cols [:name :tag :hours :cost])
-                               (sort :year :desc) to-table)
-                           (-> (aggr project-hours [:hours] [:name :tag])
-                               (tab/select-cols [:name :tag :hours])
-                               (sort :year :desc) to-table))
-                         ]))))
+    (render-project-response request account
+                             [:div
+                              [:h1 (str projname " fixed costs overview")]
+                              [:h2 "Yearly totals"]
+                              (if (s/can-view-costs? account)
+                                (-> (aggr project-hours [:hours :cost] [:year :tag])
+                                    (tab/select-cols [:year :tag :hours :cost])
+                                    (sort :year :desc) to-table)
+                                (-> (aggr project-hours [:hours] [:year :tag])
+                                    (tab/select-cols [:year :tag :hours])
+                                    (sort :year :desc) to-table))
+                              [:h2 "Personnel totals"]
+                              (if (s/can-view-costs? account)
+                                (-> (aggr project-hours [:hours :cost] [:name :tag])
+                                    (tab/select-cols [:name :tag :hours :cost])
+                                    (sort :year :desc) to-table)
+                                (-> (aggr project-hours [:hours] [:name :tag])
+                                    (tab/select-cols [:name :tag :hours])
+                                    (sort :year :desc) to-table))
+                              ]))))
 
 (defn rolling
   ([config account projname]
    (f/attempt-all
     [project-conf (conf/load-project config projname)
      conf (get project-conf (keyword projname))]
-    (rolling config account projname project-conf conf)))
-  ([config account projname project-conf conf]
+    (rolling nil config account projname project-conf conf)))
+  ([request config account projname project-conf conf]
    (f/attempt-all
     [project-hours (-> (if (s/can-view-costs? account)
                          (project-costs config project-conf projname)
                          (project-hours config projname))
                        (derive-years config project-conf))]
-    (web/render account [:div
-                         [:h1 (str projname " fixed costs overview")]
-                         [:h2 "Yearly totals"]
-                         (if (s/can-view-costs? account)
-                           (-> (aggr project-hours [:hours :cost] [:year :tag])
-                               (tab/select-cols [:year :tag :hours :cost])
-                               (sort :year :desc) to-table)
-                           (-> (aggr project-hours [:hours] [:year :tag])
-                               (tab/select-cols [:year :tag :hours])
-                               (sort :year :desc) to-table))
-                         [:h2 "Personnel totals"]
-                         (if (s/can-view-costs? account)
-                           (-> (aggr project-hours [:hours :cost] [:name :tag])
-                               (tab/select-cols [:name :tag :hours :cost])
-                               (sort :year :desc) to-table)
-                           (-> (aggr project-hours [:hours] [:name :tag])
-                               (tab/select-cols [:name :tag :hours])
-                               (sort :year :desc) to-table))
-                         ]))))
+    (render-project-response request account
+                             [:div
+                              [:h1 (str projname " fixed costs overview")]
+                              [:h2 "Yearly totals"]
+                              (if (s/can-view-costs? account)
+                                (-> (aggr project-hours [:hours :cost] [:year :tag])
+                                    (tab/select-cols [:year :tag :hours :cost])
+                                    (sort :year :desc) to-table)
+                                (-> (aggr project-hours [:hours] [:year :tag])
+                                    (tab/select-cols [:year :tag :hours])
+                                    (sort :year :desc) to-table))
+                              [:h2 "Personnel totals"]
+                              (if (s/can-view-costs? account)
+                                (-> (aggr project-hours [:hours :cost] [:name :tag])
+                                    (tab/select-cols [:name :tag :hours :cost])
+                                    (sort :year :desc) to-table)
+                                (-> (aggr project-hours [:hours] [:name :tag])
+                                    (tab/select-cols [:name :tag :hours])
+                                    (sort :year :desc) to-table))
+                              ]))))
 
 (defn start [request config account]
   (f/attempt-all
@@ -367,7 +395,7 @@ gantt.parse(tasks);
     project-conf (conf/load-project config projname)
     project      (get project-conf (keyword projname))]
    (cond
-     (= (:type project) "infra") (infra config account projname project-conf project)
-     (= (:type project) "rolling") (rolling config account projname project-conf project)
+     (= (:type project) "infra") (infra request config account projname project-conf project)
+     (= (:type project) "rolling") (rolling request config account projname project-conf project)
      :else
      (h2020 request config account projname project-conf project))))

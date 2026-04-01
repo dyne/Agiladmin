@@ -119,6 +119,7 @@
 - Avoid “cleanup” changes that rename columns, normalize casing differently, or alter dataset shapes unless you also update all dependent views/tests.
 - Frontend styling uses TailwindCSS + DaisyUI with the `nord` theme; shared layout helpers live in `src/agiladmin/webpage.clj`.
 - HTMX is loaded locally from `resources/public/static/js/htmx.min.js` and is intended for progressive enhancement only; keep full-page fallback behavior working.
+- Current HTMX seams follow the same pattern: the normal route remains authoritative and returns a full page, while `web/htmx-request?` switches selected actions to fragment responses. Existing examples are `POST /reload`, `POST /timesheets/upload`, and `POST /project`.
 - `resources/public/static/js/app.js` replaces the old Bootstrap JS for navbar toggles and tab switching.
 - DHTMLX Gantt remains a JS island. Do not rewrite it into HTMX; only change the surrounding shell unless the task explicitly calls for deeper work.
 

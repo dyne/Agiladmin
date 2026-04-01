@@ -3,12 +3,29 @@
             [agiladmin.view-reload :as view-reload]
             [midje.sweet :refer :all]))
 
-(fact "Reload page explains missing budgets git configuration"
+(fact "Reload page renders the reload form with HTMX targeting"
+      (let [response (view-reload/page
+                      {}
+                      {}
+                      {:email "admin@example.org"})]
+        (:body response) => (contains "Reload budgets repository")
+        (:body response) => (contains "hx-post=\"/reload\"")
+        (:body response) => (contains "id=\"reload-result\"")))
+
+(fact "Reload action explains missing budgets git configuration"
       (let [response (view-reload/start
                       {}
                       {:agiladmin {:budgets {:path "budgets/"}}}
                       {:email "admin"})]
         (:body response) => (contains "Reload is unavailable until :agiladmin :budgets has git, path, and ssh-key configured.")))
+
+(fact "Reload action returns only the result fragment for HTMX requests"
+      (let [response (view-reload/start
+                      {:headers {"hx-request" "true"}}
+                      {:agiladmin {:budgets {:path "budgets/"}}}
+                      {:email "admin"})]
+        (:body response) => (contains "id=\"reload-result\"")
+        (:body response) =not=> (contains "<!DOCTYPE html>")))
 
 (fact "Reload page explains when the budgets path is not a git repository"
       (with-redefs [clojure.java.io/file

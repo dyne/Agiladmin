@@ -9,6 +9,7 @@
         html => (contains "hx-post=\"/timesheets/upload\"")
         html => (contains "id=\"timesheet-workspace\"")
         html => (contains "class=\"flex items-end gap-3\"")
+        html => (contains "Uploading and validating timesheet...")
         html => (contains "shrink-0")))
 
 (fact "Timesheet upload rejects files above the configured size limit"
@@ -45,6 +46,32 @@
                          :role "admin"})]
           (:body response) => (contains "Error parsing timesheet")
           (:body response) => (contains "Spreadsheet is invalid."))))
+
+(fact "Timesheet upload returns a workspace fragment for HTMX parse failures"
+      (with-redefs [clojure.java.io/copy (fn [& _] nil)
+                    clojure.java.io/delete-file (fn [& _] nil)
+                    clojure.java.io/file
+                    (fn
+                      ([path]
+                       (proxy [java.io.File] [path]
+                         (exists [] (= path "/tmp/upload.xlsx"))))
+                      ([parent child]
+                       (proxy [java.io.File] [(str parent "/" child)]
+                         (exists [] false))))
+                    agiladmin.core/load-timesheet (fn [_]
+                                                    (failjure.core/fail "Spreadsheet is invalid."))]
+        (let [response (view-timesheet/upload
+                        {:headers {"hx-request" "true"}
+                         :params {:file {:size 1024
+                                         :filename "upload.xlsx"
+                                         :tempfile "/tmp/upload.xlsx"}}}
+                        {:agiladmin {:budgets {:path "budgets/"}}}
+                        {:email "admin@example.org"
+                         :name "Admin User"
+                         :role "admin"})]
+          (:body response) => (contains "id=\"timesheet-workspace\"")
+          (:body response) => (contains "Error parsing timesheet")
+          (:body response) =not=> (contains "<!DOCTYPE html>"))))
 
 (fact "Member upload rejects a timesheet filename for another person"
       (with-redefs [clojure.java.io/copy (fn [& _] nil)
