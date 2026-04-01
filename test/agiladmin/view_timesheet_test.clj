@@ -1,7 +1,9 @@
 (ns agiladmin.view-timesheet-test
   (:require [agiladmin.view-timesheet :as view-timesheet]
+            [clojure.java.io :as io]
             [hiccup.core :as hiccup]
             [failjure.core]
+            [me.raynes.fs :as fs]
             [midje.sweet :refer :all]))
 
 (fact "Timesheet upload form uses HTMX for progressive enhancement"
@@ -170,6 +172,30 @@
                          :role "admin"})]
           (:body response) => (contains "This is a new timesheet, no historical information available to compare")
           (:body response) => (contains "Uploaded: upload.xlsx"))))
+
+(fact "Timesheet upload accepts a real xlsx workbook fixture"
+      (let [temp-root (.toFile (java.nio.file.Files/createTempDirectory "agiladmin-upload-test"
+                                                                       (make-array java.nio.file.attribute.FileAttribute 0)))
+            upload-path (str temp-root "/fixture-upload.xlsx")
+            budgets-path (str temp-root "/budgets/")]
+        (.mkdirs (io/file budgets-path))
+        (io/copy (io/file "test/assets/2016_timesheet_Luca-Pacioli.xlsx")
+                 (io/file upload-path))
+        (try
+          (let [response (view-timesheet/upload
+                          {:params {:file {:size (.length (io/file upload-path))
+                                           :filename "2016_timesheet_Luca-Pacioli.xlsx"
+                                           :tempfile (io/file upload-path)}}}
+                          {:agiladmin {:budgets {:path budgets-path}}}
+                          {:name "Admin User"
+                           :role "admin"})]
+            (:body response) => (contains "Uploaded: 2016_timesheet_Luca-Pacioli.xlsx")
+            (:body response) => (contains "Contents of the new timesheet")
+            (:body response) => (contains "Differences: old (to the left) and new (to the right)")
+            (:body response) => (contains "This is a new timesheet, no historical information available to compare")
+            (:body response) =not=> (contains "Error parsing timesheet"))
+          (finally
+            (fs/delete-dir temp-root)))))
 
 (fact "Timesheet submit explains when the budgets directory is missing"
       (with-redefs [clojure.java.io/file
