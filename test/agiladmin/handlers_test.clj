@@ -164,6 +164,40 @@
         (:status response) => 200
         (:body response) => (contains "Unauthorized access")))
 
+(fact "Reload page route delegates to the reload page view for admins"
+      (let [calls (atom [])]
+        (with-redefs [agiladmin.ring/config (atom admin-config)
+                      agiladmin.view-reload/page
+                      (fn [request config account]
+                        (swap! calls conj [config account])
+                        {:status 200 :body "reload page"})]
+          (let [response (handlers/app-routes
+                          (assoc (mock/request :get "/reload")
+                                 :session admin-session))]
+            (:status response) => 200
+            (:body response) => "reload page"
+            @calls => [[admin-config
+                        {:email "admin@example.org"
+                         :name "Admin User"
+                         :role "admin"}]]))))
+
+(fact "Reload action route delegates to the reload action view for admins"
+      (let [calls (atom [])]
+        (with-redefs [agiladmin.ring/config (atom admin-config)
+                      agiladmin.view-reload/start
+                      (fn [request config account]
+                        (swap! calls conj [config account])
+                        {:status 200 :body "reloaded"})]
+          (let [response (handlers/app-routes
+                          (assoc (mock/request :post "/reload")
+                                 :session admin-session))]
+            (:status response) => 200
+            (:body response) => "reloaded"
+            @calls => [[admin-config
+                        {:email "admin@example.org"
+                         :name "Admin User"
+                         :role "admin"}]]))))
+
 (fact "Personnel route forces non-admin users to their own person"
       (let [calls (atom [])]
         (with-redefs [agiladmin.ring/config (atom admin-config)
