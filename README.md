@@ -136,6 +136,20 @@ E2E conventions in this repo:
 - assert user-visible behavior first (messages, links, forms)
 - keep submit/archive flows out of browser tests unless the test harness owns disposable git state
 
+Current E2E spec grouping:
+
+- `test/e2e/authentication.spec.js`
+- `test/e2e/role-navigation.spec.js`
+- `test/e2e/personnel-visibility.spec.js`
+- `test/e2e/project-access.spec.js`
+- `test/e2e/project-visibility.spec.js`
+- `test/e2e/reload.spec.js`
+- `test/e2e/timesheet-upload.spec.js`
+
+Runtime budget baseline (local, April 28, 2026):
+
+- `make test-e2e`: 25 tests in about 19 seconds
+
 The current test suite covers:
 
 - config loading and validation
