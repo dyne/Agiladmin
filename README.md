@@ -130,6 +130,12 @@ The Playwright harness starts Agiladmin with an isolated temporary config and bu
 - `admin:admin`
 - `manager:manager`
 
+E2E conventions in this repo:
+
+- prefer direct route visits after login for authorization checks
+- assert user-visible behavior first (messages, links, forms)
+- keep submit/archive flows out of browser tests unless the test harness owns disposable git state
+
 The current test suite covers:
 
 - config loading and validation
