@@ -96,6 +96,7 @@ jobs:
       - name: Run tests
         run: make test CLOJURE=clojure
 
+      # Keep browser regressions separate from live PocketBase integration noise.
       - name: Run Playwright E2E tests
         run: npm run test:e2e
 
