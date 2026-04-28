@@ -52,3 +52,14 @@ test("upload error keeps workflow in timesheet workspace", async ({ page }) => {
   await expect(page.getByText("Error parsing timesheet")).toBeVisible();
   await expect(page.locator('input[type="file"][name="file"]')).toBeVisible();
 });
+
+test("cancel after upload returns to upload form", async ({ page }) => {
+  const state = await readE2EState();
+  await loginAs(page, "admin");
+  await openTimesheetUpload(page);
+  await uploadTimesheet(page, state.fixtures.admin);
+
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(page.getByText("Canceled upload of timesheet:")).toBeVisible();
+  await expect(page.locator('input[type="file"][name="file"]')).toBeVisible();
+});
