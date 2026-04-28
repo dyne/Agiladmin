@@ -20,6 +20,12 @@ jobs:
           distribution: temurin
           java-version: "21"
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+
       - name: Set up Clojure CLI
         run: |
           curl -fsSL -O https://download.clojure.org/install/linux-install-1.12.4.1602.sh
@@ -35,6 +41,12 @@ jobs:
           key: ${{ runner.os }}-clojure-${{ hashFiles('deps.edn') }}
           restore-keys: |
             ${{ runner.os }}-clojure-
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
 
       - name: Download PocketBase
         env:
@@ -81,6 +93,9 @@ jobs:
       - name: Run tests
         run: make test CLOJURE=clojure
 
+      - name: Run Playwright E2E tests
+        run: npm run test:e2e
+
       - name: Run PocketBase integration tests
         env:
           AGILADMIN_PB_IT: "1"
@@ -98,3 +113,13 @@ jobs:
         if: failure()
         run: |
           test -f /tmp/pocketbase.log && cat /tmp/pocketbase.log || true
+
+      - name: Upload Playwright artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: |
+            test-results
+            playwright-report
+            output/playwright/agiladmin-server.log

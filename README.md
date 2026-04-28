@@ -117,6 +117,19 @@ Or:
 make test
 ```
 
+Run browser login/upload coverage (dev auth, no PocketBase):
+
+```sh
+npm ci
+npx playwright install chromium
+npm run test:e2e
+```
+
+The Playwright harness starts Agiladmin with an isolated temporary config and budgets directory, using dev credentials:
+
+- `admin:admin`
+- `manager:manager`
+
 The current test suite covers:
 
 - config loading and validation
