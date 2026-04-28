@@ -4,9 +4,13 @@
   "scripts": {
     "build:css": "tailwindcss -i ./resources/tailwind.css -o ./resources/public/static/css/app.css --minify",
     "sync:htmx": "node ./scripts/sync-frontend-assets.mjs",
-    "build:frontend": "npm run sync:htmx && npm run build:css"
+    "build:frontend": "npm run sync:htmx && npm run build:css",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:debug": "playwright test --debug"
   },
   "devDependencies": {
+    "@playwright/test": "^1.54.2",
     "@semantic-release/commit-analyzer": "^13.0.1",
     "@semantic-release/exec": "^7.1.0",
     "@semantic-release/github": "^11.0.6",
