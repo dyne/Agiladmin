@@ -10,12 +10,13 @@ POCKETBASE_APP_DIR ?= $(APP_HOME)/pocketbase
 POCKETBASE_MIGRATIONS_DIR ?= $(POCKETBASE_APP_DIR)/migrations
 JAR ?= target/$(BUILD_VERSION)-standalone.jar
 
-.PHONY: help test test-pocketbase-integration run dev run-pocketbase build install clean
+.PHONY: help test test-e2e test-pocketbase-integration run dev run-pocketbase build install clean
 
 help:
 	@printf '%s\n' \
 	  'Available targets:' \
 	  '  make test   Run the Midje test suite' \
+	  '  make test-e2e  Run Playwright login/upload browser tests with dev auth' \
 	  '  make test-pocketbase-integration  Run opt-in live PocketBase integration tests' \
 	  '  make run    Start the web application with dev auth fallback' \
 	  '  make dev    Start with request-time code reload enabled' \
@@ -26,6 +27,9 @@ help:
 
 test:
 	$(CLOJURE) -M:test
+
+test-e2e:
+	npm run test:e2e
 
 test-pocketbase-integration:
 	AGILADMIN_PB_IT=1 \

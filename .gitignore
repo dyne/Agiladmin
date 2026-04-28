@@ -16,3 +16,7 @@ node_modules/
 .envrc
 __pycache__
 *.xlsx
+.tmp/
+output/playwright/
+test-results/
+playwright-report/

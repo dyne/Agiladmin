@@ -77,6 +77,9 @@
   - build CSS and sync the local HTMX asset with `npm run build:frontend`
   - Tailwind input lives at `resources/tailwind.css`
   - generated stylesheet is `resources/public/static/css/app.css`
+- Browser E2E coverage uses Playwright:
+  - first-time setup: `npm ci` then `npx playwright install chromium`
+  - run suite: `npm run test:e2e` (dev auth harness, no PocketBase)
 
 ## Testing Reality
 - Existing tests are fixture-heavy and narrow.
@@ -86,6 +89,7 @@
   - auth backends and session behavior
   - selected route and view behavior
   - minimal `ring/init` smoke test
+  - browser login/upload path for admin and manager via Playwright harness
 - Not well covered:
   - HTTP route behavior
   - auth flows
