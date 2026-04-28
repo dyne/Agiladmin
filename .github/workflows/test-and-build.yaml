@@ -2,6 +2,9 @@ name: Test and Build
 
 on:
   pull_request:
+  push:
+    branches:
+      - master
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
@@ -107,6 +110,7 @@ jobs:
         run: make test-pocketbase-integration CLOJURE=clojure
 
       - name: Build uberjar
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         run: make build CLOJURE=clojure
 
       - name: Print PocketBase log on failure
