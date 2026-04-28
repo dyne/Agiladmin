@@ -126,4 +126,5 @@ jobs:
           path: |
             test-results
             playwright-report
+            .tmp/agiladmin-e2e-state.json
             output/playwright/agiladmin-server.log

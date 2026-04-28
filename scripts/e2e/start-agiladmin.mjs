@@ -10,6 +10,7 @@ const STATE_DIR = path.join(REPO_ROOT, ".tmp");
 const STATE_PATH = path.join(STATE_DIR, "agiladmin-e2e-state.json");
 const OUTPUT_DIR = path.join(REPO_ROOT, "output", "playwright");
 const LOG_PATH = path.join(OUTPUT_DIR, "agiladmin-server.log");
+const DEBUG_E2E = process.env.DEBUG_E2E === "1";
 
 function yamlConfig(budgetsPath, sshKeyPath) {
   return [
@@ -52,7 +53,17 @@ async function generateOwnedFixture(sourceFixturePath, targetFixturePath, ownerN
       cwd: REPO_ROOT,
       stdio: "inherit",
     });
-    child.on("exit", (code) => (code === 0 ? resolve() : reject(new Error(`fixture generation failed: ${code}`))));
+    child.on("exit", (code) => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+      reject(
+        new Error(
+          `fixture generation failed for owner=${ownerName} source=${sourceFixturePath} target=${targetFixturePath} exit=${code}`,
+        ),
+      );
+    });
     child.on("error", reject);
   });
 }
@@ -97,6 +108,16 @@ async function prepareEnv() {
     logPath: LOG_PATH,
   };
   await fs.writeFile(STATE_PATH, JSON.stringify(state, null, 2), "utf8");
+  if (DEBUG_E2E) {
+    console.error("[DEBUG_E2E] state_path:", STATE_PATH);
+    console.error("[DEBUG_E2E] temp_root:", tempRoot);
+    console.error("[DEBUG_E2E] config_path:", configPath);
+    console.error("[DEBUG_E2E] budgets_dir:", budgetsDir);
+    console.error("[DEBUG_E2E] server_log:", LOG_PATH);
+    console.error("[DEBUG_E2E] fixture_admin:", adminFixturePath);
+    console.error("[DEBUG_E2E] fixture_manager:", managerFixturePath);
+    console.error("[DEBUG_E2E] fixture_guest:", guestFixturePath);
+  }
   return state;
 }
 

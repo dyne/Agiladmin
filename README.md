@@ -150,6 +150,8 @@ Runtime budget baseline (local, April 28, 2026):
 
 - `make test-e2e`: 25 tests in about 19 seconds
 
+For CI/debug runs, set `DEBUG_E2E=1` to print generated harness paths (`state`, temp root, config, fixtures, server log) to stderr.
+
 The current test suite covers:
 
 - config loading and validation
