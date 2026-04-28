@@ -5,9 +5,9 @@
     "build:css": "tailwindcss -i ./resources/tailwind.css -o ./resources/public/static/css/app.css --minify",
     "sync:htmx": "node ./scripts/sync-frontend-assets.mjs",
     "build:frontend": "npm run sync:htmx && npm run build:css",
-    "test:e2e": "playwright test",
-    "test:e2e:headed": "playwright test --headed",
-    "test:e2e:debug": "playwright test --debug"
+    "test:e2e": "node ./scripts/e2e/run-playwright.mjs",
+    "test:e2e:headed": "node ./scripts/e2e/run-playwright.mjs --headed",
+    "test:e2e:debug": "node ./scripts/e2e/run-playwright.mjs --debug"
   },
   "devDependencies": {
     "@playwright/test": "^1.54.2",
