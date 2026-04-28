@@ -1,9 +1,9 @@
 import { test, expect } from "@playwright/test";
-import { login, openTimesheetUpload, readE2EState, uploadTimesheet } from "./helpers/agiladmin.js";
+import { loginAs, openTimesheetUpload, readE2EState, uploadTimesheet } from "./helpers/agiladmin.js";
 
 test("admin can login and upload a real timesheet", async ({ page }) => {
   const state = await readE2EState();
-  await login(page, "admin", "admin");
+  await loginAs(page, "admin");
   await openTimesheetUpload(page);
   await uploadTimesheet(page, state.fixtures.admin);
 
@@ -15,7 +15,7 @@ test("admin can login and upload a real timesheet", async ({ page }) => {
 
 test("manager can login and upload their own timesheet", async ({ page }) => {
   const state = await readE2EState();
-  await login(page, "manager", "manager");
+  await loginAs(page, "manager");
   await openTimesheetUpload(page);
   await uploadTimesheet(page, state.fixtures.manager);
 
@@ -29,7 +29,7 @@ test("manager can login and upload their own timesheet", async ({ page }) => {
 
 test("manager upload rejects another person's timesheet", async ({ page }) => {
   const state = await readE2EState();
-  await login(page, "manager", "manager");
+  await loginAs(page, "manager");
   await openTimesheetUpload(page);
   await uploadTimesheet(page, state.fixtures.admin);
 

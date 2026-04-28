@@ -42,10 +42,10 @@ async function copyBudgetFixtures(targetDir) {
   }
 }
 
-async function generateManagerFixture(adminFixturePath, managerFixturePath) {
+async function generateOwnedFixture(sourceFixturePath, targetFixturePath, ownerName) {
   const expr = [
     "(load-file \"scripts/e2e/generate-manager-fixture.clj\")",
-    `(agiladmin.e2e.generate-manager-fixture/-main ${JSON.stringify(adminFixturePath)} ${JSON.stringify(managerFixturePath)} "Manager")`,
+    `(agiladmin.e2e.generate-manager-fixture/-main ${JSON.stringify(sourceFixturePath)} ${JSON.stringify(targetFixturePath)} ${JSON.stringify(ownerName)})`,
   ].join(" ");
   await new Promise((resolve, reject) => {
     const child = spawn("clojure", ["-M", "-e", expr], {
@@ -74,8 +74,13 @@ async function prepareEnv() {
 
   const adminFixturePath = path.join(fixturesDir, "2016_timesheet_Luca-Pacioli.xlsx");
   const managerFixturePath = path.join(fixturesDir, "2016_timesheet_Manager.xlsx");
+  const guestFixturePath = path.join(fixturesDir, "2016_timesheet_Guest.xlsx");
   await fs.copyFile(path.join(REPO_ROOT, "test", "assets", "2016_timesheet_Luca-Pacioli.xlsx"), adminFixturePath);
-  await generateManagerFixture(adminFixturePath, managerFixturePath);
+  await generateOwnedFixture(adminFixturePath, managerFixturePath, "Manager");
+  await generateOwnedFixture(adminFixturePath, guestFixturePath, "Guest");
+
+  await fs.copyFile(managerFixturePath, path.join(budgetsDir, "2026_timesheet_Manager.xlsx"));
+  await fs.copyFile(guestFixturePath, path.join(budgetsDir, "2026_timesheet_Guest.xlsx"));
 
   const configPath = path.join(tempRoot, "agiladmin-e2e.yaml");
   await fs.writeFile(configPath, `${yamlConfig(budgetsDir, sshKeyPath)}\n`, "utf8");
@@ -87,6 +92,7 @@ async function prepareEnv() {
     fixtures: {
       admin: adminFixturePath,
       manager: managerFixturePath,
+      guest: guestFixturePath,
     },
     logPath: LOG_PATH,
   };
