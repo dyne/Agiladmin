@@ -1,8 +1,14 @@
 import { test, expect } from "@playwright/test";
 import { loginAs, openTimesheetUpload, readE2EState, uploadTimesheet } from "./helpers/agiladmin.js";
+import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+
+async function sha256File(filePath) {
+  const data = await fs.readFile(filePath);
+  return createHash("sha256").update(data).digest("hex");
+}
 
 test("admin can login and upload a real timesheet", async ({ page }) => {
   const state = await readE2EState();
@@ -11,6 +17,9 @@ test("admin can login and upload a real timesheet", async ({ page }) => {
   await uploadTimesheet(page, state.fixtures.admin);
 
   await expect(page.getByText("Uploaded: 2016_timesheet_Luca-Pacioli.xlsx")).toBeVisible();
+  const uploadedTempPath = await page.locator('input[name="tempfile"]').inputValue();
+  await expect(uploadedTempPath).toBeTruthy();
+  await expect(sha256File(uploadedTempPath)).resolves.toBe(await sha256File(state.fixtures.admin));
   await page.getByRole("button", { name: "Contents" }).click();
   await expect(page.getByText("Contents of the new timesheet")).toBeVisible();
   await expect(page.getByText("Error parsing timesheet")).toHaveCount(0);
@@ -23,6 +32,9 @@ test("manager can login and upload their own timesheet", async ({ page }) => {
   await uploadTimesheet(page, state.fixtures.manager);
 
   await expect(page.getByText("Uploaded: 2016_timesheet_Manager.xlsx")).toBeVisible();
+  const uploadedTempPath = await page.locator('input[name="tempfile"]').inputValue();
+  await expect(uploadedTempPath).toBeTruthy();
+  await expect(sha256File(uploadedTempPath)).resolves.toBe(await sha256File(state.fixtures.manager));
   await page.getByRole("button", { name: "Contents" }).click();
   await expect(page.getByText("Contents of the new timesheet")).toBeVisible();
   await expect(page.getByText("Error parsing timesheet")).toHaveCount(0);
