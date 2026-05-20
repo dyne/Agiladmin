@@ -182,6 +182,14 @@
       });
   }
 
+  function skipsPageLoading(element) {
+    return Boolean(
+      element &&
+        element.closest &&
+        element.closest("[data-skip-page-loading]")
+    );
+  }
+
   function afterNextPaint(callback) {
     window.requestAnimationFrame(function () {
       window.requestAnimationFrame(function () {
@@ -207,7 +215,7 @@
           href.indexOf("mailto:") === 0 ||
           href.indexOf("tel:") === 0 ||
           link.hasAttribute("download") ||
-          link.hasAttribute("data-skip-page-loading") ||
+          skipsPageLoading(link) ||
           target === "_blank" ||
           rel.indexOf("external") !== -1
         ) {
@@ -272,8 +280,18 @@
         label.textContent = value + "%";
       }
 
+      function startProgress() {
+        progress.removeAttribute("value");
+        label.textContent = "Uploading...";
+      }
+
       function resetProgress() {
         setProgress(0);
+      }
+
+      function failProgress() {
+        setProgress(0);
+        label.textContent = "Upload failed. Please try again.";
       }
 
       form.dataset.uploadProgressBound = "true";
@@ -283,7 +301,7 @@
         if (event.target !== form) {
           return;
         }
-        resetProgress();
+        startProgress();
       });
 
       form.addEventListener("htmx:xhr:progress", function (event) {
@@ -309,7 +327,7 @@
           setProgress(100);
           window.setTimeout(resetProgress, 300);
         } else {
-          resetProgress();
+          failProgress();
         }
       });
     });
@@ -332,7 +350,10 @@
     boot(event.target);
   });
 
-  document.addEventListener("htmx:beforeRequest", function () {
+  document.addEventListener("htmx:beforeRequest", function (event) {
+    if (skipsPageLoading(event.detail && event.detail.elt)) {
+      return;
+    }
     showPageLoading();
   });
 

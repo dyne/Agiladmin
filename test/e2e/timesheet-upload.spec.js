@@ -27,6 +27,34 @@ test("admin can login and upload a real timesheet", async ({ page }) => {
   await expect(page.getByText("Error parsing timesheet")).toHaveCount(0);
 });
 
+test("upload uses local progress without the page-loading overlay", async ({ page }) => {
+  const state = await readE2EState();
+  let releaseUpload;
+  const uploadCanFinish = new Promise((resolve) => {
+    releaseUpload = resolve;
+  });
+
+  await page.route("**/timesheets/upload", async (route) => {
+    await uploadCanFinish;
+    await route.fulfill({
+      status: 200,
+      contentType: "text/html; charset=utf-8",
+      body: '<div id="timesheet-workspace">Upload intercepted</div>',
+    });
+  });
+
+  await loginAs(page, "admin");
+  await openTimesheetUpload(page);
+  await page.locator('input[type="file"][name="file"]').setInputFiles(state.fixtures.admin);
+  await page.locator("#field-submit").click();
+
+  await expect(page.locator("[data-upload-progress-label]")).toHaveText("Uploading...");
+  await expect(page.locator('[data-page-loading="true"]')).toBeHidden();
+
+  releaseUpload();
+  await expect(page.getByText("Upload intercepted")).toBeVisible();
+});
+
 test("manager can login and upload their own timesheet", async ({ page }) => {
   const state = await readE2EState();
   await loginAs(page, "manager");

@@ -63,7 +63,8 @@
               :hx-post upload-url
               :hx-target (str "#" workspace-id)
               :hx-swap "outerHTML"
-              :hx-encoding "multipart/form-data"}
+              :hx-encoding "multipart/form-data"
+              :data-skip-page-loading "true"}
        [:div {:class "flex items-end gap-3"}
         [:input {:name "file"
                  :type "file"
