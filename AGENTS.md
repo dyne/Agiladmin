@@ -47,6 +47,10 @@
   - `:webserver`
   - `:source`
   - `:just-auth`
+- `:agiladmin :webserver` now separates internal bind settings from public URL settings:
+  - `:host` and `:port` are Jetty bind values.
+  - `:base-host` and `:base-path` are browser-facing URL parts.
+  - `:upload-max-size` configures upload byte limits (default `500000`).
 - Project configs are separate YAML files stored under the configured budgets path and loaded by `load-project`.
 - Tests use fixture config under `test/assets/agiladmin.yaml`.
 
@@ -125,6 +129,7 @@
 - HTMX is loaded locally from `resources/public/static/js/htmx.min.js` and is intended for progressive enhancement only; keep full-page fallback behavior working.
 - Current HTMX seams follow the same pattern: the normal route remains authoritative and returns a full page, while `web/htmx-request?` switches selected actions to fragment responses. Existing examples are `POST /reload`, `POST /timesheets/upload`, and `POST /project`.
 - `resources/public/static/js/app.js` replaces the old Bootstrap JS for navbar toggles and tab switching.
+- Browser-facing app URLs should be generated via `agiladmin.webpage/path` / `asset-path` helpers rather than hard-coded `"/..."` strings; route definitions remain root paths and reverse proxies are expected to strip any configured public `base-path`.
 - DHTMLX Gantt remains a JS island. Do not rewrite it into HTMX; only change the surrounding shell unless the task explicitly calls for deeper work.
 
 ## Useful Files
