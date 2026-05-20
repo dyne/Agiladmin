@@ -252,12 +252,74 @@
       });
   }
 
+  function initUploadProgress(root) {
+    root.querySelectorAll("form").forEach(function (form) {
+      if (form.dataset.uploadProgressBound === "true") {
+        return;
+      }
+
+      var progress = form.querySelector("[data-upload-progress]");
+      var label = form.querySelector("[data-upload-progress-label]");
+      if (!progress || !label) {
+        return;
+      }
+
+      function setProgress(percent) {
+        var value = Math.max(0, Math.min(100, Math.round(percent)));
+        progress.value = value;
+        label.textContent = value + "%";
+      }
+
+      function resetProgress() {
+        setProgress(0);
+      }
+
+      form.dataset.uploadProgressBound = "true";
+      resetProgress();
+
+      form.addEventListener("htmx:beforeRequest", function (event) {
+        if (event.target !== form) {
+          return;
+        }
+        resetProgress();
+      });
+
+      form.addEventListener("htmx:xhr:progress", function (event) {
+        if (event.target !== form) {
+          return;
+        }
+
+        var detail = event.detail || {};
+        var total = Number(detail.total || 0);
+        var loaded = Number(detail.loaded || 0);
+        if (total > 0) {
+          setProgress((loaded / total) * 100);
+        }
+      });
+
+      form.addEventListener("htmx:afterRequest", function (event) {
+        if (event.target !== form) {
+          return;
+        }
+
+        var successful = event.detail && event.detail.successful;
+        if (successful) {
+          setProgress(100);
+          window.setTimeout(resetProgress, 300);
+        } else {
+          resetProgress();
+        }
+      });
+    });
+  }
+
   function boot(root) {
     initTabGroups(root);
     initNavToggles(root);
     initTextFilters(root);
     initThemeToggle(root);
     initPageLoading(root);
+    initUploadProgress(root);
   }
 
   document.addEventListener("DOMContentLoaded", function () {
