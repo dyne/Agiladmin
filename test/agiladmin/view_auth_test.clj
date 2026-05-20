@@ -1,5 +1,6 @@
 (ns agiladmin.view-auth-test
-  (:require [agiladmin.view-auth :as view-auth]
+  (:require [agiladmin.ring :as ring]
+            [agiladmin.view-auth :as view-auth]
             [failjure.core]
             [midje.sweet :refer :all]))
 
@@ -16,6 +17,16 @@
           (get-in response [:session :auth :email]) => "user@example.org"
           (get-in response [:session :auth :role]) => nil
           (get-in response [:session :auth :options]) => {:ip-address "127.0.0.1"})))
+
+(fact "Login redirect location uses configured base path for non-admin users"
+      (with-redefs [ring/config (atom {:agiladmin {:webserver {:base-path "/admin"}}})
+                    agiladmin.auth.core/sign-in (fn [username _password _options]
+                                                  {:email username
+                                                   :name "User Name"})]
+        (let [response (view-auth/login-post {:params {:email "user@example.org"
+                                                       :password "secret"}
+                                              :remote-addr "127.0.0.1"})]
+          (get-in response [:headers "Location"]) => "/admin/persons/list")))
 
 (fact "Login normalizes legacy admin responses into the admin role"
       (with-redefs [agiladmin.auth.core/sign-in (fn [username _password _options]
@@ -72,6 +83,12 @@
       (let [response (view-auth/login-get {:session {:auth {:email "user@example.org"
                                                             :name "User Name"}}})]
         (:body response) => (contains "Already logged in with account: user@example.org")))
+
+(fact "Login get renders a base-path-aware logout link for active accounts"
+      (with-redefs [ring/config (atom {:agiladmin {:webserver {:base-path "/admin"}}})]
+        (let [response (view-auth/login-get {:session {:auth {:email "user@example.org"
+                                                              :name "User Name"}}})]
+          (:body response) => (contains "href=\"/admin/logout\""))))
 
 (fact "Login get includes the unauthorized access warning for logged-out visitors"
       (let [response (view-auth/login-get {})]
