@@ -6,6 +6,7 @@
     "sync:htmx": "node ./scripts/sync-frontend-assets.mjs",
     "build:frontend": "npm run sync:htmx && npm run build:css",
     "test:e2e": "node ./scripts/e2e/run-playwright.mjs",
+    "test:e2e:base-path": "E2E_BASE_PATH=/agiladmin node ./scripts/e2e/run-playwright.mjs test/e2e/base-path.spec.js",
     "test:e2e:headed": "node ./scripts/e2e/run-playwright.mjs --headed",
     "test:e2e:debug": "node ./scripts/e2e/run-playwright.mjs --debug"
   },
