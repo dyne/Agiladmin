@@ -11,6 +11,8 @@
         html => (contains "hx-post=\"/timesheets/upload\"")
         html => (contains "id=\"timesheet-workspace\"")
         html => (contains "class=\"flex items-end gap-3\"")
+        html => (contains "data-upload-progress=\"true\"")
+        html => (contains "data-upload-progress-label=\"true\"")
         html => (contains "Uploading and validating timesheet...")
         html => (contains "shrink-0")))
 
