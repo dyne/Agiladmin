@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { loginAs, readE2EState } from "./helpers/agiladmin.js";
+import { loginAs, readE2EState, uploadTimesheet } from "./helpers/agiladmin.js";
 
 test("admin sees personnel list including multiple people", async ({ page }) => {
   await loginAs(page, "admin");
@@ -8,6 +8,28 @@ test("admin sees personnel list including multiple people", async ({ page }) => 
   await expect(page.getByRole("heading", { name: "Persons", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Manager", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Guest", exact: true })).toBeVisible();
+});
+
+test("admin can upload from the personnel list", async ({ page }) => {
+  const state = await readE2EState();
+  await loginAs(page, "admin");
+  await page.goto("/persons/list");
+
+  await uploadTimesheet(page, state.fixtures.admin);
+
+  await expect(page.getByText("Uploaded: 2016_timesheet_Luca-Pacioli.xlsx")).toBeVisible();
+});
+
+test("admin can upload from an individual person page", async ({ page }) => {
+  const state = await readE2EState();
+  await loginAs(page, "admin");
+  await page.goto("/persons/list");
+
+  await page.getByRole("button", { name: "Manager", exact: true }).click();
+  await expect(page.getByRole("heading", { name: /Manager$/ })).toBeVisible();
+  await uploadTimesheet(page, state.fixtures.manager);
+
+  await expect(page.getByText("Uploaded: 2016_timesheet_Manager.xlsx")).toBeVisible();
 });
 
 test("manager sees own person page instead of the personnel list", async ({ page }) => {
@@ -25,8 +47,7 @@ test("manager can upload from their person page", async ({ page }) => {
   await loginAs(page, "manager");
   await page.goto("/persons/list");
 
-  await page.locator('input[type="file"][name="file"]').setInputFiles(state.fixtures.manager);
-  await page.locator("#field-submit").click();
+  await uploadTimesheet(page, state.fixtures.manager);
 
   await expect(page.getByText("Uploaded: 2016_timesheet_Manager.xlsx")).toBeVisible();
 });
