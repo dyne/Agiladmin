@@ -1,8 +1,16 @@
 (ns agiladmin.view-person-test
   (:require [agiladmin.view-person :as view-person]
             [clojure.data.json :as json]
+            [hiccup.core :as hiccup]
             [failjure.core]
             [midje.sweet :refer :all]))
+
+(fact "Person download controls honor a configured base path"
+      (let [config {:agiladmin {:webserver {:base-path "/admin"}}}
+            download-html (hiccup/html (view-person/person-download-timesheet config "2026_timesheet_User.xlsx"))
+            toolbar-html (hiccup/html (view-person/person-download-toolbar config "User Name" 2026 [["Date" "Hours"]]))]
+        download-html => (contains "href=\"/admin/timesheets/download/2026_timesheet_User.xlsx\"")
+        toolbar-html => (contains "action=\"/admin/persons/spreadsheet\"")))
 
 (fact "Admin personnel view renders a compact filterable persons list"
       (with-redefs [agiladmin.utils/now (fn [] {:year 2026})

@@ -12,6 +12,14 @@
         (:body response) => (contains "hx-post=\"/reload\"")
         (:body response) => (contains "id=\"reload-result\"")))
 
+(fact "Reload page paths honor a configured base path"
+      (let [response (view-reload/page
+                      {}
+                      {:agiladmin {:webserver {:base-path "/admin"}}}
+                      {:email "admin@example.org"})]
+        (:body response) => (contains "action=\"/admin/reload\"")
+        (:body response) => (contains "hx-post=\"/admin/reload\"")))
+
 (fact "Reload action explains missing budgets git configuration"
       (let [response (view-reload/start
                       {}

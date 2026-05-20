@@ -128,7 +128,7 @@
 
   (GET "/timesheets" request
        (->> (fn [req conf acct]
-              (web/render acct view-timesheet/upload-form))
+              (web/render acct (view-timesheet/upload-form conf)))
             (s/check request)))
   (POST "/timesheets/cancel" request
         (->> view-timesheet/cancel

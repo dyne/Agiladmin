@@ -35,15 +35,15 @@
 
 
 (defn person-download-timesheet
-  [path]
-  [:a {:href (str "/timesheets/download/" path)}
+  [config path]
+  [:a {:href (web/path config (str "/timesheets/download/" path))}
    [:button {:type "button"
              :class "btn btn-primary"}
     "Download current timesheet"]])
 
 (defn person-download-toolbar
-  [person year costs]
-  [:form {:action "/persons/spreadsheet"
+  [config person year costs]
+  [:form {:action (web/path config "/persons/spreadsheet")
           :method "post"
           :class "space-y-3"}
    [:h3 "Download yearly totals:"]
@@ -91,7 +91,7 @@
    account
    [:div
     [:h1 (str year " - " (util/dotname person))]
-    (view-timesheet/upload-card)
+    (view-timesheet/upload-card config)
     (f/attempt-all
      [person-data (load-person-page-data config person year)]
      (let [{:keys [ts-file timesheet projects hours]} person-data
@@ -117,7 +117,7 @@
                [:div {:class "month-detail overflow-x-auto"}
                 (to-monthly-hours-table projects breakdown)]]])]
        [:div {:class "space-y-6"}
-        (person-download-timesheet ts-file)
+        (person-download-timesheet config ts-file)
         [:br]
         [:div {:class "space-y-6"}
          [:h1 "Yearly totals"]
@@ -181,7 +181,7 @@
                     (person-buttons old-people))]])
           page-body
           (cond-> [:div {:class "space-y-4"}
-                   (view-timesheet/upload-card)
+                   (view-timesheet/upload-card config)
                    (web/filterable-button-list "persons-list"
                                                "Persons"
                                                "No persons match the current filter."
@@ -212,15 +212,15 @@
      account
      [:div
       [:h1 (str year " - " (util/dotname person))]
-      (view-timesheet/upload-card)
+      (view-timesheet/upload-card config)
       (f/attempt-all
        [person-data (load-person-page-data config person year)]
        (let [{:keys [ts-file timesheet projects hours]} person-data]
          (f/attempt-all
           [costs (derive-costs hours config projects)
            costs-with-cph (derive-cost-per-hour costs config projects)]
-          [:div {:class "space-y-6"}
-           (person-download-timesheet ts-file)
+           [:div {:class "space-y-6"}
+           (person-download-timesheet config ts-file)
            [:br]
            (if (zero? (tab/sum-col costs :cost))
              (web/render-error
@@ -245,7 +245,7 @@
                      :Monthly_average monthly-average}
                     vector tab/dataset to-table)
                 (person-download-toolbar
-                 person year
+                 config person year
                  (into [["Date" "Name" "Project" "Task" "Tags" "Hours" "Cost" "CPH"]]
                        (tab/to-row-seq costs-with-cph)))
                 [:div {:class "divider"}]

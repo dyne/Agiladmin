@@ -99,19 +99,20 @@
         project-buttons
         (fn [projects]
           (mapv (fn [project-name]
+                  (let [project-path (web/path config "/project")]
                   [:div {:class "log-project"
                          :data-text-filter-item "true"
                          :data-text-filter-value project-name}
-                   [:form {:action "/project"
+                   [:form {:action project-path
                            :method "post"
                            :class "inline-flex max-w-full w-full"
-                           :hx-post "/project"
+                           :hx-post project-path
                            :hx-target (str "#" project-details-id)
                            :hx-swap "outerHTML"}
                     (hf/hidden-field "project" project-name)
                     [:input {:type "submit"
                              :value project-name
-                             :class "btn btn-outline w-full justify-start"}]]])
+                             :class "btn btn-outline w-full justify-start"}]]]))
                 projects))
         old-projects-section
         (when (seq old-projects)
@@ -148,7 +149,7 @@
       ;; else present an editor
      (web/render
       account
-      [:form {:action "/projects/edit"
+      [:form {:action (web/path config "/projects/edit")
               :method "post"
               :class "space-y-4"}
        [:h1 (str "Project " projname ": edit configuration")]
