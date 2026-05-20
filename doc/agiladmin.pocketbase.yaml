@@ -6,6 +6,9 @@ agiladmin:
     ssl-redirect: false
     port: 8000
     host: localhost
+    base-host: ""
+    base-path: /
+    upload-max-size: 500000
 
   budgets:
     git: ssh://git@example.org/admin-budgets
