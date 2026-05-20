@@ -58,10 +58,10 @@
   (GET "/" request
        (if (get-in request [:session :auth])
          {:status 302
-          :headers {"Location" "/persons/list"}
+          :headers {"Location" (web/path @ring/config "/persons/list")}
           :body ""}
          {:status 302
-          :headers {"Location" "/login"}
+          :headers {"Location" (web/path @ring/config "/login")}
           :body ""}))
 
   (GET "/projects/list" request
@@ -105,7 +105,7 @@
            (web/render
             [:div
              (web/render-error "Unauthorized access.") ;; TODO: (f/message e)) reports all config?!
-             web/login-form]))))
+             (web/login-form)]))))
          ;; (web/render account [:div
          ;;                      (web/render-yaml account)
          ;;                      (web/render-yaml config)])))
@@ -205,7 +205,7 @@
             (web/render
              acct
              [:div {:class "space-y-4"}
-              [:form {:action "/config/edit"
+              [:form {:action (web/path conf "/config/edit")
                       :method "post"
                       :class "space-y-4"}
                [:h1 "Configuration editor"]

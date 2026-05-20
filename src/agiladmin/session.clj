@@ -110,7 +110,7 @@
     (web/render
      [:div
       (web/render-error error)
-      web/login-form])))
+      (web/login-form)])))
 
 (defn check [request fun]
   (f/attempt-all

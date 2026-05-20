@@ -39,9 +39,11 @@
                  [:h1 {:class "card-title text-3xl"}
                   (str "Already logged in with account: " (:email acct))]
                  [:div {:class "card-actions"}
-                  [:a {:class "btn btn-primary" :href "/logout"} "Logout"]]]])
+                  [:a {:class "btn btn-primary"
+                       :href (web/path @ring/config "/logout")}
+                   "Logout"]]]])
    (f/when-failed [e]
-     (web/render web/login-form))))
+     (web/render (web/login-form)))))
 
 (defn login-post [request]
   (f/attempt-all
@@ -62,7 +64,7 @@
                 [:h1 {:class "card-title text-3xl"} "Logged in: " username]]]))
        (assoc session
               :status 302
-              :headers {"Location" "/persons/list"}
+              :headers {"Location" (web/path @ring/config "/persons/list")}
               :body "")))
    (f/when-failed [e]
      (web/render-error-page
@@ -73,7 +75,7 @@
         (web/render [:h1 "Logged out."])))
 
 (defn signup-get [request]
-  (web/render web/signup-form))
+  (web/render (web/signup-form)))
 
 (defn signup-post [request]
   (f/attempt-all
