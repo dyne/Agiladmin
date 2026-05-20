@@ -150,6 +150,43 @@
         (:paths conf) => ["doc/agiladmin.pocketbase.yaml"]
         (get-in conf [:agiladmin :pocketbase :base-url]) => "http://127.0.0.1:8090"))
 
+(fact "Application config loader fills webserver defaults for legacy configs"
+      (let [path "/tmp/agiladmin-legacy-webserver.yaml"
+            _ (spit path
+                    (str "appname: agiladmin\n\n"
+                         "agiladmin:\n"
+                         "  budgets:\n"
+                         "    git: ssh://git@example.org/admin-budgets\n"
+                         "    ssh-key: id_rsa\n"
+                         "    path: budgets/\n"))
+            conf (conf/load-config path conf/default-settings)]
+        (f/failed? conf) => false
+        (get-in conf [:agiladmin :webserver :base-host]) => ""
+        (get-in conf [:agiladmin :webserver :base-path]) => "/"
+        (get-in conf [:agiladmin :webserver :upload-max-size]) => 500000))
+
+(fact "Application config loader preserves explicit webserver base values"
+      (let [path "/tmp/agiladmin-webserver-explicit.yaml"
+            _ (spit path
+                    (str "appname: agiladmin\n\n"
+                         "agiladmin:\n"
+                         "  budgets:\n"
+                         "    git: ssh://git@example.org/admin-budgets\n"
+                         "    ssh-key: id_rsa\n"
+                         "    path: budgets/\n"
+                         "  webserver:\n"
+                         "    host: 127.0.0.1\n"
+                         "    port: 8088\n"
+                         "    base-host: https://admin.example.org\n"
+                         "    base-path: /agiladmin\n"
+                         "    upload-max-size: 750000\n"))
+            conf (conf/load-config path conf/default-settings)]
+        (f/failed? conf) => false
+        (get-in conf [:agiladmin :webserver :host]) => "127.0.0.1"
+        (get-in conf [:agiladmin :webserver :base-host]) => "https://admin.example.org"
+        (get-in conf [:agiladmin :webserver :base-path]) => "/agiladmin"
+        (get-in conf [:agiladmin :webserver :upload-max-size]) => 750000))
+
 (fact "Application config loader reports an explicit missing file"
       (let [conf (conf/load-config "/tmp/does-not-exist-agiladmin.yaml" conf/default-settings)]
         (f/failed? conf) => true
@@ -235,3 +272,34 @@
         (f/message conf) => (contains "Invalid configuration at")
         (f/message conf) => (contains "test-resources/extra-keys-config.yaml")
         (f/message conf) => (contains "disallowed-key")))
+
+(fact "Application config loader rejects non-string webserver base keys"
+      (let [path "/tmp/agiladmin-invalid-webserver-base.yaml"
+            _ (spit path
+                    (str "appname: agiladmin\n\n"
+                         "agiladmin:\n"
+                         "  budgets:\n"
+                         "    git: ssh://git@example.org/admin-budgets\n"
+                         "    ssh-key: id_rsa\n"
+                         "    path: budgets/\n"
+                         "  webserver:\n"
+                         "    base-host: 42\n"
+                         "    base-path: true\n"))
+            conf (conf/load-config path conf/default-settings)]
+        (f/failed? conf) => true
+        (f/message conf) => (contains ":base-host")))
+
+(fact "Application config loader rejects non-numeric upload-max-size"
+      (let [path "/tmp/agiladmin-invalid-upload-size.yaml"
+            _ (spit path
+                    (str "appname: agiladmin\n\n"
+                         "agiladmin:\n"
+                         "  budgets:\n"
+                         "    git: ssh://git@example.org/admin-budgets\n"
+                         "    ssh-key: id_rsa\n"
+                         "    path: budgets/\n"
+                         "  webserver:\n"
+                         "    upload-max-size: large\n"))
+            conf (conf/load-config path conf/default-settings)]
+        (f/failed? conf) => true
+        (f/message conf) => (contains ":upload-max-size")))

@@ -36,6 +36,9 @@
     (s/optional-key :projects) [s/Str]
     (s/optional-key :webserver) {(s/optional-key :port) s/Num
                                  (s/optional-key :host) s/Str
+                                 (s/optional-key :base-host) s/Str
+                                 (s/optional-key :base-path) s/Str
+                                 (s/optional-key :upload-max-size) s/Num
                                  (s/optional-key :anti-forgery) s/Bool
                                  (s/optional-key :ssl-redirect) s/Bool}
     (s/optional-key :source) {:git s/Str
@@ -82,7 +85,10 @@
                         :ssh-key "id_rsa"
                         :path "budgets/"}
                        :webserver
-                       {:anti-forgery false
+                       {:base-host ""
+                        :base-path "/"
+                        :upload-max-size 500000
+                        :anti-forgery false
                         :ssl-redirect false}})
 
 (def project-defaults {})
@@ -273,6 +279,12 @@
 (defn load-config [name default]
   (log/info (str "Loading configuration: " name))
   (let [conf (config-read name default)
+        conf (if (f/failed? conf)
+               conf
+               (let [app-key (keyword (:appname conf))]
+                 (update-in conf
+                            [app-key :webserver]
+                            #(merge (:webserver default-settings) %))))
         loaded-paths (->> (:paths conf)
                           (filter #(.exists (io/as-file %)))
                           vec)
