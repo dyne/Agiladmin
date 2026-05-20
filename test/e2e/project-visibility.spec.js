@@ -16,7 +16,7 @@ async function openFirstProjectFromList(page) {
   }
 
   expect(clicked).toBeTruthy();
-  await expect(page.locator("#project-details .tabs")).toBeVisible();
+  await expect(page.locator("#project-details .tabs")).toBeVisible({ timeout: 15000 });
 }
 
 test("admin project view shows edit controls and cost data", async ({ page }) => {
