@@ -48,6 +48,16 @@
         (:status response) => 302
         (get-in response [:headers "Location"]) => "/persons/list"))
 
+(fact "Root route uses configured base path in redirect locations"
+      (with-redefs [agiladmin.ring/config
+                    (atom {:agiladmin {:webserver {:base-path "/admin"}}})]
+        (let [guest (handlers/app-routes (mock/request :get "/"))
+              authed (handlers/app-routes
+                      (assoc (mock/request :get "/")
+                             :session user-session))]
+          (get-in guest [:headers "Location"]) => "/admin/login"
+          (get-in authed [:headers "Location"]) => "/admin/persons/list")))
+
 (fact "Protected timesheet route falls back to the login form for guests"
       (let [response (handlers/app-routes (mock/request :get "/timesheets"))]
         (:status response) => 200
