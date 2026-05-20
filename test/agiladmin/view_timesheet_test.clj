@@ -1,5 +1,6 @@
 (ns agiladmin.view-timesheet-test
   (:require [agiladmin.view-timesheet :as view-timesheet]
+            [agiladmin.tabular :as tab]
             [clojure.java.io :as io]
             [hiccup.core :as hiccup]
             [failjure.core]
@@ -22,6 +23,53 @@
                                {:agiladmin {:webserver {:base-path "/admin"}}}))]
         html => (contains "action=\"/admin/timesheets/upload\"")
         html => (contains "hx-post=\"/admin/timesheets/upload\"")))
+
+(fact "Timesheet diff model tracks added removed changed and unchanged rows"
+      (let [old-hours (tab/dataset
+                       [{:month "2026-1" :project "ALPHA" :task "A" :tag "" :hours 10}
+                        {:month "2026-2" :project "ALPHA" :task "B" :tag "" :hours 5}
+                        {:month "2026-3" :project "BETA" :task "C" :tag "VOL" :hours 4}])
+            new-hours (tab/dataset
+                       [{:month "2026-1" :project "ALPHA" :task "A" :tag "" :hours 12}
+                        {:month "2026-3" :project "BETA" :task "C" :tag "VOL" :hours 4}
+                        {:month "2026-4" :project "GAMMA" :task "D" :tag "" :hours 8}])
+            model (#'agiladmin.view-timesheet/timesheet-diff-model old-hours new-hours)]
+        (get-in model [:summary :changed]) => 1
+        (get-in model [:summary :unchanged]) => 1
+        (get-in model [:summary :removed]) => 1
+        (get-in model [:summary :added]) => 1
+        (get-in model [:summary :total-delta]) => 5.0
+        (->> (:rows model)
+             (map (juxt :status :old-hours :new-hours))
+             vec)
+        => [[:changed 10 12]
+            [:removed 5 nil]
+            [:unchanged 4 4]
+            [:added nil 8]]))
+
+(fact "Timesheet diff render shows summary and side-by-side columns"
+      (let [old-hours (tab/dataset
+                       [{:month "2026-1" :project "ALPHA" :task "A" :tag "" :hours 10}
+                        {:month "2026-2" :project "ALPHA" :task "B" :tag "" :hours 5}])
+            new-hours (tab/dataset
+                       [{:month "2026-1" :project "ALPHA" :task "A" :tag "" :hours 12}
+                        {:month "2026-3" :project "GAMMA" :task "C" :tag "" :hours 8}])
+            html (hiccup/html (#'agiladmin.view-timesheet/timesheet-diff old-hours new-hours))]
+        html => (contains "Added")
+        html => (contains "Removed")
+        html => (contains "Changed")
+        html => (contains "Old hours")
+        html => (contains "New hours")
+        html => (contains "Delta")
+        html => (contains "2026-1")
+        html => (contains "2026-2")
+        html => (contains "2026-3")))
+
+(fact "Timesheet diff render shows an explicit message when there are no differences"
+      (let [hours (tab/dataset
+                   [{:month "2026-1" :project "ALPHA" :task "A" :tag "" :hours 10}])
+            html (hiccup/html (#'agiladmin.view-timesheet/timesheet-diff hours hours))]
+        html => (contains "No differences found between the archived timesheet and this upload.")))
 
 (fact "Timesheet upload rejects files above the default size limit"
       (let [response (view-timesheet/upload
@@ -238,7 +286,7 @@
                            :role "admin"})]
             (:body response) => (contains "Uploaded: 2016_timesheet_Luca-Pacioli.xlsx")
             (:body response) => (contains "Contents of the new timesheet")
-            (:body response) => (contains "Differences: old (to the left) and new (to the right)")
+            (:body response) => (contains "Timesheet changes")
             (:body response) => (contains "This is a new timesheet, no historical information available to compare")
             (:body response) =not=> (contains "Error parsing timesheet"))
           (finally
