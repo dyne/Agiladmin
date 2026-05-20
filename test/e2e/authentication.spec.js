@@ -26,7 +26,7 @@ test("invalid credentials fail without creating a session", async ({ page }) => 
   await page.goto("/login");
   await page.locator('input[name="email"]').fill("admin");
   await page.locator('input[name="password"]').fill("wrong-password");
-  await page.locator('form[action="/login"] input[type="submit"]').click();
+  await page.locator('form[action$="/login"] input[type="submit"]').click();
 
   await expect(page.getByText("Login failed:")).toBeVisible();
   await expect(page.getByRole("link", { name: "Logout" })).toHaveCount(0);

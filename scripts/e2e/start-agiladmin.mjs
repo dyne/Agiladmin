@@ -11,6 +11,14 @@ const STATE_PATH = path.join(STATE_DIR, "agiladmin-e2e-state.json");
 const OUTPUT_DIR = path.join(REPO_ROOT, "output", "playwright");
 const LOG_PATH = path.join(OUTPUT_DIR, "agiladmin-server.log");
 const DEBUG_E2E = process.env.DEBUG_E2E === "1";
+const E2E_BASE_PATH = normalizeBasePath(process.env.E2E_BASE_PATH ?? "/");
+
+function normalizeBasePath(basePath) {
+  const raw = String(basePath ?? "").trim();
+  if (!raw || raw === "/") return "/";
+  const cleaned = raw.replace(/^\/+/, "").replace(/\/+$/, "");
+  return cleaned ? `/${cleaned}` : "/";
+}
 
 function yamlConfig(budgetsPath, sshKeyPath) {
   return [
@@ -29,7 +37,7 @@ function yamlConfig(budgetsPath, sshKeyPath) {
     "    host: 127.0.0.1",
     "    port: 18080",
     "    base-host: \"\"",
-    "    base-path: /",
+    `    base-path: ${E2E_BASE_PATH}`,
     "    upload-max-size: 500000",
     "    anti-forgery: false",
     "    ssl-redirect: false",
@@ -109,6 +117,7 @@ async function prepareEnv() {
       manager: managerFixturePath,
       guest: guestFixturePath,
     },
+    basePath: E2E_BASE_PATH,
     logPath: LOG_PATH,
   };
   await fs.writeFile(STATE_PATH, JSON.stringify(state, null, 2), "utf8");

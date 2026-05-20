@@ -22,7 +22,7 @@ export async function login(page, username, password) {
   await page.goto("/login");
   await page.locator('input[name="email"]').fill(username);
   await page.locator('input[name="password"]').fill(password);
-  await page.locator('form[action="/login"] input[type="submit"]').click();
+  await page.locator('form[action$="/login"] input[type="submit"]').click();
 }
 
 export async function expectLoggedInAs(page, username) {
@@ -30,7 +30,7 @@ export async function expectLoggedInAs(page, username) {
 }
 
 export async function expectLoginForm(page) {
-  await expect(page.locator('form[action="/login"]')).toBeVisible();
+  await expect(page.locator('form[action$="/login"]')).toBeVisible();
   await expect(page.locator('input[name="email"]')).toBeVisible();
   await expect(page.locator('input[name="password"]')).toBeVisible();
 }
@@ -44,7 +44,7 @@ export async function loginAs(page, role) {
   if (role === "guest") {
     await expect(page).toHaveURL(/\/persons\/list$/);
     await expect(page.getByRole("link", { name: "Logout" })).toBeVisible();
-    await expect(page.locator('form[action="/login"]')).toHaveCount(0);
+    await expect(page.locator('form[action$="/login"]')).toHaveCount(0);
     return;
   }
   await expectLoggedInAs(page, user.username);
