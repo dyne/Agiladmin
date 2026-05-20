@@ -68,9 +68,17 @@
         [:input {:name "file"
                  :type "file"
                  :class "file-input file-input-bordered w-full"}]
-        [:input {:class "btn btn-primary btn-lg shrink-0"
+       [:input {:class "btn btn-primary btn-lg shrink-0"
                  :id "field-submit" :type "submit"
                  :name "submit" :value "submit"}]]
+       [:div {:class "space-y-2"}
+        [:progress {:class "progress progress-primary w-full"
+                    :max "100"
+                    :value "0"
+                    :data-upload-progress "true"}]
+        [:p {:class "text-sm text-base-content/70"
+             :data-upload-progress-label "true"}
+         "0%"]]
        [:p {:class "htmx-indicator text-sm text-base-content/70"}
         "Uploading and validating timesheet..."]]]]))
 
