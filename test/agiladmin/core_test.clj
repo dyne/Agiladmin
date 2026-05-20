@@ -139,6 +139,27 @@
                     :duration 4
                     :pm 2}]}))
 
+(fact "Timesheet monthly rows trim project task and tag values"
+      (with-redefs [dk.ative.docjure.spreadsheet/select-sheet (fn [_ _] :sheet)
+                    agiladmin.core/get-cell
+                    (fn [_ col row]
+                      (case [col row]
+                        ["B" "7"] " CORE "
+                        ["B" "8"] " TASK-1 "
+                        ["B" "9"] " vol "
+                        ["B" 43] 8.0
+                        nil))]
+        (core/load-monthly-hours {:xls :book
+                                  :name "Alice"}
+                                 "2026-1"
+                                 (fn [_] true))
+        => [{:month "2026-1"
+             :name "Alice"
+             :project "CORE"
+             :task "TASK-1"
+             :tag "VOL"
+             :hours 8.0}]))
+
 (fact "Timesheet loads are cached per budgets path until invalidated"
       (let [calls (atom 0)]
         (core/invalidate-timesheet-cache!)

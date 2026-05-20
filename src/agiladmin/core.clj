@@ -108,9 +108,9 @@
    (if-let [sheet (select-sheet month (:xls timesheet))]
      (loop [[n & cols] timesheet-cols-projects
             res []]
-       (let [proj  (f/ok-> (get-cell sheet n "7") str) ;; row project
-             task  (f/ok-> (get-cell sheet n "8") str) ;; row task
-             tag   (f/ok-> (get-cell sheet n "9") str) ;; row tag(s) (TODO: support multiple tags)
+       (let [proj  (f/ok-> (get-cell sheet n "7") str trim) ;; row project
+             task  (f/ok-> (get-cell sheet n "8") str trim) ;; row task
+             tag   (f/ok-> (get-cell sheet n "9") str trim) ;; row tag(s) (TODO: support multiple tags)
              ;; take lowest in row totals starting from 42 (as month lenght varies)
              hours  (first (for [i timesheet-rows-hourtots
                                  :let  [cell (get-cell sheet n i)]
