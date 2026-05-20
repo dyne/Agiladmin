@@ -19,6 +19,8 @@ test("admin can login and upload a real timesheet", async ({ page }) => {
   await uploadTimesheet(page, state.fixtures.admin);
 
   await expect(page.getByText("Uploaded: 2016_timesheet_Luca-Pacioli.xlsx")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Timesheet changes" })).toBeVisible();
+  await expect(page.getByText("Differences: old (to the left) and new (to the right)")).toHaveCount(0);
   const uploadedTempPath = await page.locator('input[name="tempfile"]').inputValue();
   await expect(uploadedTempPath).toBeTruthy();
   await expect(sha256File(uploadedTempPath)).resolves.toBe(await sha256File(state.fixtures.admin));

@@ -161,31 +161,181 @@
      (concat fields
              [[:input {:type "submit" :value label :class class-name}]]))))
 
-(defn textual-diff [left right]
-  [:div {:class "grid gap-4 lg:grid-cols-2"}
-   [:div {:class "rounded-box border border-base-300 bg-base-100 p-4 shadow-sm"}
-    [:pre (str "\n" (with-out-str (print left)))]]
-   [:div {:class "rounded-box border border-base-300 bg-base-100 p-4 shadow-sm"}
-    [:pre {:id "display"}]
-    [:script
-     (str "\n"
-          "function dodiff() {\n"
-          "var left = `" (with-out-str (print left)) "`;\n"
-          "var right = `" (with-out-str (print right)) "`;\n"
-          "var color = '', span = null;\n"
-          "var diff = JsDiff.diffLines(left, right);\n"
-          "var display = document.getElementById('display')\n"
-          "var fragment = document.createDocumentFragment();\n"
-          "diff.forEach(function(part){\n
-  color = part.added ? 'green' : part.removed ? 'red' : 'darkgrey';\n
-  span = document.createElement('span');\n
-  span.style.color = color;\n
-  span.appendChild(document.createTextNode(part.value));\n
-  fragment.appendChild(span);\n
-});\n
-display.appendChild(fragment);\n
-}\n
-window.onload = dodiff;\n")]]])
+(def ^:private diff-row-key-cols [:month :project :task :tag])
+
+(defn- diff-row-key
+  [row]
+  (zipmap diff-row-key-cols (mapv #(get row %) diff-row-key-cols)))
+
+(defn- index-diff-rows
+  [rows]
+  (reduce (fn [idx row]
+            (assoc idx (diff-row-key row) row))
+          {}
+          rows))
+
+(defn- parse-number
+  [value]
+  (cond
+    (number? value) (double value)
+    (string? value) (try
+                      (Double/parseDouble value)
+                      (catch Exception _ nil))
+    :else nil))
+
+(defn- compare-hours-row
+  [old-row new-row]
+  (let [old-hours (get old-row :hours)
+        new-hours (get new-row :hours)
+        old-num (parse-number old-hours)
+        new-num (parse-number new-hours)]
+    (cond
+      (and old-row new-row (= old-hours new-hours))
+      {:status :unchanged
+       :old old-row
+       :new new-row
+       :old-hours old-hours
+       :new-hours new-hours
+       :delta 0.0}
+
+      (and old-row new-row)
+      {:status :changed
+       :old old-row
+       :new new-row
+       :old-hours old-hours
+       :new-hours new-hours
+       :delta (when (and (some? old-num) (some? new-num))
+                (- new-num old-num))}
+
+      new-row
+      {:status :added
+       :old nil
+       :new new-row
+       :old-hours nil
+       :new-hours (get new-row :hours)
+       :delta new-num}
+
+      :else
+      {:status :removed
+       :old old-row
+       :new nil
+       :old-hours (get old-row :hours)
+       :new-hours nil
+       :delta (when (some? old-num)
+                (- old-num))})))
+
+(defn- status-label
+  [status]
+  (case status
+    :added "Added"
+    :removed "Removed"
+    :changed "Changed"
+    :unchanged "Unchanged"
+    "Unknown"))
+
+(defn- status-badge-class
+  [status]
+  (case status
+    :added "badge badge-success"
+    :removed "badge badge-error"
+    :changed "badge badge-warning"
+    :unchanged "badge badge-neutral"
+    "badge"))
+
+(defn- status-row-class
+  [status]
+  (case status
+    :added "bg-success/10"
+    :removed "bg-error/10"
+    :changed "bg-warning/10"
+    :unchanged "opacity-70"
+    ""))
+
+(defn- format-hours
+  [value]
+  (if (nil? value)
+    "-"
+    (str value)))
+
+(defn- format-delta
+  [value]
+  (cond
+    (nil? value) "-"
+    (pos? value) (format "+%.2f" value)
+    :else (format "%.2f" value)))
+
+(defn- timesheet-diff-model
+  [old-hours new-hours]
+  (let [old-rows (tab/rows old-hours)
+        new-rows (tab/rows new-hours)
+        old-index (index-diff-rows old-rows)
+        new-index (index-diff-rows new-rows)
+        keys-in-order (->> (concat (keys old-index) (keys new-index))
+                           distinct
+                           (sort-by #(mapv (fn [col] (str (get % col "")))
+                                           diff-row-key-cols)))
+        rows (mapv (fn [k]
+                     (assoc (compare-hours-row (get old-index k) (get new-index k))
+                            :key k))
+                   keys-in-order)
+        status-counts (merge {:added 0 :removed 0 :changed 0 :unchanged 0}
+                             (frequencies (map :status rows)))
+        total-delta (reduce (fn [acc row]
+                              (+ acc (double (or (:delta row) 0.0))))
+                            0.0
+                            rows)]
+    {:rows rows
+     :summary (assoc status-counts :total-delta total-delta)}))
+
+(defn- summary-card
+  [title value class-name]
+  [:div {:class (str "rounded-box border border-base-300 bg-base-100 p-3 shadow-sm " class-name)}
+   [:div {:class "text-xs uppercase tracking-wide text-base-content/60"} title]
+   [:div {:class "text-xl font-semibold"} value]])
+
+(defn- timesheet-diff
+  [old-hours new-hours]
+  (let [{:keys [rows summary]} (timesheet-diff-model old-hours new-hours)
+        rows-to-show (filterv #(not= :unchanged (:status %)) rows)
+        has-visible-rows (seq rows-to-show)]
+    [:div {:class "space-y-4"}
+     [:div {:class "grid gap-3 sm:grid-cols-2 xl:grid-cols-5"}
+      (summary-card "Added" (:added summary) "bg-success/10")
+      (summary-card "Removed" (:removed summary) "bg-error/10")
+      (summary-card "Changed" (:changed summary) "bg-warning/10")
+      (summary-card "Unchanged" (:unchanged summary) "bg-base-200/40")
+      (summary-card "Total hour delta" (format-delta (:total-delta summary)) "bg-info/10")]
+     [:div {:class "flex flex-wrap gap-3 text-sm"}
+      [:span {:class "badge badge-success"} "Added"]
+      [:span {:class "badge badge-error"} "Removed"]
+      [:span {:class "badge badge-warning"} "Changed"]
+      [:span {:class "badge badge-neutral"} "Unchanged"]]
+     (if has-visible-rows
+       [:div {:class "overflow-x-auto"}
+        [:table {:class "table table-zebra w-full"}
+         [:thead
+          [:tr
+           [:th "Status"]
+           [:th "Month"]
+           [:th "Project"]
+           [:th "Task"]
+           [:th "Tag"]
+           [:th {:class "text-right"} "Old hours"]
+           [:th {:class "text-right"} "New hours"]
+           [:th {:class "text-right"} "Delta"]]]
+         [:tbody
+          (for [{:keys [status key old-hours new-hours delta]} rows-to-show]
+            [:tr {:class (status-row-class status)}
+             [:td [:span {:class (status-badge-class status)} (status-label status)]]
+             [:td (or (:month key) "-")]
+             [:td (or (:project key) "-")]
+             [:td (or (:task key) "-")]
+             [:td (or (:tag key) "-")]
+             [:td {:class "text-right"} (format-hours old-hours)]
+             [:td {:class "text-right"} (format-hours new-hours)]
+             [:td {:class "text-right font-medium"} (format-delta delta)]])]]]
+       [:div {:class "alert alert-info shadow-sm" :role "alert"}
+        "No differences found between the archived timesheet and this upload."])]))
 
 (defn upload-form
   [config]
@@ -271,7 +421,9 @@ window.onload = dodiff;\n")]]])
               [{:id "diff"
                 :title "Differences"
                 :content [:div {:class "space-y-4"}
-                          [:h2 {:class "text-2xl font-semibold"} "Differences: old (to the left) and new (to the right)"]
+                          [:h2 {:class "text-2xl font-semibold"} "Timesheet changes"]
+                          [:p {:class "text-base-content/70"}
+                           "Compare the archived timesheet with the uploaded file before submitting."]
                           (if (.exists
                                (io/file (str (conf/q config
                                                      [:agiladmin :budgets :path])
@@ -282,7 +434,7 @@ window.onload = dodiff;\n")]]])
                                (str (conf/q config [:agiladmin :budgets :path])
                                     (fs/base-name filename)))
                               old-hours (map-timesheets [old-ts])]
-                             (textual-diff old-hours hours)
+                             (timesheet-diff old-hours hours)
                              (f/when-failed [e]
                                (web/render-error
                                 (log/spy :error ["Error parsing old timesheet: " e]))))

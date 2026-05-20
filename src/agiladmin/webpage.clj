@@ -429,7 +429,6 @@
                            "?v="
                            version/current))
     (page/include-js  (asset-path config "/static/js/highlight.pack.js"))
-    (page/include-js  (asset-path config "/static/js/diff.js"))
     (page/include-js  (asset-path config "/static/js/jsondiffpatch.min.js"))
     (page/include-js  (asset-path config "/static/js/jsondiffpatch-formatters.min.js"))
     (page/include-js  (asset-path config "/static/js/diff_match_patch_uncompressed.js"))
