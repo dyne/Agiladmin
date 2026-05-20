@@ -51,6 +51,12 @@ jobs:
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 
+      - name: Install Caddy
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y caddy
+          caddy version
+
       - name: Download PocketBase
         env:
           POCKETBASE_VERSION: "0.36.6"
@@ -99,6 +105,11 @@ jobs:
       # Keep browser regressions separate from live PocketBase integration noise.
       - name: Run Playwright E2E tests
         run: npm run test:e2e
+
+      - name: Run Caddy Playwright E2E tests
+        run: |
+          npm run test:e2e:caddy
+          npm run test:e2e:caddy:base-path
 
       - name: Run PocketBase integration tests
         env:
