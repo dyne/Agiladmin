@@ -7,7 +7,7 @@ test("base-path mode renders prefixed URLs for login and upload", async ({ page 
 
   await page.goto("/login");
   await expect(page.locator(`form[action="${basePath}/login"]`)).toBeVisible();
-  await expect(page.locator(`script[src="${basePath}/static/js/app.js"]`)).toHaveCount(1);
+  await expect(page.locator(`script[src^="${basePath}/static/js/app.js?v="]`)).toHaveCount(1);
   await expect(page.locator(`link[href="${basePath}/static/css/app.css"]`)).toHaveCount(1);
 
   await loginAs(page, "admin");

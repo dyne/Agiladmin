@@ -425,7 +425,9 @@
     (page/include-js  (asset-path config "/static/js/dhtmlxgantt_marker.js"))
     (page/include-js  (asset-path config "/static/js/sorttable.js"))
     (page/include-js  (asset-path config "/static/js/htmx.min.js"))
-    (page/include-js  (asset-path config "/static/js/app.js"))
+    (page/include-js  (str (asset-path config "/static/js/app.js")
+                           "?v="
+                           version/current))
     (page/include-js  (asset-path config "/static/js/highlight.pack.js"))
     (page/include-js  (asset-path config "/static/js/diff.js"))
     (page/include-js  (asset-path config "/static/js/jsondiffpatch.min.js"))

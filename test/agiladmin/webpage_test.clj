@@ -91,7 +91,7 @@
 (fact "Shared UI emits root-path assets and form actions by default"
       (let [head-html (hiccup/html (webpage/render-head {}))
             login-html (hiccup/html (webpage/login-form {}))]
-        head-html => (contains "src=\"/static/js/app.js\"")
+        head-html => (contains "src=\"/static/js/app.js?v=")
         head-html => (contains "href=\"/static/css/app.css\"")
         login-html => (contains "action=\"/login\"")))
 
@@ -107,7 +107,7 @@
                            (webpage/button "/person"
                                            "Open"
                                            (hf/hidden-field "person" "Alice")))]
-          head-html => (contains "src=\"/admin/static/js/app.js\"")
+          head-html => (contains "src=\"/admin/static/js/app.js?v=")
           head-html => (contains "href=\"/admin/static/css/app.css\"")
           login-html => (contains "action=\"/admin/login\"")
           (set (map :href nav-links)) => #{

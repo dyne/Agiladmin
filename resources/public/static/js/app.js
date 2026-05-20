@@ -297,6 +297,13 @@
       form.dataset.uploadProgressBound = "true";
       resetProgress();
 
+      form.addEventListener("submit", function (event) {
+        if (event.defaultPrevented || !form.checkValidity()) {
+          return;
+        }
+        startProgress();
+      });
+
       form.addEventListener("htmx:beforeRequest", function (event) {
         if (event.target !== form) {
           return;
