@@ -20,7 +20,7 @@
         html => (contains "action=\"/admin/timesheets/upload\"")
         html => (contains "hx-post=\"/admin/timesheets/upload\"")))
 
-(fact "Timesheet upload rejects files above the configured size limit"
+(fact "Timesheet upload rejects files above the default size limit"
       (let [response (view-timesheet/upload
                       {:params {:file {:size 500001
                                        :filename "upload.xlsx"
@@ -29,7 +29,45 @@
                       {:email "admin@example.org"
                        :name "Admin User"
                        :role "admin"})]
-        (:body response) => (contains "File too big in upload.")))
+        (:body response) => (contains "Maximum size is 500000 bytes.")))
+
+(fact "Timesheet upload accepts files below a custom configured size limit"
+      (with-redefs [clojure.java.io/copy (fn [& _] nil)
+                    clojure.java.io/delete-file (fn [& _] nil)
+                    clojure.java.io/file
+                    (fn
+                      ([path]
+                       (proxy [java.io.File] [path]
+                         (exists [] (= path "/tmp/upload.xlsx"))))
+                      ([parent child]
+                       (proxy [java.io.File] [(str parent "/" child)]
+                         (exists [] false))))
+                    agiladmin.view-timesheet/load-timesheet-owner (fn [_] "Admin User")
+                    agiladmin.core/load-timesheet (fn [_] {:sheets []})
+                    agiladmin.core/load-all-projects (fn [_] {})
+                    agiladmin.core/map-timesheets (fn [& _] {:rows []})
+                    agiladmin.graphics/to-table (fn [_] [:table "hours"])]
+        (let [response (view-timesheet/upload
+                        {:params {:file {:size 1499
+                                         :filename "upload.xlsx"
+                                         :tempfile "/tmp/upload.xlsx"}}}
+                        {:agiladmin {:webserver {:upload-max-size 1500}
+                                     :budgets {:path "budgets/"}}}
+                        {:email "admin@example.org"
+                         :name "Admin User"
+                         :role "admin"})]
+          (:body response) => (contains "Uploaded: upload.xlsx"))))
+
+(fact "Timesheet upload rejects files above a custom configured size limit"
+      (let [response (view-timesheet/upload
+                      {:params {:file {:size 1501
+                                       :filename "upload.xlsx"
+                                       :tempfile "/tmp/upload.xlsx"}}}
+                      {:agiladmin {:webserver {:upload-max-size 1500}}}
+                      {:email "admin@example.org"
+                       :name "Admin User"
+                       :role "admin"})]
+        (:body response) => (contains "Maximum size is 1500 bytes.")))
 
 (fact "Timesheet upload surfaces spreadsheet parse failures"
       (with-redefs [clojure.java.io/copy (fn [& _] nil)

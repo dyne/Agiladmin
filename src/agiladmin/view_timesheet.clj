@@ -37,6 +37,14 @@
 
 (def workspace-id "timesheet-workspace")
 
+(defn- upload-max-size
+  "Return the configured upload maximum in bytes with a safe fallback."
+  [config]
+  (let [configured (get-in config [:agiladmin :webserver :upload-max-size])]
+    (if (number? configured)
+      configured
+      500000)))
+
 (defn- workspace
   [body]
   [:div {:id workspace-id :class "space-y-6"} body])
@@ -202,16 +210,19 @@ window.onload = dodiff;\n")]]])
   (let
       [tempfile (get-in request [:params :file :tempfile])
        filename (get-in request [:params :file :filename])
-       params   (:params request)]
+       params   (:params request)
+       max-size (upload-max-size config)
+       upload-size (or (get-in params [:file :size]) 0)]
     (cond
-      (> (get-in params [:file :size]) 500000)
-      ;; max upload size in bytes
-      ;; TODO: put in config
+      (> upload-size max-size)
       (render-upload-error
        request
        config
        account
-       (web/render-error "File too big in upload."))
+       (web/render-error
+        (str "File too big in upload. Maximum size is "
+             max-size
+             " bytes.")))
       :else
       (let [_ (io/copy tempfile (io/file "/tmp" filename))
             path (str "/tmp/" filename)]
