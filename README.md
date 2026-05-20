@@ -125,6 +125,12 @@ npx playwright install chromium
 npm run test:e2e
 ```
 
+Run the upload suite through a local Caddy reverse proxy:
+
+```sh
+npm run test:e2e:caddy
+```
+
 The Playwright harness starts Agiladmin with an isolated temporary config and budgets directory, using dev credentials:
 
 - `admin:admin`

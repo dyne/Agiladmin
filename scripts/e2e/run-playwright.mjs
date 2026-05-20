@@ -1,13 +1,18 @@
 import { spawn } from "node:child_process";
+import { promises as fs } from "node:fs";
 import http from "node:http";
+import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 
 const args = process.argv.slice(2);
 const BACKEND_ORIGIN = "http://127.0.0.1:18080";
 const PROXY_ORIGIN = "http://127.0.0.1:18081";
 const E2E_BASE_PATH = normalizeBasePath(process.env.E2E_BASE_PATH ?? "/");
+const E2E_PROXY = process.env.E2E_PROXY ?? "node";
+const REPO_ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..", "..");
 let server;
 let proxyServer;
+let caddyProcess;
 
 function normalizeBasePath(basePath) {
   const raw = String(basePath ?? "").trim();
@@ -82,6 +87,62 @@ function startPrefixProxy(basePath) {
   });
 }
 
+function caddyConfig(basePath) {
+  if (basePath === "/") {
+    return [
+      "{",
+      "\tadmin off",
+      "}",
+      "",
+      "http://127.0.0.1:18081 {",
+      "\treverse_proxy 127.0.0.1:18080",
+      "}",
+      "",
+    ].join("\n");
+  }
+
+  return [
+    "{",
+    "\tadmin off",
+    "}",
+    "",
+    "http://127.0.0.1:18081 {",
+    `\thandle_path ${basePath}/* {`,
+    "\t\treverse_proxy 127.0.0.1:18080",
+    "\t}",
+    "\treverse_proxy 127.0.0.1:18080",
+    "}",
+    "",
+  ].join("\n");
+}
+
+async function startCaddyProxy(basePath) {
+  const tmpDir = path.join(REPO_ROOT, ".tmp");
+  const configPath = path.join(tmpDir, "agiladmin-e2e.Caddyfile");
+  await fs.mkdir(tmpDir, { recursive: true });
+  await fs.writeFile(configPath, caddyConfig(basePath), "utf8");
+
+  const child = spawn("caddy", ["run", "--config", configPath, "--adapter", "caddyfile"], {
+    cwd: REPO_ROOT,
+    stdio: "inherit",
+  });
+  caddyProcess = child;
+  child.on("exit", (code) => {
+    if (code !== 0 && code !== null) {
+      console.error(`Caddy proxy exited early with code ${code}`);
+    }
+  });
+
+  await waitForLogin(`${PROXY_ORIGIN}${basePath === "/" ? "/login" : `${basePath}/login`}`, 15000);
+  return child;
+}
+
+function stopCaddyProxy() {
+  if (caddyProcess && !caddyProcess.killed) {
+    caddyProcess.kill("SIGTERM");
+  }
+}
+
 async function main() {
   server = spawn("node", ["./scripts/e2e/start-agiladmin.mjs"], {
     stdio: "inherit",
@@ -94,13 +155,18 @@ async function main() {
     }
   });
 
-  if (E2E_BASE_PATH !== "/") {
+  if (E2E_PROXY === "caddy") {
+    await startCaddyProxy(E2E_BASE_PATH);
+  } else if (E2E_BASE_PATH !== "/") {
     proxyServer = await startPrefixProxy(E2E_BASE_PATH);
   }
 
-  const loginUrl = E2E_BASE_PATH === "/" ? `${BACKEND_ORIGIN}/login` : `${PROXY_ORIGIN}/login`;
+  const proxied = E2E_PROXY === "caddy" || E2E_BASE_PATH !== "/";
+  const loginUrl = proxied
+    ? `${PROXY_ORIGIN}${E2E_BASE_PATH === "/" ? "/login" : `${E2E_BASE_PATH}/login`}`
+    : `${BACKEND_ORIGIN}/login`;
   await waitForLogin(loginUrl);
-  const baseURL = E2E_BASE_PATH === "/" ? BACKEND_ORIGIN : PROXY_ORIGIN;
+  const baseURL = proxied ? PROXY_ORIGIN : BACKEND_ORIGIN;
 
   const runner = spawn("npx", ["playwright", "test", ...args], {
     stdio: "inherit",
@@ -120,6 +186,7 @@ async function main() {
   if (proxyServer) {
     await new Promise((resolve) => proxyServer.close(resolve));
   }
+  stopCaddyProxy();
   process.exit(testCode);
 }
 
@@ -131,6 +198,7 @@ for (const signal of ["SIGINT", "SIGTERM"]) {
     if (proxyServer) {
       proxyServer.close();
     }
+    stopCaddyProxy();
     process.exit(130);
   });
 }
@@ -143,5 +211,6 @@ main().catch((err) => {
   if (proxyServer) {
     proxyServer.close();
   }
+  stopCaddyProxy();
   process.exit(1);
 });
