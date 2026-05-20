@@ -93,7 +93,7 @@
    account
    [:div
     [:h1 (str year " - " (util/dotname person))]
-    (view-timesheet/upload-card config)
+    (view-timesheet/upload-form config)
     (f/attempt-all
      [person-data (load-person-page-data config person year)]
      (let [{:keys [ts-file timesheet projects hours]} person-data
@@ -183,7 +183,7 @@
                     (person-buttons old-people))]])
           page-body
           (cond-> [:div {:class "space-y-4"}
-                   (view-timesheet/upload-card config)
+                   (view-timesheet/upload-form config)
                    (web/filterable-button-list "persons-list"
                                                "Persons"
                                                "No persons match the current filter."
@@ -214,7 +214,7 @@
      account
      [:div
       [:h1 (str year " - " (util/dotname person))]
-      (view-timesheet/upload-card config)
+      (view-timesheet/upload-form config)
       (f/attempt-all
        [person-data (load-person-page-data config person year)]
        (let [{:keys [ts-file timesheet projects hours]} person-data]

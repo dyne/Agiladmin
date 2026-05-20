@@ -157,6 +157,7 @@
                         "Manager User"
                         2026)]
           (:body response) => (contains "Upload a new timesheet")
+          (:body response) => (contains "id=\"timesheet-workspace\"")
           (:body response) => (contains "Yearly totals")
           (:body response) =not=> (contains "Total_billed")
           (:body response) =not=> (contains "Download yearly totals:")
@@ -173,6 +174,7 @@
                         "Admin User"
                         2026)]
           (:body response) => (contains "Upload a new timesheet")
+          (:body response) => (contains "id=\"timesheet-workspace\"")
           (:body response) => (contains "Missing timesheet"))))
 
 (fact "Admin personnel view derives cost per hour once per request"
