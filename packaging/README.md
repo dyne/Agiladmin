@@ -66,6 +66,22 @@ Agiladmin reads the budgets directory from the instance config file, not from `%
 
 The top-level `make install` now renders the default instance config from a template, so the installed `agiladmin.yaml` uses the active `APP_HOME` and instance name instead of copying a static sample verbatim.
 
+## Reverse Proxy Notes (Caddy)
+
+Use `agiladmin.webserver.base-host` for the public origin and `agiladmin.webserver.base-path` for the public path prefix. Keep internal Jetty routes unchanged.
+
+If Agiladmin is published at a subpath (for example `/agiladmin`), the proxy must strip that prefix before forwarding to Jetty. A minimal Caddy pattern is:
+
+```caddyfile
+example.org {
+  handle_path /agiladmin/* {
+    reverse_proxy 127.0.0.1:8000
+  }
+}
+```
+
+When TLS terminates at Caddy, keep `agiladmin.webserver.ssl-redirect: false` in Agiladmin config and let Caddy handle HTTP to HTTPS redirects.
+
 The PocketBase unit uses `User=@APP_NAME@` and `Group=@APP_NAME@`. Create that service account before enabling the unit, for example:
 
 ```sh

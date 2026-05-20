@@ -28,7 +28,11 @@ function yamlConfig(budgetsPath, sshKeyPath) {
     "  webserver:",
     "    host: 127.0.0.1",
     "    port: 18080",
+    "    base-host: \"\"",
+    "    base-path: /",
+    "    upload-max-size: 500000",
     "    anti-forgery: false",
+    "    ssl-redirect: false",
   ].join("\n");
 }
 

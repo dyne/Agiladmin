@@ -207,6 +207,9 @@ agiladmin:
   webserver:
     host: localhost
     port: 8000
+    base-host: ""
+    base-path: /
+    upload-max-size: 500000
     anti-forgery: false
     ssl-redirect: false
 
@@ -231,6 +234,9 @@ Notes:
 - `budgets.ssh-key` is the private key path used for Git access; if it does not exist, Agiladmin generates a new keypair and exposes the public key in the `/config` page
 - project names are discovered from `*.yaml` files in `budgets.path`, using the part of the filename before the first `.`
 - `pocketbase` is optional only if you are using dev auth locally
+- `webserver.upload-max-size` is in bytes and defaults to `500000`
+- `webserver.base-path` is the browser-visible mount prefix; if you publish under a subpath such as `/agiladmin`, your reverse proxy must strip that prefix before forwarding to Jetty routes
+- when TLS terminates at Caddy or another reverse proxy, keep `webserver.ssl-redirect: false` and let the proxy handle HTTP to HTTPS redirects
 
 ## Project Configuration
 
