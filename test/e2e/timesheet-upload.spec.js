@@ -14,6 +14,8 @@ test("admin can login and upload a real timesheet", async ({ page }) => {
   const state = await readE2EState();
   await loginAs(page, "admin");
   await openTimesheetUpload(page);
+  await expect(page.locator("[data-upload-progress]")).toBeVisible();
+  await expect(page.locator("[data-upload-progress-label]")).toHaveText("0%");
   await uploadTimesheet(page, state.fixtures.admin);
 
   await expect(page.getByText("Uploaded: 2016_timesheet_Luca-Pacioli.xlsx")).toBeVisible();
