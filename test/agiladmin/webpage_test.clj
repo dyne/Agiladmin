@@ -4,6 +4,27 @@
             [hiccup.core :as hiccup]
             [midje.sweet :refer :all]))
 
+(fact "Base path helper normalizes root and nested prefixes"
+      (webpage/base-path {:agiladmin {:webserver {:base-path "/"}}}) => "/"
+      (webpage/base-path {:agiladmin {:webserver {:base-path "/agiladmin"}}}) => "/agiladmin"
+      (webpage/base-path {:agiladmin {:webserver {:base-path "agiladmin/"}}}) => "/agiladmin"
+      (webpage/base-path {:agiladmin {:webserver {:base-path ""}}}) => "/")
+
+(fact "Path helper applies base path to app routes"
+      (webpage/path {:agiladmin {:webserver {:base-path "/"}}} "/timesheets") => "/timesheets"
+      (webpage/path {:agiladmin {:webserver {:base-path "/agiladmin"}}} "/timesheets") => "/agiladmin/timesheets"
+      (webpage/path {:agiladmin {:webserver {:base-path "agiladmin/"}}} "timesheets") => "/agiladmin/timesheets")
+
+(fact "Public URL helper includes host when present"
+      (webpage/public-url {:agiladmin {:webserver {:base-host "https://admin.example.org"
+                                                   :base-path "/agiladmin"}}}
+                          "/timesheets")
+      => "https://admin.example.org/agiladmin/timesheets"
+      (webpage/public-url {:agiladmin {:webserver {:base-host ""
+                                                   :base-path "/agiladmin"}}}
+                          "/timesheets")
+      => "/agiladmin/timesheets")
+
 (fact "Button keeps a single hidden field intact"
       (let [html (hiccup/html
                   (webpage/button "/person" "Open"

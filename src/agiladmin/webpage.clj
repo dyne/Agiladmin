@@ -18,6 +18,7 @@
 
 (ns agiladmin.webpage
   (:require [clojure.java.io :as io]
+            [clojure.string :as str]
             [clojure.data.json :as json]
             [clojure.data.csv :as csv]
             [yaml.core :as yaml]
@@ -43,6 +44,47 @@
 (declare render-error-page)
 (declare render-fragment)
 (declare filterable-button-list)
+
+(defn base-path
+  "Return the normalized public mount prefix for browser-facing paths."
+  [config]
+  (let [raw (or (get-in config [:agiladmin :webserver :base-path]) "/")
+        trimmed (str/trim raw)
+        cleaned (-> trimmed
+                    (str/replace #"^/+" "")
+                    (str/replace #"/+$" ""))]
+    (if (str/blank? cleaned)
+      "/"
+      (str "/" cleaned))))
+
+(defn path
+  "Join the public base path with an app-local route for browser use."
+  [config route]
+  (let [prefix (base-path config)
+        normalized-route (-> (or route "")
+                             (str/trim)
+                             (str/replace #"^/+" ""))
+        route-part (if (str/blank? normalized-route)
+                     ""
+                     (str "/" normalized-route))]
+    (if (= "/" prefix)
+      (if (str/blank? route-part) "/" route-part)
+      (str prefix route-part))))
+
+(defn asset-path
+  "Return a browser path for static assets under the configured base path."
+  [config asset]
+  (path config asset))
+
+(defn public-url
+  "Build a public absolute URL when a base host is configured."
+  [config route]
+  (let [host (-> (or (get-in config [:agiladmin :webserver :base-host]) "")
+                 str/trim
+                 (str/replace #"/+$" ""))]
+    (if (str/blank? host)
+      (path config route)
+      (str host (path config route)))))
 
 (defn icon
   ([name] (icon name ""))
