@@ -10,6 +10,8 @@
             download-html (hiccup/html (view-person/person-download-timesheet config "2026_timesheet_User.xlsx"))
             toolbar-html (hiccup/html (view-person/person-download-toolbar config "User Name" 2026 [["Date" "Hours"]]))]
         download-html => (contains "href=\"/admin/timesheets/download/2026_timesheet_User.xlsx\"")
+        download-html => (contains "download=\"2026_timesheet_User.xlsx\"")
+        download-html => (contains "data-skip-page-loading=\"true\"")
         toolbar-html => (contains "action=\"/admin/persons/spreadsheet\"")))
 
 (fact "Admin personnel view renders a compact filterable persons list"

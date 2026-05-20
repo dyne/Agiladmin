@@ -36,7 +36,9 @@
 
 (defn person-download-timesheet
   [config path]
-  [:a {:href (web/path config (str "/timesheets/download/" path))}
+  [:a {:href (web/path config (str "/timesheets/download/" path))
+       :download path
+       :data-skip-page-loading "true"}
    [:button {:type "button"
              :class "btn btn-primary"}
     "Download current timesheet"]])

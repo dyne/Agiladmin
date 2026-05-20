@@ -206,6 +206,8 @@
           href.indexOf("#") === 0 ||
           href.indexOf("mailto:") === 0 ||
           href.indexOf("tel:") === 0 ||
+          link.hasAttribute("download") ||
+          link.hasAttribute("data-skip-page-loading") ||
           target === "_blank" ||
           rel.indexOf("external") !== -1
         ) {
