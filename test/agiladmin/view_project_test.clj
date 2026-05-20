@@ -55,6 +55,17 @@
           (:body response) => (contains "id=\"project-details\"")
           (:body response) => (contains "Old projects"))))
 
+(fact "Project list paths honor a configured base path"
+      (with-redefs [agiladmin.utils/now (fn [] {:year 2026 :month 3 :day 31})
+                    agiladmin.config/project-names (fn [_] ["CORE"])
+                    agiladmin.config/load-project (fn [_ _] {:CORE {:start_date "01-01-2026" :duration 12}})]
+        (let [response (view-project/list-all
+                        {}
+                        {:agiladmin {:webserver {:base-path "/admin"}}}
+                        {:email "admin@example.org"})]
+          (:body response) => (contains "action=\"/admin/project\"")
+          (:body response) => (contains "hx-post=\"/admin/project\""))))
+
 (fact "Project start returns only the detail fragment for HTMX requests"
       (with-redefs [agiladmin.config/load-project
                     (fn [_ _]

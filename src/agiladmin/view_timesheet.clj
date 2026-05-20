@@ -42,28 +42,29 @@
   [:div {:id workspace-id :class "space-y-6"} body])
 
 (defn upload-card
-  []
-  [:div {:class "card mx-auto max-w-3xl bg-base-100 shadow-xl"}
-   [:div {:class "card-body gap-4"}
-    [:h1 {:class "card-title text-3xl"} "Upload a new timesheet"]
-    [:p "Choose the file in your computer and click 'Submit' to proceed to validation."]
-    [:form {:action "/timesheets/upload"
-            :method "post"
-            :class "space-y-4"
-            :enctype "multipart/form-data"
-            :hx-post "/timesheets/upload"
-            :hx-target (str "#" workspace-id)
-            :hx-swap "outerHTML"
-            :hx-encoding "multipart/form-data"}
-     [:div {:class "flex items-end gap-3"}
-      [:input {:name "file"
-               :type "file"
-               :class "file-input file-input-bordered w-full"}]
-      [:input {:class "btn btn-primary btn-lg shrink-0"
-               :id "field-submit" :type "submit"
-               :name "submit" :value "submit"}]]
-     [:p {:class "htmx-indicator text-sm text-base-content/70"}
-      "Uploading and validating timesheet..."]]]])
+  [config]
+  (let [upload-url (web/path config "/timesheets/upload")]
+    [:div {:class "card mx-auto max-w-3xl bg-base-100 shadow-xl"}
+     [:div {:class "card-body gap-4"}
+      [:h1 {:class "card-title text-3xl"} "Upload a new timesheet"]
+      [:p "Choose the file in your computer and click 'Submit' to proceed to validation."]
+      [:form {:action upload-url
+              :method "post"
+              :class "space-y-4"
+              :enctype "multipart/form-data"
+              :hx-post upload-url
+              :hx-target (str "#" workspace-id)
+              :hx-swap "outerHTML"
+              :hx-encoding "multipart/form-data"}
+       [:div {:class "flex items-end gap-3"}
+        [:input {:name "file"
+                 :type "file"
+                 :class "file-input file-input-bordered w-full"}]
+        [:input {:class "btn btn-primary btn-lg shrink-0"
+                 :id "field-submit" :type "submit"
+                 :name "submit" :value "submit"}]]
+       [:p {:class "htmx-indicator text-sm text-base-content/70"}
+        "Uploading and validating timesheet..."]]]]))
 
 (defn- render-workspace
   [request account body]
@@ -129,12 +130,13 @@
      true)))
 
 (defn- action-form
-  [request url label fields class-name]
-  (let [attrs (cond-> {:action url
+  [request config url label fields class-name]
+  (let [path (web/path config url)
+        attrs (cond-> {:action path
                        :method "post"
                        :class "inline-flex"}
                 (web/htmx-request? request)
-                (assoc :hx-post url
+                (assoc :hx-post path
                        :hx-target (str "#" workspace-id)
                        :hx-swap "outerHTML"))]
     (into
@@ -168,9 +170,10 @@ display.appendChild(fragment);\n
 }\n
 window.onload = dodiff;\n")]]])
 
-(def upload-form
+(defn upload-form
+  [config]
   (workspace
-   (upload-card)))
+   (upload-card config)))
 
 (defn cancel [request config account]
   (f/if-let-ok? [tempfile (s/param request :tempfile)]
@@ -178,22 +181,22 @@ window.onload = dodiff;\n")]]])
      request
      account
      [:div {:class "space-y-4"}
-     [:div {:class "alert alert-warning shadow-sm" :role "alert"}
+      [:div {:class "alert alert-warning shadow-sm" :role "alert"}
        [:span (str "Canceled upload of timesheet: " tempfile " ")]
        [:span (str "("
                    (if-not (str/blank? tempfile) (io/delete-file tempfile))
                    ")")]]
-      upload-form])
+      (upload-form config)])
     (web/render-error-page (f/message tempfile))))
 
 (defn- render-upload-error
-  [request account body]
+  [request config account body]
   (render-workspace
    request
    account
    [:div {:class "space-y-4"}
     body
-    (upload-card)]))
+    (upload-card config)]))
 
 (defn upload [request config account]
   (let
@@ -206,6 +209,7 @@ window.onload = dodiff;\n")]]])
       ;; TODO: put in config
       (render-upload-error
        request
+       config
        account
        (web/render-error "File too big in upload."))
       :else
@@ -215,6 +219,7 @@ window.onload = dodiff;\n")]]])
         (if (not (.exists (io/file path)))
           (render-upload-error
            request
+           config
            account
            (web/render-error
             (log/spy :error
@@ -231,12 +236,12 @@ window.onload = dodiff;\n")]]])
              [:div {:class "flex flex-wrap items-center gap-3 rounded-box border border-info/30 bg-info/10 p-4 text-info-content shadow-sm"}
               [:span {:class "font-semibold"} (str "Uploaded: " (fs/base-name path))]
               [:div {:class "ml-auto flex flex-wrap gap-3"}
-               (action-form request
+               (action-form request config
                             "/timesheets/cancel"
                             "Cancel"
                             [(hf/hidden-field "tempfile" path)]
                             "btn btn-error btn-lg")
-               (action-form request
+               (action-form request config
                             "/timesheets/submit"
                             "Submit"
                             [(hf/hidden-field "path" path)]
@@ -273,6 +278,7 @@ window.onload = dodiff;\n")]]])
      (f/when-failed [e]
        (render-upload-error
         request
+        config
         account
         (log/spy :error [:div
                          [:h1 "Error parsing timesheet"]

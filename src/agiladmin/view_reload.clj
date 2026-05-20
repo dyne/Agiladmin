@@ -35,16 +35,17 @@
    body])
 
 (defn- render-reload-page
-  [request account result-body]
-  (let [body [:div {:class "space-y-6"}
+  [request config account result-body]
+  (let [reload-path (web/path config "/reload")
+        body [:div {:class "space-y-6"}
               [:div {:class "card bg-base-100 shadow-sm"}
                [:div {:class "card-body gap-4"}
                 [:h1 {:class "card-title text-3xl"} "Reload budgets repository"]
                 [:p "Fetch the configured budgets repository and refresh runtime caches after new data is adopted."]
-                [:form {:action "/reload"
+                [:form {:action reload-path
                         :method "post"
                         :class "inline-flex"
-                        :hx-post "/reload"
+                        :hx-post reload-path
                         :hx-target (str "#" reload-result-id)
                         :hx-swap "outerHTML"}
                  [:input {:type "submit"
@@ -54,31 +55,33 @@
     (web/render account body)))
 
 (defn- render-reload-response
-  [request account body]
+  [request config account body]
   (let [fragment (reload-result body)]
     (if (web/htmx-request? request)
       (web/render-fragment fragment)
-      (render-reload-page request account body))))
+      (render-reload-page request config account body))))
 
 (defn page
-  [request _config account]
+  [request config account]
   (render-reload-page
    request
+   config
    account
    [:div {:class "alert alert-info shadow-sm"}
     "Press Reload to fetch the latest budgets repository state."]))
 
 (defn- render-reload-message
-  [request account message]
+  [request config account message]
   (render-reload-response
    request
+   config
    account
    [:div {:class "alert alert-info shadow-sm"}
     message]))
 
 (defn- render-reload-error
-  [request account message]
-  (render-reload-response request account (web/render-error message)))
+  [request config account message]
+  (render-reload-response request config account (web/render-error message)))
 
 (defn- git-ready?
   [budgets]
@@ -107,9 +110,10 @@
     (git/git-clone (:git budgets) (:path budgets))))
 
 (defn- render-repo-state-with-message
-  [request account repo message]
+  [request config account repo message]
   (render-reload-response
    request
+   config
    account
    [:div {:class "space-y-6"}
     [:div {:class "alert alert-success shadow-sm"}
@@ -130,6 +134,7 @@
       (not (git-ready? budgets))
       (render-reload-message
        request
+       config
        account
        "Reload is unavailable until :agiladmin :budgets has git, path, and ssh-key configured.")
 
@@ -148,6 +153,7 @@
             (core/invalidate-runtime-caches! config)
             (render-repo-state-with-message
              request
+             config
              account
              repo
              (if (= (type pull-result) org.eclipse.jgit.api.PullResult)
@@ -160,6 +166,7 @@
               [:p (-> ex Throwable->map :cause)]])
             (render-reload-error
              request
+             config
              account
              (str "Error in git-pull: " (.getMessage ex))))))
 
@@ -169,6 +176,7 @@
            (not (empty-directory? path)))
       (render-reload-message
        request
+       config
        account
        (str "Budgets path exists but is not a git repository yet: " (:path budgets)))
 
@@ -183,20 +191,24 @@
           (if-let [repo (safe-load-repo (:path budgets))]
             (render-repo-state-with-message
              request
+             config
              account
              repo
              (str "Cloned successfully from " (:git budgets)))
             (render-reload-message
              request
+             config
              account
              (str "No budgets repository is available yet at " (:path budgets))))
           (catch Exception ex
             (render-reload-error
              request
+             config
              account
              (str "Error cloning git repo: " (.getMessage ex)))))
         (render-reload-message
          request
+         config
          account
          (str "No budgets repository is available yet. Generate or configure SSH keys first: "
               keypath ".pub")))
@@ -212,6 +224,7 @@
       :else
       (render-reload-error
        request
+       config
        account
        (str "Unsupported budgets directory state: " (:path budgets)))
       ;; end of POST /reload
