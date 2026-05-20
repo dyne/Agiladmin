@@ -330,6 +330,13 @@
                         {:email "admin"})]
           (:body response) => (contains "Where is this file gone?! /tmp/upload.xlsx"))))
 
+(fact "Timesheet commit identity derives name from email when account name is blank"
+      (#'agiladmin.view-timesheet/git-commit-identity
+       {:session {:auth {:name "  "
+                         :email "manager@example.org"}}})
+      => {:name "manager"
+          :email "manager@example.org"})
+
 (fact "Timesheet submit archives the upload and renders the success page"
       (let [calls (atom [])
             invalidations (atom [])]

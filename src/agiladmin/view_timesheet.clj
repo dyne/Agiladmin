@@ -473,6 +473,21 @@
       (log/error [:p "Error in git/load-repo: " ex])
       nil)))
 
+(defn- git-commit-identity
+  [req]
+  (let [raw-name (some-> (get-in req [:session :auth :name]) str str/trim)
+        email (some-> (get-in req [:session :auth :email]) str str/trim)
+        derived-name (some-> email
+                             (str/split #"@" 2)
+                             first
+                             str/trim)
+        name (or (not-empty raw-name)
+                 (not-empty derived-name)
+                 "agiladmin")]
+    {:name name
+     :email (or (not-empty email)
+                "agiladmin@localhost")}))
+
 (defn- archive-timesheet!
   [gitrepo path dst keypath req]
   (let [base-path (fs/base-name dst)]
@@ -483,8 +498,7 @@
     (git/git-commit
      gitrepo
      (str "Updated timesheet " base-path)
-     {:name (get-in req [:session :auth :name])
-      :email (get-in req [:session :auth :email])})
+     (git-commit-identity req))
     (git/with-identity {:name keypath :exclusive true}
       (git/git-push gitrepo))
     base-path))
