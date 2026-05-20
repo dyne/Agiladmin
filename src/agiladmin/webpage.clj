@@ -86,6 +86,25 @@
       (path config route)
       (str host (path config route)))))
 
+(defn- current-config
+  []
+  (or @ring/config {}))
+
+(defn button-for
+  "Render a POST form button and route its action through the configured base path."
+  [config url text field type]
+  (let [fields (cond
+                 (nil? field) []
+                 (and (seq? field) (every? vector? field)) field
+                 :else [field])
+        form-class (str "inline-flex max-w-full"
+                        (when (re-find #"(?:^|\s)w-full(?:\s|$)" type)
+                          " w-full"))]
+    (apply hf/form-to
+           {:class form-class} [:post (path config url)]
+           (concat fields
+                   [(hf/submit-button {:class type} text)]))))
+
 (defn icon
   ([name] (icon name ""))
   ([name extra-class]
@@ -149,21 +168,9 @@
 
 (defn button
   ([url text] (button url text [:p]))
-
   ([url text field] (button url text field "btn btn-primary"))
-
   ([url text field type]
-   (let [fields (cond
-                  (nil? field) []
-                  (and (seq? field) (every? vector? field)) field
-                  :else [field])
-         form-class (str "inline-flex max-w-full"
-                         (when (re-find #"(?:^|\s)w-full(?:\s|$)" type)
-                           " w-full"))]
-   (apply hf/form-to
-          {:class form-class} [:post url]
-          (concat fields
-                  [(hf/submit-button {:class type} text)])))))
+   (button-for (current-config) url text field type)))
 
 (defn button-prev-year [year person]
   [:div {:class "w-full lg:w-1/4"}
@@ -257,22 +264,26 @@
       (manager-role? account)))
 
 (defn- account-nav-links
-  [account]
-  (cond-> []
-    (project-access? account)
-    (conj {:href "/persons/list" :icon :user-circle :label "Personnel"}
-          {:href "/projects/list" :icon :paper-airplane :label "Projects"})
+  ([account]
+   (account-nav-links (current-config) account))
+  ([config account]
+   (cond-> []
+     (project-access? account)
+     (conj {:href (path config "/persons/list") :icon :user-circle :label "Personnel"}
+           {:href (path config "/projects/list") :icon :paper-airplane :label "Projects"})
 
-    (admin-role? account)
-    (conj {:href "/reload" :icon :arrow-path :label "Reload"}
-          {:href "/config" :icon :document-text :label "Configuration"})
+     (admin-role? account)
+     (conj {:href (path config "/reload") :icon :arrow-path :label "Reload"}
+           {:href (path config "/config") :icon :document-text :label "Configuration"})
 
-    true
-    (conj {:href "/logout" :icon :user-circle :label "Logout"})))
+     true
+     (conj {:href (path config "/logout") :icon :user-circle :label "Logout"}))))
 
 (defn- account-home-href
-  [account]
-  "/persons/list")
+  ([_account]
+   (account-home-href (current-config) _account))
+  ([config _account]
+   (path config "/persons/list")))
 
 (defn- theme-toggle
   []
@@ -286,14 +297,14 @@
    [:span {:class "swap-on"} (icon :sun "h-5 w-5")]])
 
 (defn- navbar
-  [toggle-id links home-href]
+  [config toggle-id links home-href]
   [:nav
    {:class "sticky top-0 z-40 border-b border-base-300 bg-base-100/90 shadow-sm backdrop-blur"}
    [:div {:class "mx-auto flex min-h-0 w-full max-w-screen-2xl items-center justify-between px-4 py-2 md:hidden md:px-6"}
     [:a {:class "flex items-center gap-2 no-underline"
          :href home-href}
      [:span {:class "flex h-7 w-7 items-center justify-center overflow-hidden rounded-full border border-base-300/50 bg-base-100 shadow-sm"}
-      [:img {:src "/static/img/dyne-icon-black.svg"
+      [:img {:src (asset-path config "/static/img/dyne-icon-black.svg")
              :class "h-[1.2rem] w-[1.2rem] object-contain"
              :alt "Dyne icon"
              :data-theme-invert "true"}]]
@@ -313,7 +324,7 @@
      [:a {:class "flex items-center gap-3 no-underline"
           :href home-href}
       [:span {:class "flex h-7 w-7 items-center justify-center overflow-hidden rounded-full border border-base-300/50 bg-base-100 shadow-sm"}
-       [:img {:src "/static/img/dyne-icon-black.svg"
+       [:img {:src (asset-path config "/static/img/dyne-icon-black.svg")
               :class "h-[1.2rem] w-[1.2rem] object-contain"
               :alt "Dyne icon"
               :data-theme-invert "true"}]]
@@ -345,7 +356,7 @@
                   :data-theme-light "nord"
                   :data-theme-dark "dim"
                   :class "min-h-screen bg-base-200 text-base-content"}
-           navbar-guest
+           (navbar-guest)
            [:main {:class "mx-auto w-full max-w-screen-2xl px-4 pb-12 pt-6 md:px-6"} body]
            (render-footer)
            [:div {:data-page-loading "true"
@@ -364,7 +375,7 @@
                    :data-theme-dark "dim"
                    :class "min-h-screen bg-base-200 text-base-content"}
             (if (empty? account)
-              navbar-guest
+              (navbar-guest)
               (navbar-account account))
             [:main {:class "mx-auto w-full max-w-screen-2xl px-4 pb-12 pt-6 md:px-6"} body]
             (render-footer)
@@ -394,12 +405,13 @@
 
 
 (defn render-head
-  ([] (render-head
-       "Agiladmin" ;; default title
-       "Agiladmin"
-       "https://agiladmin.dyne.org")) ;; default desc
-
-  ([title _desc _url]
+  ([] (render-head (current-config)
+                   "Agiladmin" ;; default title
+                   "Agiladmin"
+                   "https://agiladmin.dyne.org")) ;; default desc
+  ([config]
+   (render-head config "Agiladmin" "Agiladmin" "https://agiladmin.dyne.org"))
+  ([config title _desc _url]
    [:head [:meta {:charset "utf-8"}]
     [:meta {:http-equiv "X-UA-Compatible" :content "IE=edge,chrome=1"}]
     [:meta
@@ -409,57 +421,60 @@
     [:title title]
 
     ;; javascript scripts
-    (page/include-js  "/static/js/dhtmlxgantt.js")
-    (page/include-js  "/static/js/dhtmlxgantt_marker.js")
-    (page/include-js  "/static/js/sorttable.js")
-    (page/include-js  "/static/js/htmx.min.js")
-    (page/include-js  "/static/js/app.js")
-    (page/include-js  "/static/js/highlight.pack.js")
-    (page/include-js  "/static/js/diff.js")
-    (page/include-js  "/static/js/jsondiffpatch.min.js")
-    (page/include-js  "/static/js/jsondiffpatch-formatters.min.js")
-    (page/include-js  "/static/js/diff_match_patch_uncompressed.js")
+    (page/include-js  (asset-path config "/static/js/dhtmlxgantt.js"))
+    (page/include-js  (asset-path config "/static/js/dhtmlxgantt_marker.js"))
+    (page/include-js  (asset-path config "/static/js/sorttable.js"))
+    (page/include-js  (asset-path config "/static/js/htmx.min.js"))
+    (page/include-js  (asset-path config "/static/js/app.js"))
+    (page/include-js  (asset-path config "/static/js/highlight.pack.js"))
+    (page/include-js  (asset-path config "/static/js/diff.js"))
+    (page/include-js  (asset-path config "/static/js/jsondiffpatch.min.js"))
+    (page/include-js  (asset-path config "/static/js/jsondiffpatch-formatters.min.js"))
+    (page/include-js  (asset-path config "/static/js/diff_match_patch_uncompressed.js"))
 
     ;; cascade style sheets
-    (page/include-css "/static/css/app.css")
-    (page/include-css "/static/css/dhtmlxgantt.css")
-    (page/include-css "/static/css/json-html.css")
-    (page/include-css "/static/css/highlight-tomorrow.css")
-    (page/include-css "/static/css/formatters-styles/html.css")
-    (page/include-css "/static/css/formatters-styles/annotated.css")
-    (page/include-css "/static/css/agiladmin.css")]))
+    (page/include-css (asset-path config "/static/css/app.css"))
+    (page/include-css (asset-path config "/static/css/dhtmlxgantt.css"))
+    (page/include-css (asset-path config "/static/css/json-html.css"))
+    (page/include-css (asset-path config "/static/css/highlight-tomorrow.css"))
+    (page/include-css (asset-path config "/static/css/formatters-styles/html.css"))
+    (page/include-css (asset-path config "/static/css/formatters-styles/annotated.css"))
+    (page/include-css (asset-path config "/static/css/agiladmin.css"))]))
 
-(def navbar-guest
-  (navbar "guest-nav"
-          []
-          "/"))
+(defn navbar-guest
+  ([] (navbar-guest (current-config)))
+  ([config]
+   (navbar config "guest-nav" [] (path config "/"))))
 
 (defn navbar-account
   [account]
-  (navbar "account-nav"
-          (account-nav-links account)
-          (account-home-href account)))
+  (let [config (current-config)]
+    (navbar config "account-nav"
+            (account-nav-links config account)
+            (account-home-href config account))))
 
-(defn render-footer []
+(defn render-footer
+  ([] (render-footer (current-config)))
+  ([config]
   [:footer {:class "mt-16 border-t border-base-300 bg-base-100/80"}
    [:div {:class "mx-auto flex w-full max-w-screen-2xl flex-col gap-6 px-4 py-8 md:flex-row md:items-center md:justify-between md:px-6"}
     [:a {:href "https://www.dyne.org"
          :class "inline-flex items-center"}
-     [:img {:src "/static/img/dyne-logotype-black.svg"
+     [:img {:src (asset-path config "/static/img/dyne-logotype-black.svg")
             :class "h-10 w-auto"
             :alt "Dyne.org"
             :data-theme-logo "true"
-            :data-theme-logo-light "/static/img/dyne-logotype-black.svg"
-            :data-theme-logo-dark "/static/img/dyne-logotype-white.svg"}]]
+            :data-theme-logo-light (asset-path config "/static/img/dyne-logotype-black.svg")
+            :data-theme-logo-dark (asset-path config "/static/img/dyne-logotype-white.svg")}]]
     [:p
      [:a {:href "https://github.com/dyne/agiladmin"} "Software"]
      " by Denis \"Jaromil\" Roio and Manuela Annibali<br/>"
      "Copyright (C) 2016-2026 by the Dyne.org Foundation"]
     [:div {:class "flex items-center gap-4 self-start md:self-auto"}
-     [:img {:src "/static/img/AGPLv3.png"
+     [:img {:src (asset-path config "/static/img/AGPLv3.png")
             :class "h-auto max-w-32 opacity-80"
             :alt "Affero GPLv3 License"
-            :title "Affero GPLv3 License"}]]]])
+            :title "Affero GPLv3 License"}]]]]))
 
 ;; highlight functions do no conversion, take the format they highlight
 ;; render functions take edn and convert to the highlight format
@@ -507,7 +522,7 @@
                :rows "20" :data-editor "yaml"
                :id "config" :name "editor"}
     (yaml/generate-string data)]
-   [:script {:src "/static/js/ace.js"
+   [:script {:src (asset-path (current-config) "/static/js/ace.js")
              :type "text/javascript" :charset "utf-8"}]
    [:script {:type "text/javascript"}
     (slurp (io/resource "public/static/js/ace-embed.js"))]
@@ -529,44 +544,48 @@
 (defonce readme
   (slurp (io/resource "public/static/README.html")))
 
-(defonce login-form
-  [:div {:class "mx-auto max-w-lg"}
-   [:div {:class "card bg-base-100 shadow-xl"}
-    [:div {:class "card-body gap-4"}
-     [:h1 {:class "card-title text-3xl"} "Login into Agiladmin"]
-     [:form {:action "/login"
-             :method "post"
-             :class "space-y-4"}
-      [:input {:type "text" :name "email"
-               :placeholder "Email"
-               :class "input input-bordered w-full"}]
-      [:input {:type "password" :name "password"
-               :placeholder "Password"
-               :class "input input-bordered w-full"}]
-      [:input {:type "submit" :value "Login"
-               :class "btn btn-primary btn-lg w-full"}]
-      [:p {:class "text-sm text-base-content/70"}
-       "🛡️ Unauthorized access is prohibited. Every visit is recorded."]]]]])
+(defn login-form
+  ([] (login-form (current-config)))
+  ([config]
+   [:div {:class "mx-auto max-w-lg"}
+    [:div {:class "card bg-base-100 shadow-xl"}
+     [:div {:class "card-body gap-4"}
+      [:h1 {:class "card-title text-3xl"} "Login into Agiladmin"]
+      [:form {:action (path config "/login")
+              :method "post"
+              :class "space-y-4"}
+       [:input {:type "text" :name "email"
+                :placeholder "Email"
+                :class "input input-bordered w-full"}]
+       [:input {:type "password" :name "password"
+                :placeholder "Password"
+                :class "input input-bordered w-full"}]
+       [:input {:type "submit" :value "Login"
+                :class "btn btn-primary btn-lg w-full"}]
+       [:p {:class "text-sm text-base-content/70"}
+        "🛡️ Unauthorized access is prohibited. Every visit is recorded."]]]]]))
 
-(defonce signup-form
-  [:div {:class "mx-auto max-w-lg"}
-   [:div {:class "card bg-base-100 shadow-xl"}
-    [:div {:class "card-body gap-4"}
-     [:h1 {:class "card-title text-3xl"} "Sign Up Agiladmin"]
-     [:form {:action "/signup"
-             :method "post"
-             :class "space-y-4"}
-      [:input {:type "text" :name "name"
-               :placeholder "Display name"
-               :class "input input-bordered w-full"}]
-      [:input {:type "text" :name "email"
-               :placeholder "Email"
-               :class "input input-bordered w-full"}]
-      [:input {:type "password" :name "password"
-               :placeholder "Password"
-               :class "input input-bordered w-full"}]
-      [:input {:type "password" :name "repeat-password"
-               :placeholder "Repeat password"
-               :class "input input-bordered w-full"}]
-      [:input {:type "submit" :value "Sign Up"
-               :class "btn btn-primary btn-lg w-full"}]]]]])
+(defn signup-form
+  ([] (signup-form (current-config)))
+  ([config]
+   [:div {:class "mx-auto max-w-lg"}
+    [:div {:class "card bg-base-100 shadow-xl"}
+     [:div {:class "card-body gap-4"}
+      [:h1 {:class "card-title text-3xl"} "Sign Up Agiladmin"]
+      [:form {:action (path config "/signup")
+              :method "post"
+              :class "space-y-4"}
+       [:input {:type "text" :name "name"
+                :placeholder "Display name"
+                :class "input input-bordered w-full"}]
+       [:input {:type "text" :name "email"
+                :placeholder "Email"
+                :class "input input-bordered w-full"}]
+       [:input {:type "password" :name "password"
+                :placeholder "Password"
+                :class "input input-bordered w-full"}]
+       [:input {:type "password" :name "repeat-password"
+                :placeholder "Repeat password"
+                :class "input input-bordered w-full"}]
+       [:input {:type "submit" :value "Sign Up"
+                :class "btn btn-primary btn-lg w-full"}]]]]]))

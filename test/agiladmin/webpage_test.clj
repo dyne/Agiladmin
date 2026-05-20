@@ -1,5 +1,6 @@
 (ns agiladmin.webpage-test
-  (:require [agiladmin.webpage :as webpage]
+  (:require [agiladmin.ring :as ring]
+            [agiladmin.webpage :as webpage]
             [hiccup.form :as hf]
             [hiccup.core :as hiccup]
             [midje.sweet :refer :all]))
@@ -86,3 +87,33 @@
 (fact "Guest navigation does not render a redundant login link"
       (let [html (:body (webpage/render [:div "body"]))]
         html =not=> (contains ">Login<")))
+
+(fact "Shared UI emits root-path assets and form actions by default"
+      (let [head-html (hiccup/html (webpage/render-head {}))
+            login-html (hiccup/html (webpage/login-form {}))]
+        head-html => (contains "src=\"/static/js/app.js\"")
+        head-html => (contains "href=\"/static/css/app.css\"")
+        login-html => (contains "action=\"/login\"")))
+
+(fact "Shared UI emits prefixed assets, links, and actions with a custom base path"
+      (with-redefs [ring/config (atom {:agiladmin {:webserver {:base-path "/admin"}}})]
+        (let [head-html (hiccup/html (webpage/render-head))
+              login-html (hiccup/html (webpage/login-form))
+              nav-links (#'agiladmin.webpage/account-nav-links
+                         {:email "admin@example.org"
+                          :name "Admin User"
+                          :role "admin"})
+              button-html (hiccup/html
+                           (webpage/button "/person"
+                                           "Open"
+                                           (hf/hidden-field "person" "Alice")))]
+          head-html => (contains "src=\"/admin/static/js/app.js\"")
+          head-html => (contains "href=\"/admin/static/css/app.css\"")
+          login-html => (contains "action=\"/admin/login\"")
+          (set (map :href nav-links)) => #{
+                                         "/admin/persons/list"
+                                         "/admin/projects/list"
+                                         "/admin/reload"
+                                         "/admin/config"
+                                         "/admin/logout"}
+          button-html => (contains "action=\"/admin/person\""))))
