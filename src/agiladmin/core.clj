@@ -41,17 +41,20 @@
 
 (def timesheet-cols-projects ["B" "C" "D" "E" "F" "G" "H"])
 (def timesheet-rows-hourtots [43 42 41 40 39 38])
-;; Memory-only project cache keyed by budgets path. Reload invalidates it when
-;; the repo state changes, so no filesystem metadata or watcher is needed.
+;; Optional memory-only caches keyed by budgets path. Reload invalidates them
+;; when the repo state changes, so no filesystem metadata or watcher is needed.
 (def project-cache (atom {}))
-;; Memory-only timesheet cache keyed by budgets path. Successful timesheet
-;; commits invalidate it after the repository adopts new workbook content.
 (def timesheet-cache (atom {}))
 (def recent-projects-cache (atom {}))
 
 (declare load-all-timesheets)
 (declare load-all-projects)
 (declare load-timesheet)
+
+(defn cache-enabled?
+  "Return true when runtime caching is explicitly enabled in configuration."
+  [conf]
+  (true? (get-in conf [:agiladmin :cache])))
 
 
 (defn repl
@@ -356,20 +359,27 @@
   ;;     (save-workbook! file wb)
   ;;     wb))
 
-  (defn load-all-timesheets
-    "Load direct-child timesheets from a budgets directory, reusing an
-    in-memory cache until invalidate-timesheet-cache! is called for that path."
-    [path regex]
-    (let [cache-key path]
-      (if-let [cached-timesheets (get @timesheet-cache cache-key)]
-        cached-timesheets
-        (let [timesheets
-              (vec
-               (for [l (map #(.getName %) (util/list-direct-files-matching path regex))
-                     :when (not= (first l) '\.)]
-                 (load-timesheet (str path l))))]
-          (swap! timesheet-cache assoc cache-key timesheets)
-          timesheets))))
+(defn- load-all-timesheets-fresh
+  [path regex]
+  (vec
+   (for [l (map #(.getName %) (util/list-direct-files-matching path regex))
+         :when (not= (first l) '\.)]
+     (load-timesheet (str path l)))))
+
+(defn load-all-timesheets
+  "Load direct-child timesheets from a budgets directory. Reuse the in-memory
+  cache only when :agiladmin :cache is explicitly true."
+  ([path regex]
+   (load-all-timesheets nil path regex))
+  ([conf path regex]
+   (if-not (cache-enabled? conf)
+     (load-all-timesheets-fresh path regex)
+     (let [cache-key path]
+       (if-let [cached-timesheets (get @timesheet-cache cache-key)]
+         cached-timesheets
+         (let [timesheets (load-all-timesheets-fresh path regex)]
+           (swap! timesheet-cache assoc cache-key timesheets)
+           timesheets))))))
 
 (defn invalidate-timesheet-cache!
   "Clear cached timesheets for one budgets path, or all paths with no arg."
@@ -385,26 +395,34 @@
                               (= cache-path path))
                             cache)))))))
 
+(defn- recent-project-names-fresh
+  [conf path current-year]
+  (let [recent-years #{current-year (dec current-year)}]
+    (->> (map-timesheets (load-all-timesheets conf path #".*_timesheet_.*xlsx$")
+                         load-monthly-hours
+                         (fn [info]
+                           (when-let [month (:month info)]
+                             (contains? recent-years
+                                        (some-> month str (split #"-") first Integer/parseInt)))))
+         :rows
+         (keep (comp upper-case trim :project))
+         set)))
+
 (defn recent-project-names
   "Return the uppercase project names with any recorded hour in the current or
-  previous year. Results are cached per budgets path and current year."
-  [path current-year]
-  (let [cache-key [path current-year]
-        recent-years #{current-year (dec current-year)}]
-    (if-let [cached-projects (get @recent-projects-cache cache-key)]
-      cached-projects
-      (let [projects
-            (->> (map-timesheets (load-all-timesheets path #".*_timesheet_.*xlsx$")
-                                 load-monthly-hours
-                                 (fn [info]
-                                   (when-let [month (:month info)]
-                                     (contains? recent-years
-                                                (some-> month str (split #"-") first Integer/parseInt)))))
-                 :rows
-                 (keep (comp upper-case trim :project))
-                 set)]
-        (swap! recent-projects-cache assoc cache-key projects)
-        projects))))
+  previous year. Reuse the in-memory cache only when :agiladmin :cache is
+  explicitly true."
+  ([path current-year]
+   (recent-project-names nil path current-year))
+  ([conf path current-year]
+   (if-not (cache-enabled? conf)
+     (recent-project-names-fresh conf path current-year)
+     (let [cache-key [path current-year]]
+       (if-let [cached-projects (get @recent-projects-cache cache-key)]
+         cached-projects
+         (let [projects (recent-project-names-fresh conf path current-year)]
+           (swap! recent-projects-cache assoc cache-key projects)
+           projects))))))
 
 (defn- projects-cache-key
   [conf]
@@ -446,11 +464,13 @@
                 (keys files)))))
 
 (defn load-all-projects [conf]
-  "Load project budgets for one budgets path, reusing an in-memory cache until
-  invalidate-project-cache! is called for that path."
-  (let [cache-key (projects-cache-key conf)]
-    (if-let [cached-projects (get @project-cache cache-key)]
-      cached-projects
-      (let [projects (load-all-projects-fresh conf)]
-        (swap! project-cache assoc cache-key projects)
-        projects))))
+  "Load project budgets for one budgets path. Reuse the in-memory cache only
+  when :agiladmin :cache is explicitly true."
+  (if-not (cache-enabled? conf)
+    (load-all-projects-fresh conf)
+    (let [cache-key (projects-cache-key conf)]
+      (if-let [cached-projects (get @project-cache cache-key)]
+        cached-projects
+        (let [projects (load-all-projects-fresh conf)]
+          (swap! project-cache assoc cache-key projects)
+          projects)))))

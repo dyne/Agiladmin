@@ -47,6 +47,7 @@
   - `:webserver`
   - `:source`
   - `:just-auth`
+  - `:cache` enables runtime in-memory caches when `true`; the default is `false`.
 - `:agiladmin :webserver` now separates internal bind settings from public URL settings:
   - `:host` and `:port` are Jetty bind values.
   - `:base-host` and `:base-path` are browser-facing URL parts.

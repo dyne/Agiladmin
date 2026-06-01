@@ -160,7 +160,7 @@
              :tag "VOL"
              :hours 8.0}]))
 
-(fact "Timesheet loads are cached per budgets path until invalidated"
+(fact "Timesheet loads are uncached by default"
       (let [calls (atom 0)]
         (core/invalidate-timesheet-cache!)
         (with-redefs [agiladmin.utils/list-direct-files-matching
@@ -172,6 +172,24 @@
                         {:file path})]
           (core/load-all-timesheets "budgets/" #".*_timesheet_.*xlsx$")
           (core/load-all-timesheets "budgets/" #".*_timesheet_.*xlsx$")
+          @calls => 2)))
+
+(fact "Timesheet loads are cached per budgets path when enabled"
+      (let [calls (atom 0)]
+        (core/invalidate-timesheet-cache!)
+        (with-redefs [agiladmin.utils/list-direct-files-matching
+                      (fn [_ _]
+                        [(java.io.File. "2026_timesheet_Ada-Lovelace.xlsx")])
+                      agiladmin.core/load-timesheet
+                      (fn [path]
+                        (swap! calls inc)
+                        {:file path})]
+          (core/load-all-timesheets {:agiladmin {:cache true}}
+                                    "budgets/"
+                                    #".*_timesheet_.*xlsx$")
+          (core/load-all-timesheets {:agiladmin {:cache true}}
+                                    "budgets/"
+                                    #".*_timesheet_.*xlsx$")
           @calls => 1)))
 
 (fact "Timesheet caches are separated by budgets path"
@@ -184,8 +202,18 @@
                       (fn [path]
                         (swap! calls conj path)
                         {:file path})]
-          (core/load-all-timesheets "budgets-a/" #".*_timesheet_.*xlsx$")
-          (core/load-all-timesheets "budgets-b/" #".*_timesheet_.*xlsx$")
+          (core/load-all-timesheets {:agiladmin {:cache true}}
+                                    "budgets-a/"
+                                    #".*_timesheet_.*xlsx$")
+          (core/load-all-timesheets {:agiladmin {:cache true}}
+                                    "budgets-b/"
+                                    #".*_timesheet_.*xlsx$")
+          (core/load-all-timesheets {:agiladmin {:cache true}}
+                                    "budgets-a/"
+                                    #".*_timesheet_.*xlsx$")
+          (core/load-all-timesheets {:agiladmin {:cache true}}
+                                    "budgets-b/"
+                                    #".*_timesheet_.*xlsx$")
           @calls => ["budgets-a/2026_timesheet_User.xlsx"
                      "budgets-b/2026_timesheet_User.xlsx"])))
 
@@ -199,7 +227,11 @@
                       (fn [path]
                         (swap! calls inc)
                         {:file path})]
-          (core/load-all-timesheets "budgets/" #".*_timesheet_.*xlsx$")
+          (core/load-all-timesheets {:agiladmin {:cache true}}
+                                    "budgets/"
+                                    #".*_timesheet_.*xlsx$")
           (core/invalidate-timesheet-cache! "budgets/")
-          (core/load-all-timesheets "budgets/" #".*_timesheet_.*xlsx$")
+          (core/load-all-timesheets {:agiladmin {:cache true}}
+                                    "budgets/"
+                                    #".*_timesheet_.*xlsx$")
           @calls => 2)))

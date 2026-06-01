@@ -34,6 +34,7 @@
               :ssh-key s/Str
               :path s/Str}
     (s/optional-key :projects) [s/Str]
+    (s/optional-key :cache) s/Bool
     (s/optional-key :webserver) {(s/optional-key :port) s/Num
                                  (s/optional-key :host) s/Str
                                  (s/optional-key :base-host) s/Str
@@ -84,6 +85,7 @@
                        {:git "ssh://git@my.server.org/admin-budgets"
                         :ssh-key "id_rsa"
                         :path "budgets/"}
+                       :cache false
                        :webserver
                        {:base-host ""
                         :base-path "/"

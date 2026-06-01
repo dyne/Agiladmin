@@ -54,7 +54,7 @@
 (defn project-hours
   [config projname]
   (let [ts-path (conf/q config [:agiladmin :budgets :path])
-        timesheets (load-all-timesheets ts-path #".*_timesheet_.*xlsx$")]
+        timesheets (load-all-timesheets config ts-path #".*_timesheet_.*xlsx$")]
     (load-project-monthly-hours timesheets projname)))
 
 (defn project-costs
