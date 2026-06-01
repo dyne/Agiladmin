@@ -163,7 +163,8 @@
         (f/failed? conf) => false
         (get-in conf [:agiladmin :webserver :base-host]) => ""
         (get-in conf [:agiladmin :webserver :base-path]) => "/"
-        (get-in conf [:agiladmin :webserver :upload-max-size]) => 500000))
+        (get-in conf [:agiladmin :webserver :upload-max-size]) => 500000
+        (get-in conf [:agiladmin :cache]) => false))
 
 (fact "Application config loader preserves explicit webserver base values"
       (let [path "/tmp/agiladmin-webserver-explicit.yaml"
@@ -187,6 +188,20 @@
         (get-in conf [:agiladmin :webserver :base-path]) => "/agiladmin"
         (get-in conf [:agiladmin :webserver :upload-max-size]) => 750000))
 
+(fact "Application config loader preserves explicit cache opt-in"
+      (let [path "/tmp/agiladmin-cache-explicit.yaml"
+            _ (spit path
+                    (str "appname: agiladmin\n\n"
+                         "agiladmin:\n"
+                         "  budgets:\n"
+                         "    git: ssh://git@example.org/admin-budgets\n"
+                         "    ssh-key: id_rsa\n"
+                         "    path: budgets/\n"
+                         "  cache: true\n"))
+            conf (conf/load-config path conf/default-settings)]
+        (f/failed? conf) => false
+        (get-in conf [:agiladmin :cache]) => true))
+
 (fact "Application config loader reports an explicit missing file"
       (let [conf (conf/load-config "/tmp/does-not-exist-agiladmin.yaml" conf/default-settings)]
         (f/failed? conf) => true
@@ -202,7 +217,8 @@
 (fact "Bulk project loads reuse one project file scan"
       (let [calls (atom 0)
             original-project-files @#'agiladmin.config/project-files
-            counting-config {:agiladmin {:budgets {:path "test/assets/"}}
+            counting-config {:agiladmin {:budgets {:path "test/assets/"}
+                                         :cache true}
                              :filename "agiladmin.yaml"}]
         (core/invalidate-project-cache! counting-config)
         (with-redefs [agiladmin.config/project-files
@@ -226,7 +242,8 @@
 (fact "Bulk project loads reuse cached projects for the same budgets path"
       (let [calls (atom 0)
             original-project-files @#'agiladmin.config/project-files
-            counting-config {:agiladmin {:budgets {:path "test/assets/"}}
+            counting-config {:agiladmin {:budgets {:path "test/assets/"}
+                                         :cache true}
                              :filename "agiladmin.yaml"}]
         (core/invalidate-project-cache! counting-config)
         (with-redefs [agiladmin.config/project-files
@@ -237,6 +254,20 @@
           (core/load-all-projects counting-config)
           @calls => 1)))
 
+(fact "Bulk project loads are uncached by default"
+      (let [calls (atom 0)
+            original-project-files @#'agiladmin.config/project-files
+            counting-config {:agiladmin {:budgets {:path "test/assets/"}}
+                             :filename "agiladmin.yaml"}]
+        (core/invalidate-project-cache! counting-config)
+        (with-redefs [agiladmin.config/project-files
+                      (fn [cfg]
+                        (swap! calls inc)
+                        (original-project-files cfg))]
+          (core/load-all-projects counting-config)
+          (core/load-all-projects counting-config)
+          @calls => 2)))
+
 (fact "Bulk project loads keep cache entries separated by budgets path"
       (let [dir-a "/tmp/agiladmin-project-cache-a/"
             dir-b "/tmp/agiladmin-project-cache-b/"
@@ -244,8 +275,10 @@
             _ (.mkdirs (java.io.File. dir-b))
             _ (spit (str dir-a "ALPHA.yaml") "ALPHA:\n  duration: 1\n")
             _ (spit (str dir-b "BETA.yaml") "BETA:\n  duration: 2\n")
-            conf-a {:agiladmin {:budgets {:path dir-a}} :filename "agiladmin.yaml"}
-            conf-b {:agiladmin {:budgets {:path dir-b}} :filename "agiladmin.yaml"}]
+            conf-a {:agiladmin {:budgets {:path dir-a} :cache true}
+                    :filename "agiladmin.yaml"}
+            conf-b {:agiladmin {:budgets {:path dir-b} :cache true}
+                    :filename "agiladmin.yaml"}]
         (core/invalidate-project-cache! conf-a)
         (core/invalidate-project-cache! conf-b)
         (set (keys (core/load-all-projects conf-a))) => #{:ALPHA}
@@ -254,7 +287,8 @@
 (fact "Bulk project loads refresh after explicit cache invalidation"
       (let [calls (atom 0)
             original-project-files @#'agiladmin.config/project-files
-            counting-config {:agiladmin {:budgets {:path "test/assets/"}}
+            counting-config {:agiladmin {:budgets {:path "test/assets/"}
+                                         :cache true}
                              :filename "agiladmin.yaml"}]
         (core/invalidate-project-cache! counting-config)
         (with-redefs [agiladmin.config/project-files
