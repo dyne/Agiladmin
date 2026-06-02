@@ -210,6 +210,10 @@ Example:
 appname: agiladmin
 
 agiladmin:
+  cache: false
+  show-voluntary-hours: false
+  vat-percentage: 0
+
   webserver:
     host: localhost
     port: 8000
@@ -239,6 +243,9 @@ Notes:
 
 - `budgets.ssh-key` is the private key path used for Git access; if it does not exist, Agiladmin generates a new keypair and exposes the public key in the `/config` page
 - project names are discovered from `*.yaml` files in `budgets.path`, using the part of the filename before the first `.`
+- `cache` enables runtime in-memory caches when `true`; it defaults to `false`
+- `show-voluntary-hours` controls whether personnel monthly summaries mention voluntary hours; it defaults to `false`
+- `vat-percentage` controls personnel VAT display; it defaults to `0`, which hides the VAT sentence
 - `pocketbase` is optional only if you are using dev auth locally
 - `webserver.upload-max-size` is in bytes and defaults to `500000`
 - `webserver.base-path` is the browser-visible mount prefix; if you publish under a subpath such as `/agiladmin`, your reverse proxy must strip that prefix before forwarding to Jetty routes

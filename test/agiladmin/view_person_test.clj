@@ -161,7 +161,28 @@
           (:body response) => (contains "Yearly totals")
           (:body response) =not=> (contains "Total_billed")
           (:body response) =not=> (contains "Download yearly totals:")
+          (:body response) =not=> (contains "voluntary hours")
           (:body response) =not=> (contains "with 21% VAT added"))))
+
+(fact "Manager personnel view shows voluntary hours when enabled"
+      (with-redefs [agiladmin.view-person/load-person-page-data
+                    (fn [_ _ _]
+                      {:ts-file "ignored.xlsx"
+                       :timesheet {:sheets [{:month "2026-1" :days 20}]}
+                       :projects {:CORE {:idx {:TASK-1 {:text "Task one"}}}}
+                       :hours {:column-names [:month :project :task :tag :hours]
+                               :rows [{:month "2026-1"
+                                       :project "CORE"
+                                       :task "TASK-1"
+                                       :tag "VOL"
+                                       :hours 3}]}})]
+        (let [response (view-person/list-person
+                        {:agiladmin {:show-voluntary-hours true}}
+                        {:role "manager"
+                         :name "Manager User"}
+                        "Manager User"
+                        2026)]
+          (:body response) => (contains "plus 3 voluntary hours."))))
 
 (fact "Personnel view keeps the upload form visible when timesheet loading fails"
       (with-redefs [agiladmin.view-person/load-person-page-data
@@ -230,7 +251,45 @@
             @cph-calls => 1
             (:body response) => (contains "Download yearly totals:")
             (:body response) => (contains "2026-1")
-            (:body response) => (contains "2026-2")))))
+            (:body response) => (contains "2026-2")
+            (:body response) =not=> (contains "VAT added")
+            (:body response) =not=> (contains "voluntary hours")))))
+
+(fact "Admin personnel view shows configured VAT when enabled"
+      (with-redefs [agiladmin.view-person/load-person-page-data
+                    (fn [_ _ _]
+                      {:ts-file "ignored.xlsx"
+                       :timesheet {:sheets [{:month "2026-1" :days 20}]}
+                       :projects {:CORE {:idx {:TASK-1 {:text "Task one"}}}}
+                       :hours {:column-names [:month :name :project :task :tag :hours]
+                               :rows [{:month "2026-1"
+                                       :name "Admin User"
+                                       :project "CORE"
+                                       :task "TASK-1"
+                                       :tag ""
+                                       :hours 10}]}})
+                    agiladmin.core/derive-costs
+                    (fn [_ _ _]
+                      {:column-names [:month :name :project :task :tag :hours :cost]
+                       :rows [{:month "2026-1"
+                               :name "Admin User"
+                               :project "CORE"
+                               :task "TASK-1"
+                               :tag ""
+                               :hours 10
+                               :cost 1000}]})
+                    agiladmin.core/derive-cost-per-hour
+                    (fn [dataset _ _]
+                      (assoc dataset
+                             :column-names [:month :name :project :task :tag :hours :cost :cph]
+                             :rows (mapv #(assoc % :cph 100) (:rows dataset))))]
+        (let [response (view-person/list-person
+                        {:agiladmin {:vat-percentage 21}}
+                        {:role "admin"
+                         :name "Admin User"}
+                        "Admin User"
+                        2026)]
+          (:body response) => (contains "with 21% VAT added is 1210"))))
 
 (fact "Admin personnel view ignores xlsx files that do not match the timesheet naming pattern"
       (with-redefs [agiladmin.utils/now (fn [] {:year 2026})

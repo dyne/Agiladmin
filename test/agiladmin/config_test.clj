@@ -164,7 +164,9 @@
         (get-in conf [:agiladmin :webserver :base-host]) => ""
         (get-in conf [:agiladmin :webserver :base-path]) => "/"
         (get-in conf [:agiladmin :webserver :upload-max-size]) => 500000
-        (get-in conf [:agiladmin :cache]) => false))
+        (get-in conf [:agiladmin :cache]) => false
+        (get-in conf [:agiladmin :show-voluntary-hours]) => false
+        (get-in conf [:agiladmin :vat-percentage]) => 0))
 
 (fact "Application config loader preserves explicit webserver base values"
       (let [path "/tmp/agiladmin-webserver-explicit.yaml"
@@ -201,6 +203,22 @@
             conf (conf/load-config path conf/default-settings)]
         (f/failed? conf) => false
         (get-in conf [:agiladmin :cache]) => true))
+
+(fact "Application config loader preserves personnel display settings"
+      (let [path "/tmp/agiladmin-personnel-display.yaml"
+            _ (spit path
+                    (str "appname: agiladmin\n\n"
+                         "agiladmin:\n"
+                         "  budgets:\n"
+                         "    git: ssh://git@example.org/admin-budgets\n"
+                         "    ssh-key: id_rsa\n"
+                         "    path: budgets/\n"
+                         "  show-voluntary-hours: true\n"
+                         "  vat-percentage: 21\n"))
+            conf (conf/load-config path conf/default-settings)]
+        (f/failed? conf) => false
+        (get-in conf [:agiladmin :show-voluntary-hours]) => true
+        (get-in conf [:agiladmin :vat-percentage]) => 21))
 
 (fact "Application config loader reports an explicit missing file"
       (let [conf (conf/load-config "/tmp/does-not-exist-agiladmin.yaml" conf/default-settings)]

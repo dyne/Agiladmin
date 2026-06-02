@@ -35,6 +35,8 @@
               :path s/Str}
     (s/optional-key :projects) [s/Str]
     (s/optional-key :cache) s/Bool
+    (s/optional-key :show-voluntary-hours) s/Bool
+    (s/optional-key :vat-percentage) s/Num
     (s/optional-key :webserver) {(s/optional-key :port) s/Num
                                  (s/optional-key :host) s/Str
                                  (s/optional-key :base-host) s/Str
@@ -86,6 +88,8 @@
                         :ssh-key "id_rsa"
                         :path "budgets/"}
                        :cache false
+                       :show-voluntary-hours false
+                       :vat-percentage 0
                        :webserver
                        {:base-host ""
                         :base-path "/"
