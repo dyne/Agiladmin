@@ -73,6 +73,31 @@
         tab/dataset
         to-table)))
 
+(defn- show-voluntary-hours?
+  "Return true when personnel pages should mention voluntary hours."
+  [config]
+  (true? (get-in config [:agiladmin :show-voluntary-hours])))
+
+(defn- voluntary-hours-text
+  [config hours]
+  (when (show-voluntary-hours? config)
+    (str " days, plus " hours " voluntary hours.")))
+
+(defn- vat-percentage
+  "Return the configured VAT percentage, defaulting to zero."
+  [config]
+  (or (get-in config [:agiladmin :vat-percentage]) 0))
+
+(defn- vat-text
+  [config pay]
+  (let [percentage (vat-percentage config)]
+    (when (pos? percentage)
+      (str " (with "
+           percentage
+           "% VAT added is "
+           (util/round (+ pay (* pay (/ percentage 100))))
+           ")"))))
+
 (defn- load-person-page-data
   "Load the shared timesheet and project data needed by personnel pages."
   [config person year]
@@ -113,9 +138,8 @@
                " across "
                (keep #(when (= (:month %) (str year '- m))
                         (:days %))
-                     (:sheets timesheet))
-               " days, plus " mvol
-               " voluntary hours."
+                      (:sheets timesheet))
+               (or (voluntary-hours-text config mvol) " days.")
                [:div {:class "month-detail overflow-x-auto"}
                 (to-monthly-hours-table projects breakdown)]]])]
        [:div {:class "space-y-6"}
@@ -271,9 +295,8 @@
                     (keep #(when (= (:month %) (str year '- m))
                              (:days %))
                           (:sheets timesheet))
-                    " days, plus " mvol
-                    " voluntary hours."
-                    " (with 21% VAT added is " (+ pay (* pay 0.21)) ")"
+                    (or (voluntary-hours-text config mvol) " days.")
+                    (vat-text config pay)
                     [:div {:class "month-detail overflow-x-auto"}
                      (to-monthly-bill-table projects breakdown)]]])]))
            (web/button-prev-year year person)]
