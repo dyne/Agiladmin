@@ -73,14 +73,14 @@
         tab/dataset
         to-table)))
 
-(defn- show-voluntary-hours?
+(defn- voluntary-hours?
   "Return true when personnel pages should mention voluntary hours."
   [config]
-  (true? (get-in config [:agiladmin :show-voluntary-hours])))
+  (true? (get-in config [:agiladmin :voluntary-hours])))
 
 (defn- voluntary-hours-text
   [config hours]
-  (when (show-voluntary-hours? config)
+  (when (voluntary-hours? config)
     (str " days, plus " hours " voluntary hours.")))
 
 (defn- vat-percentage

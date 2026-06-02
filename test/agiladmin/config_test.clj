@@ -165,7 +165,7 @@
         (get-in conf [:agiladmin :webserver :base-path]) => "/"
         (get-in conf [:agiladmin :webserver :upload-max-size]) => 500000
         (get-in conf [:agiladmin :cache]) => false
-        (get-in conf [:agiladmin :show-voluntary-hours]) => false
+        (get-in conf [:agiladmin :voluntary-hours]) => false
         (get-in conf [:agiladmin :vat-percentage]) => 0))
 
 (fact "Application config loader preserves explicit webserver base values"
@@ -213,11 +213,11 @@
                          "    git: ssh://git@example.org/admin-budgets\n"
                          "    ssh-key: id_rsa\n"
                          "    path: budgets/\n"
-                         "  show-voluntary-hours: true\n"
+                         "  voluntary-hours: true\n"
                          "  vat-percentage: 21\n"))
             conf (conf/load-config path conf/default-settings)]
         (f/failed? conf) => false
-        (get-in conf [:agiladmin :show-voluntary-hours]) => true
+        (get-in conf [:agiladmin :voluntary-hours]) => true
         (get-in conf [:agiladmin :vat-percentage]) => 21))
 
 (fact "Application config loader reports an explicit missing file"
