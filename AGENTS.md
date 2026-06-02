@@ -48,7 +48,7 @@
   - `:source`
   - `:just-auth`
   - `:cache` enables runtime in-memory caches when `true`; the default is `false`.
-  - `:show-voluntary-hours` controls whether personnel monthly summaries mention voluntary hours; default `false`.
+  - `:voluntary-hours` controls whether personnel monthly summaries mention voluntary hours; default `false`.
   - `:vat-percentage` controls personnel VAT display; default `0`, which hides VAT text.
 - `:agiladmin :webserver` now separates internal bind settings from public URL settings:
   - `:host` and `:port` are Jetty bind values.

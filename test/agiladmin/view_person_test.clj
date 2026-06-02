@@ -177,7 +177,7 @@
                                        :tag "VOL"
                                        :hours 3}]}})]
         (let [response (view-person/list-person
-                        {:agiladmin {:show-voluntary-hours true}}
+                        {:agiladmin {:voluntary-hours true}}
                         {:role "manager"
                          :name "Manager User"}
                         "Manager User"
