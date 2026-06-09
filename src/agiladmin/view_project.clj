@@ -21,13 +21,14 @@
 (ns agiladmin.view-project
   (:require
    [clojure.java.io :as io]
-   [clojure.string :refer [trim upper-case]]
+   [clojure.string :as str :refer [trim upper-case]]
    [clj-time.format :as tf]
    [clj-time.core :as t]
    [agiladmin.core :refer :all]
    [agiladmin.tabular :as tab]
    [agiladmin.utils :as util]
    [agiladmin.graphics :refer :all]
+   [agiladmin.visualization :as viz]
    [agiladmin.webpage :as web]
    [agiladmin.config :as conf]
    [agiladmin.session :as s]
@@ -37,6 +38,151 @@
    [hiccup.form :as hf]))
 
 (def project-details-id "project-details")
+
+(defn- chart-id
+  [prefix projname suffix]
+  (-> (str prefix "-" projname "-" suffix)
+      str/lower-case
+      (str/replace #"[^a-z0-9_-]+" "-")))
+
+(defn- project-monthly-chart-spec
+  [project-hours conf year]
+  (let [task-count (count (remove str/blank? (map :task (:rows project-hours))))]
+    (if (> task-count 1)
+      (viz/project-monthly-task-chart-spec project-hours year)
+      (viz/project-monthly-person-chart-spec project-hours year))))
+
+(defn- project-activity-section
+  [projname project-hours task-details conf]
+  (let [rows (:rows project-hours)
+        years (->> rows (keep #(some-> % :month viz/parse-month :year)) distinct count)
+        monthly-spec (project-monthly-chart-spec project-hours conf (some-> rows first :month viz/parse-month :year))
+        cumulative-spec (viz/project-cumulative-chart-spec project-hours task-details)
+        budget-spec (when (seq (:rows task-details))
+                      (viz/project-task-budget-chart-spec task-details))
+        annual-spec (when (> years 1)
+                      (viz/project-annual-hours-chart-spec project-hours))]
+    [:section {:class "space-y-4"}
+     [:div {:class "space-y-1"}
+      [:h2 {:class "text-2xl font-semibold"} "Project activity"]
+      [:p {:class "text-sm text-base-content/70"}
+       "Hours-only charts stay above the detailed tables. Managers see effort, not costs."]]
+     (if (seq rows)
+       [:div {:class "grid gap-4 xl:grid-cols-2"}
+        (when cumulative-spec
+          [:div {:class "xl:col-span-2"}
+           (viz/plotly-chart-block
+            (chart-id "project" projname "cumulative")
+            "Cumulative hours"
+            cumulative-spec
+            {:description "Actual hours against planned hours derived from configured task schedules."
+             :fallback "No valid plan data is available for a cumulative comparison."})])
+        [:div
+         (viz/plotly-chart-block
+          (chart-id "project" projname "monthly")
+          "Monthly composition"
+          monthly-spec
+          {:description "Stacked hours by task or by person when tasks are not useful."
+           :fallback "No monthly activity is available for this project."})]
+        (when budget-spec
+          [:div
+           (viz/plotly-chart-block
+            (chart-id "project" projname "budget")
+            "Task budget usage"
+            budget-spec
+            {:description "Actual hours versus the configured task budget."
+             :fallback "No task budget data is available for this project."})])
+        (when annual-spec
+          [:div {:class "xl:col-span-2"}
+           (viz/plotly-chart-block
+            (chart-id "project" projname "annual")
+            "Annual hours"
+            annual-spec
+            {:description "Yearly totals shown only when the project spans more than one year."
+             :fallback "This project only has one year of data."})])]
+       [:div {:class "alert alert-info shadow-sm"}
+        "No recorded hours are available for this project."]) ]))
+
+(defn- fixed-cost-project-activity-section
+  [projname project-hours]
+  (let [rows (:rows project-hours)
+        years (->> rows (keep #(some-> % :month viz/parse-month :year)) distinct count)
+        year (some-> rows first :month viz/parse-month :year)
+        monthly-spec (when year
+                       (viz/project-monthly-person-chart-spec project-hours year))
+        annual-spec (when (> years 1)
+                      (viz/project-annual-hours-chart-spec project-hours))]
+    [:section {:class "space-y-4"}
+     [:div {:class "space-y-1"}
+      [:h2 {:class "text-2xl font-semibold"} "Project activity"]
+      [:p {:class "text-sm text-base-content/70"}
+       "Hours-only charts sit above the fixed-cost tables."]]
+     (if (seq rows)
+       [:div {:class "grid gap-4 xl:grid-cols-2"}
+        [:div
+         (viz/plotly-chart-block
+          (chart-id "project" projname "monthly")
+          "Monthly composition"
+          monthly-spec
+          {:description "Stacked hours by person across the selected year."
+           :fallback "No monthly activity is available for this project."})]
+        (when annual-spec
+          [:div {:class "xl:col-span-2"}
+           (viz/plotly-chart-block
+            (chart-id "project" projname "annual")
+            "Annual hours"
+            annual-spec
+            {:description "Yearly totals shown only when the project spans more than one year."
+             :fallback "This project only has one year of data."})])]
+       [:div {:class "alert alert-info shadow-sm"}
+        "No recorded hours are available for this project."]) ]))
+
+(defn- project-detail-tabs
+  [account project-hours task-details]
+  [{:id "task-sum-hours"
+    :title "Task/Person totals"
+    :content [:div {:class "space-y-3"}
+              [:h2 "Totals grouped per person and per task"]
+              [:div {:class "overflow-x-auto"}
+               (if (s/can-view-costs? account)
+                 (-> (map-col project-hours :tag #(if (= "VOL" %) "VOL" ""))
+                     (aggr [:hours :cost] [:name :tag :task])
+                     (tab/select-cols [:name :tag :task :hours :cost]) to-table)
+                 (-> (map-col project-hours :tag #(if (= "VOL" %) "VOL" ""))
+                     (aggr [:hours] [:name :tag :task])
+                     (tab/select-cols [:name :tag :task :hours]) to-table))]]}
+   {:id "task-totals"
+    :title "Task totals"
+    :content [:div {:class "space-y-3"}
+              [:h2 "Totals per task"]
+              [:div {:class "overflow-x-auto"}
+               (-> task-details
+                   (tab/select-cols [:task :hours :tot-hours :pm :progress :description]) to-table)]]}
+   {:id "person-totals"
+    :title "Person totals"
+    :content [:div {:class "space-y-3"}
+              [:h2 "Totals per person"]
+              [:div {:class "overflow-x-auto"}
+               (if (s/can-view-costs? account)
+                 (-> (map-col project-hours :tag #(if (= "VOL" %) "VOL" ""))
+                     (aggr [:hours :cost] [:name :tag])
+                     (tab/select-cols [:name :tag :hours :cost]) to-table)
+                 (-> (map-col project-hours :tag #(if (= "VOL" %) "VOL" ""))
+                     (aggr [:hours] [:name :tag])
+                     (tab/select-cols [:name :tag :hours]) to-table))]]}
+   {:id "monthly-details"
+    :title "Monthly details"
+    :content [:div {:class "space-y-3"}
+              [:h2 "Detail of monthly hours used per person on each task"]
+              [:div {:class "overflow-x-auto"}
+               (if (s/can-view-costs? account)
+                 (-> project-hours
+                     (sort :month :desc)
+                     to-table)
+                 (-> project-hours
+                     (tab/select-cols [:month :name :task :hours])
+                     (sort :month :desc)
+                     to-table))]]}])
 
 (defn- project-fragment
   [body]
@@ -180,10 +326,10 @@
      request
      account
      [:div {:class "space-y-6"}
+      [:h1 {:class "text-4xl font-semibold"} projname]
       (if-not (empty? (:tasks conf))
         [:div {:class "space-y-4"}
          [:div {:class "flex flex-wrap items-center gap-3"}
-          [:h1 {:class "text-4xl font-semibold"} projname]
           [:button {:class "btn btn-info ml-auto"
                     :onclick "toggleMode(this)"} "Scale to Fit"]]
          [:div {:class "rounded-box border border-base-300 bg-base-100 p-2 shadow-sm"}
@@ -206,8 +352,8 @@ var tasks = { data:" (chesh/generate-string gantt-tasks) "};
 gantt.init('gantt');
 gantt.parse(tasks);
 ")])]
-        [:h1 {:class "text-4xl font-semibold"} projname])
-      (when (s/admin? account)
+         (project-activity-section projname project-hours task-details conf))
+       (when (s/admin? account)
         (web/button "/projects/edit" "Edit project configuration"
                     (hf/hidden-field "project" projname)
                     "btn btn-primary btn-lg edit-project"))
@@ -272,57 +418,14 @@ gantt.parse(tasks);
                                  (:rows empty-tasks)))]
            (-> (tab/append-rows overview-cols used-tasks unused-tasks)
                (tab/order-by-col :task :asc)
-               to-table))]]
+               to-table))]
        [:div {:class "space-y-4"}
         [:h1 "Details " [:small "(switch views using tabs below)"]]
         (web/tabs
          (str "project-details-" projname)
-         [{:id "task-sum-hours"
-           :title "Task/Person totals"
-           :content [:div {:class "space-y-3"}
-                     [:h2 "Totals grouped per person and per task"]
-                     [:div {:class "overflow-x-auto"}
-                      (if (s/can-view-costs? account)
-                        (-> (map-col project-hours :tag #(if (= "VOL" %) "VOL" ""))
-                            (aggr [:hours :cost] [:name :tag :task])
-                            (tab/select-cols [:name :tag :task :hours :cost]) to-table)
-                        (-> (map-col project-hours :tag #(if (= "VOL" %) "VOL" ""))
-                            (aggr [:hours] [:name :tag :task])
-                            (tab/select-cols [:name :tag :task :hours]) to-table))]]}
-          {:id "task-totals"
-           :title "Task totals"
-           :content [:div {:class "space-y-3"}
-                     [:h2 "Totals per task"]
-                     [:div {:class "overflow-x-auto"}
-                      (-> task-details
-                          (tab/select-cols [:task :hours :tot-hours :pm :progress :description]) to-table)]]}
-          {:id "person-totals"
-           :title "Person totals"
-           :content [:div {:class "space-y-3"}
-                     [:h2 "Totals per person"]
-                     [:div {:class "overflow-x-auto"}
-                      (if (s/can-view-costs? account)
-                        (-> (map-col project-hours :tag #(if (= "VOL" %) "VOL" ""))
-                            (aggr [:hours :cost] [:name :tag])
-                            (tab/select-cols [:name :tag :hours :cost]) to-table)
-                        (-> (map-col project-hours :tag #(if (= "VOL" %) "VOL" ""))
-                            (aggr [:hours] [:name :tag])
-                            (tab/select-cols [:name :tag :hours]) to-table))]]}
-          {:id "monthly-details"
-           :title "Monthly details"
-           :content [:div {:class "space-y-3"}
-                     [:h2 "Detail of monthly hours used per person on each task"]
-                     [:div {:class "overflow-x-auto"}
-                      (if (s/can-view-costs? account)
-                        (-> project-hours
-                            (sort :month :desc)
-                            to-table)
-                        (-> project-hours
-                            (tab/select-cols [:month :name :task :hours])
-                            (sort :month :desc)
-                            to-table))]]}])]])
-    (f/when-failed [e]
-      (web/render account (web/render-error (f/message e)))))))
+         (project-detail-tabs account project-hours task-details))]]])
+     (f/when-failed [e]
+       (web/render account (web/render-error (f/message e)))))))
 
 (defn infra
   ([config account projname]
@@ -338,6 +441,7 @@ gantt.parse(tasks);
                        (derive-years config project-conf))]
     (render-project-response request account
                              [:div
+                              (fixed-cost-project-activity-section projname project-hours)
                               [:h1 (str projname " fixed costs overview")]
                               [:h2 "Yearly totals"]
                               (if (s/can-view-costs? account)
@@ -371,6 +475,7 @@ gantt.parse(tasks);
                        (derive-years config project-conf))]
     (render-project-response request account
                              [:div
+                              (fixed-cost-project-activity-section projname project-hours)
                               [:h1 (str projname " fixed costs overview")]
                               [:h2 "Yearly totals"]
                               (if (s/can-view-costs? account)
