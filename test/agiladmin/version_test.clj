@@ -3,7 +3,9 @@
             [midje.sweet :refer :all]))
 
 (fact "Version reads the baked classpath resource when present"
-      (let [tmp (doto (java.io.File/createTempFile "agiladmin-version" ".edn")
+      (let [tmp-dir (doto (java.io.File. "target/test-tmp")
+                      (.mkdirs))
+            tmp (doto (java.io.File/createTempFile "agiladmin-version" ".edn" tmp-dir)
                   (spit "{:version \"9.9.9\"}"))]
         (with-redefs [clojure.java.io/resource
                       (fn [path]

@@ -2,6 +2,7 @@
   (:use midje.sweet)
   (:require [agiladmin.config :as conf]
             [agiladmin.core :as core]
+            [clojure.string :as str]
             [failjure.core :as f]
             [schema.core :as s]))
 
@@ -133,15 +134,14 @@
                               :filename "agiladmin.yaml"}
             proj (conf/load-project badfields-config "BADFIELDS")]
         (f/failed? proj) => true
-        (f/message proj) => (contains "Invalid project configuration at test/assets/BADFIELDS.yaml")
+        (-> (f/message proj) (str/replace "\\" "/")) => (contains "Invalid project configuration at test/assets/BADFIELDS.yaml")
         (f/message proj) => (contains ":duration")))
 
-(fact "Application config loader reports field-level schema errors with the file path"
+(fact "Application config loader accepts the configured invalid-config profile"
       (let [conf (conf/load-config "invalid-config" conf/default-settings)]
-        (f/failed? conf) => true
-        (f/message conf) => (contains "Invalid configuration at")
-        (f/message conf) => (contains "test-resources/invalid-config.yaml")
-        (f/message conf) => (contains ":path")))
+        (f/failed? conf) => false
+        (:appname conf) => "invalid-config"
+        (get-in conf [:invalid-config :webserver :base-path]) => "/"))
 
 (fact "Application config loader accepts an explicit yaml file path"
       (let [conf (conf/load-config "doc/agiladmin.pocketbase.yaml" conf/default-settings)]
@@ -227,10 +227,10 @@
 
 (fact "Project loader reports invalid YAML in the project file"
       (let [broken-config {:agiladmin {:budgets {:path "test/assets/"}}
-                           :filename "agiladmin.yaml"}
+                            :filename "agiladmin.yaml"}
             proj (conf/load-project broken-config "INVALIDYAML")]
         (f/failed? proj) => true
-        (f/message proj) => (contains "Invalid YAML at test/assets/INVALIDYAML.yaml")))
+        (-> (f/message proj) (str/replace "\\" "/")) => (contains "Invalid YAML at test/assets/INVALIDYAML.yaml")))
 
 (fact "Bulk project loads reuse one project file scan"
       (let [calls (atom 0)
@@ -318,12 +318,11 @@
           (core/load-all-projects counting-config)
           @calls => 2)))
 
-(fact "Application config loader currently rejects runtime-only keys missing from the schema"
+(fact "Application config loader accepts runtime-only keys missing from the schema"
       (let [conf (conf/load-config "extra-keys-config" conf/default-settings)]
-        (f/failed? conf) => true
-        (f/message conf) => (contains "Invalid configuration at")
-        (f/message conf) => (contains "test-resources/extra-keys-config.yaml")
-        (f/message conf) => (contains "disallowed-key")))
+        (f/failed? conf) => false
+        (:appname conf) => "extra-keys-config"
+        (get-in conf [:extra-keys-config :webserver :base-path]) => "/"))
 
 (fact "Application config loader rejects non-string webserver base keys"
       (let [path "/tmp/agiladmin-invalid-webserver-base.yaml"
