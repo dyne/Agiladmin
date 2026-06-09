@@ -425,6 +425,7 @@
     (page/include-js  (asset-path config "/static/js/dhtmlxgantt_marker.js"))
     (page/include-js  (asset-path config "/static/js/sorttable.js"))
     (page/include-js  (asset-path config "/static/js/htmx.min.js"))
+    (page/include-js  (asset-path config "/static/js/plotly.min.js"))
     (page/include-js  (str (asset-path config "/static/js/app.js")
                            "?v="
                            version/current))

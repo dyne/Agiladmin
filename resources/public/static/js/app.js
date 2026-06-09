@@ -18,6 +18,11 @@
         panels.forEach(function (panel) {
           panel.hidden = panel.getAttribute("data-tab-panel") !== id;
         });
+
+        window.requestAnimationFrame(function () {
+          initPlotlyCharts(group);
+          resizePlotlyCharts(group);
+        });
       }
 
       triggers.forEach(function (trigger) {
@@ -99,6 +104,83 @@
       });
       update();
     });
+  }
+
+  function plotlyConfig() {
+    return {
+      responsive: true,
+      displaylogo: false,
+      modeBarButtonsToRemove: ["select2d", "lasso2d", "autoScale2d"],
+    };
+  }
+
+  function canRenderChart(chart) {
+    return Boolean(chart && chart.getClientRects && chart.getClientRects().length);
+  }
+
+  function plotlyFallback(chart, message) {
+    if (!chart) {
+      return;
+    }
+
+    chart.innerHTML =
+      '<p class="rounded-box border border-dashed border-base-300 px-4 py-6 text-sm text-base-content/70">' +
+      message +
+      "</p>";
+  }
+
+  function renderPlotlyChart(chart) {
+    if (!chart || chart.dataset.plotlyInitialized === "true") {
+      return;
+    }
+
+    if (!window.Plotly) {
+      plotlyFallback(chart, "Plotly is not available in this browser session.");
+      return;
+    }
+
+    if (!canRenderChart(chart)) {
+      return;
+    }
+
+    var rawSpec = chart.getAttribute("data-plotly-spec") || "";
+    if (rawSpec === "") {
+      plotlyFallback(chart, "No chart data was provided.");
+      return;
+    }
+
+    var spec;
+    try {
+      spec = JSON.parse(rawSpec);
+    } catch (error) {
+      plotlyFallback(chart, "This chart could not be parsed.");
+      return;
+    }
+
+    chart.dataset.plotlyInitialized = "true";
+    window.Plotly.newPlot(chart, spec.data || [], spec.layout || {}, plotlyConfig());
+  }
+
+  function resizePlotlyCharts(root) {
+    if (!window.Plotly || !window.Plotly.Plots) {
+      return;
+    }
+
+    Array.prototype.slice
+      .call(root.querySelectorAll("[data-plotly-chart][data-plotly-initialized='true']"))
+      .forEach(function (chart) {
+        if (canRenderChart(chart)) {
+          window.Plotly.Plots.resize(chart);
+        }
+      });
+  }
+
+  function initPlotlyCharts(root) {
+    Array.prototype.slice
+      .call(root.querySelectorAll("[data-plotly-chart]"))
+      .forEach(function (chart) {
+        renderPlotlyChart(chart);
+      });
   }
 
   function applyTheme(theme) {
@@ -344,6 +426,7 @@
     initTabGroups(root);
     initNavToggles(root);
     initTextFilters(root);
+    initPlotlyCharts(root);
     initThemeToggle(root);
     initPageLoading(root);
     initUploadProgress(root);
@@ -353,7 +436,7 @@
     boot(document);
   });
 
-  document.addEventListener("htmx:afterSwap", function (event) {
+  document.addEventListener("htmx:load", function (event) {
     boot(event.target);
   });
 
@@ -370,5 +453,7 @@
       .forEach(function (indicator) {
         indicator.style.display = "none";
       });
+
+    resizePlotlyCharts(document);
   });
 })();
