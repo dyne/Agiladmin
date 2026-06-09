@@ -137,11 +137,14 @@
         (-> (f/message proj) (str/replace "\\" "/")) => (contains "Invalid project configuration at test/assets/BADFIELDS.yaml")
         (f/message proj) => (contains ":duration")))
 
-(fact "Application config loader accepts the configured invalid-config profile"
-      (let [conf (conf/load-config "invalid-config" conf/default-settings)]
-        (f/failed? conf) => false
-        (:appname conf) => "invalid-config"
-        (get-in conf [:invalid-config :webserver :base-path]) => "/"))
+(fact "Application config loader reports field-level schema errors with the file path"
+      (let [conf (conf/load-config "test-resources/invalid-config.yaml"
+                                   conf/default-settings)]
+        (f/failed? conf) => true
+        (f/message conf) => (contains "Invalid configuration at")
+        (-> (f/message conf) (str/replace "\\" "/"))
+        => (contains "test-resources/invalid-config.yaml")
+        (f/message conf) => (contains ":path")))
 
 (fact "Application config loader accepts an explicit yaml file path"
       (let [conf (conf/load-config "doc/agiladmin.pocketbase.yaml" conf/default-settings)]
@@ -318,11 +321,14 @@
           (core/load-all-projects counting-config)
           @calls => 2)))
 
-(fact "Application config loader accepts runtime-only keys missing from the schema"
-      (let [conf (conf/load-config "extra-keys-config" conf/default-settings)]
-        (f/failed? conf) => false
-        (:appname conf) => "extra-keys-config"
-        (get-in conf [:extra-keys-config :webserver :base-path]) => "/"))
+(fact "Application config loader rejects runtime-only keys missing from the schema"
+      (let [conf (conf/load-config "test-resources/extra-keys-config.yaml"
+                                   conf/default-settings)]
+        (f/failed? conf) => true
+        (f/message conf) => (contains "Invalid configuration at")
+        (-> (f/message conf) (str/replace "\\" "/"))
+        => (contains "test-resources/extra-keys-config.yaml")
+        (f/message conf) => (contains "disallowed-key")))
 
 (fact "Application config loader rejects non-string webserver base keys"
       (let [path "/tmp/agiladmin-invalid-webserver-base.yaml"
