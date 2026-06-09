@@ -338,20 +338,18 @@
         visible-projects (vec (map first top-projects))
         other-projects (set/difference (set (map :project rows))
                                        (set visible-projects))
-        visible-rows (if (seq other-projects)
-                       (concat
-                        (filter #(some #{(:project %)} visible-projects) rows)
-                        [{:project "Other"
-                          :month "aggregate"
-                          :hours (sum-hours (filter #(contains? other-projects (:project %)) rows))}])
-                       rows)
         months (mapv #(format "%04d-%02d" year %) (range 1 13))
-        project-order (vec (sort (conj visible-projects "Other")))
+        project-order (cond-> visible-projects
+                        (seq other-projects) (conj "Other"))
         matrix (mapv (fn [project]
                        (mapv (fn [month]
-                               (sum-hours (filter #(and (= (:project %) project)
-                                                        (= (month->label (:month %)) month))
-                                                  visible-rows)))
+                               (sum-hours
+                                (filter
+                                 #(and (= (month->label (:month %)) month)
+                                       (if (= project "Other")
+                                         (contains? other-projects (:project %))
+                                         (= (:project %) project)))
+                                 rows)))
                              months))
                      project-order)]
     (-> {:data [(plot-heatmap months project-order matrix)]
@@ -406,7 +404,27 @@
                             :name "Hours"
                             :hovertemplate "%{x}<br>%{y:.1f} hours<extra></extra>")]
            :layout (chart-layout "Annual hours")}
-          realize-plot))))
+        realize-plot))))
+
+(defn chart-eligibility
+  "Describe whether a chart has enough source data to be useful."
+  [hours chart]
+  (let [rows (tab/rows hours)
+        active-months (count (distinct (map #(month->label (:month %))
+                                            (filter #(pos? (double (or (:hours %) 0))) rows))))
+        active-projects (count (distinct (map :project
+                                              (filter #(pos? (double (or (:hours %) 0))) rows))))]
+    (cond
+      (empty? rows)
+      {:status :empty :reason "No recorded hours for this period"}
+
+      (and (= chart :heatmap)
+           (or (< active-months 2) (< active-projects 2)))
+      {:status :omitted
+       :reason "A heatmap needs at least two active projects and two active months"}
+
+      :else
+      {:status :ready})))
 
 (defn project-task-budget-chart-spec
   [task-details]

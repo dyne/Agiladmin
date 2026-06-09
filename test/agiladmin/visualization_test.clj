@@ -54,6 +54,25 @@
         (map :period (:rows data)) => ["Q1" "Q2" "Q3" "Q4"]
         (tab/sum-col data :hours) => 18.0))
 
+(fact "Heatmap eligibility requires two active projects and months"
+      (viz/chart-eligibility sample-hours :heatmap) => (contains {:status :ready})
+      (viz/chart-eligibility
+       (tab/dataset [{:month "2026-1" :project "CORE" :hours 1}])
+       :heatmap) => (contains {:status :omitted}))
+
+(fact "Heatmap reduces more than eight projects before serialization"
+      (let [hours (tab/dataset
+                   (for [project (range 10)
+                         month ["2026-1" "2026-2"]]
+                     {:month month
+                      :project (str "P" project)
+                      :hours (inc project)}))
+            spec (viz/person-activity-heatmap-spec hours 2026)
+            trace (first (:data spec))]
+        (count (:y trace)) => 9
+        (last (:y trace)) => "Other"
+        (count (:z trace)) => 9))
+
 (fact "Task budget rows preserve actual and planned values"
       (let [data (viz/task-budget-data (tab/dataset
                                         [:task :description :hours :pm]
