@@ -269,8 +269,12 @@
           (:body response) => (contains "Uploaded: upload.xlsx"))))
 
 (fact "Timesheet upload accepts a real xlsx workbook fixture"
-      (let [temp-root (.toFile (java.nio.file.Files/createTempDirectory "agiladmin-upload-test"
-                                                                       (make-array java.nio.file.attribute.FileAttribute 0)))
+      (let [temp-parent (doto (io/file "target/test-tmp")
+                          (.mkdirs))
+            temp-root (.toFile (java.nio.file.Files/createTempDirectory
+                                (.toPath temp-parent)
+                                "agiladmin-upload-test"
+                                (make-array java.nio.file.attribute.FileAttribute 0)))
             upload-path (str temp-root "/fixture-upload.xlsx")
             budgets-path (str temp-root "/budgets/")]
         (.mkdirs (io/file budgets-path))

@@ -507,7 +507,7 @@
   (let [path (s/param req :path)]
     (if (.exists (io/file path))
       (let [repo (conf/q conf [:agiladmin :budgets :path])
-            dst (str repo (fs/base-name path))]
+            dst (str repo (.getName (io/file path)))]
         (if (not (and (seq repo) (.isDirectory (io/file repo))))
           (render-commit-message req acct
            (str "Timesheet submit is unavailable until the budgets directory exists: " repo))
