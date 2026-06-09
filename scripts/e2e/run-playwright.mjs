@@ -145,7 +145,6 @@ async function startCaddyProxy(basePath) {
     }
   });
 
-  await waitForLogin(`${PROXY_ORIGIN}${basePath === "/" ? "/login" : `${basePath}/login`}`, 15000);
   return child;
 }
 
