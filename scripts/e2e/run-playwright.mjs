@@ -3,13 +3,14 @@ import { promises as fs } from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
+import { fileURLToPath } from "node:url";
 
 const args = process.argv.slice(2);
 const BACKEND_ORIGIN = "http://127.0.0.1:18080";
 const PROXY_ORIGIN = "http://127.0.0.1:18081";
 const E2E_BASE_PATH = normalizeBasePath(process.env.E2E_BASE_PATH ?? "/");
 const E2E_PROXY = process.env.E2E_PROXY ?? "node";
-const REPO_ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..", "..");
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 let server;
 let proxyServer;
 let caddyProcess;
@@ -144,9 +145,12 @@ function stopCaddyProxy() {
 }
 
 async function main() {
+  const localTemp = path.join(REPO_ROOT, ".tmp");
+  await fs.mkdir(localTemp, { recursive: true });
+  const childEnv = {...process.env, TEMP: localTemp, TMP: localTemp};
   server = spawn("node", ["./scripts/e2e/start-agiladmin.mjs"], {
     stdio: "inherit",
-    env: process.env,
+    env: childEnv,
   });
 
   server.on("exit", (code) => {
@@ -168,10 +172,11 @@ async function main() {
   await waitForLogin(loginUrl);
   const baseURL = proxied ? PROXY_ORIGIN : BACKEND_ORIGIN;
 
-  const runner = spawn("npx", ["playwright", "test", ...args], {
+  const playwrightCli = path.join(REPO_ROOT, "node_modules", "@playwright", "test", "cli.js");
+  const runner = spawn(process.execPath, [playwrightCli, "test", ...args], {
     stdio: "inherit",
     env: {
-      ...process.env,
+      ...childEnv,
       PLAYWRIGHT_BASE_URL: baseURL,
     },
   });

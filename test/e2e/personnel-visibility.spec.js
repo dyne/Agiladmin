@@ -33,6 +33,10 @@ test("admin can upload from an individual person page", async ({ page }) => {
 });
 
 test("manager sees own person page instead of the personnel list", async ({ page }) => {
+  const consoleErrors = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") consoleErrors.push(message.text());
+  });
   await loginAs(page, "manager");
   await page.goto("/persons/list");
 
@@ -40,6 +44,18 @@ test("manager sees own person page instead of the personnel list", async ({ page
   await expect(page.locator("#timesheet-workspace")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Persons", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Guest", exact: true })).toHaveCount(0);
+  await expect(page.locator('[data-plotly-chart="true"]').first()).toHaveAttribute(
+    "data-plotly-initialized",
+    "true",
+  );
+  await expect(page.locator('[data-plotly-chart="true"] svg').first()).toHaveCount(1);
+  await expect(page.getByText("Monthly project mix")).toBeVisible();
+  await expect(page.getByText("Average per active month")).toBeVisible();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.locator('[data-plotly-chart="true"]').first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Download current timesheet" })).toBeVisible();
+  expect(consoleErrors).toEqual([]);
 });
 
 test("manager can upload from their person page", async ({ page }) => {
