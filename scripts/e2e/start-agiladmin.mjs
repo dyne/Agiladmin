@@ -2,9 +2,9 @@ import { spawn } from "node:child_process";
 import { promises as fs } from "node:fs";
 import { createWriteStream } from "node:fs";
 import path from "node:path";
-import os from "node:os";
+import { fileURLToPath } from "node:url";
 
-const REPO_ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), "..", "..");
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const TMP_ROOT_PREFIX = "agiladmin-e2e-";
 const STATE_DIR = path.join(REPO_ROOT, ".tmp");
 const STATE_PATH = path.join(STATE_DIR, "agiladmin-e2e-state.json");
@@ -12,6 +12,11 @@ const OUTPUT_DIR = path.join(REPO_ROOT, "output", "playwright");
 const LOG_PATH = path.join(OUTPUT_DIR, "agiladmin-server.log");
 const DEBUG_E2E = process.env.DEBUG_E2E === "1";
 const E2E_BASE_PATH = normalizeBasePath(process.env.E2E_BASE_PATH ?? "/");
+const CLOJURE_CMD =
+  process.env.CLOJURE_CMD ??
+  (process.platform === "win32" && process.env.LOCALAPPDATA
+    ? path.join(process.env.LOCALAPPDATA, "Apps", "clojure", "clj.exe")
+    : "clojure");
 
 function normalizeBasePath(basePath) {
   const raw = String(basePath ?? "").trim();
@@ -61,7 +66,7 @@ async function generateOwnedFixture(sourceFixturePath, targetFixturePath, ownerN
     `(agiladmin.e2e.generate-manager-fixture/-main ${JSON.stringify(sourceFixturePath)} ${JSON.stringify(targetFixturePath)} ${JSON.stringify(ownerName)})`,
   ].join(" ");
   await new Promise((resolve, reject) => {
-    const child = spawn("clojure", ["-M", "-e", expr], {
+    const child = spawn(CLOJURE_CMD, ["-M", "-e", expr], {
       cwd: REPO_ROOT,
       stdio: "inherit",
     });
@@ -81,12 +86,12 @@ async function generateOwnedFixture(sourceFixturePath, targetFixturePath, ownerN
 }
 
 async function prepareEnv() {
-  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), TMP_ROOT_PREFIX));
+  await fs.mkdir(STATE_DIR, { recursive: true });
+  const tempRoot = await fs.mkdtemp(path.join(STATE_DIR, TMP_ROOT_PREFIX));
   const budgetsDir = path.join(tempRoot, "budgets");
   const fixturesDir = path.join(tempRoot, "fixtures");
   await fs.mkdir(budgetsDir, { recursive: true });
   await fs.mkdir(fixturesDir, { recursive: true });
-  await fs.mkdir(STATE_DIR, { recursive: true });
   await fs.mkdir(OUTPUT_DIR, { recursive: true });
 
   await copyBudgetFixtures(budgetsDir);
@@ -137,7 +142,7 @@ async function prepareEnv() {
 async function start() {
   const state = await prepareEnv();
   const logStream = createWriteStream(LOG_PATH, { flags: "a" });
-  const child = spawn("clojure", ["-M:run"], {
+  const child = spawn(CLOJURE_CMD, ["-M:run"], {
     cwd: REPO_ROOT,
     env: {
       ...process.env,
