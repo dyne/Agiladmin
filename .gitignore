@@ -4,6 +4,7 @@ dev-resources
 .nrepl-port
 .gorilla-port
 .cpcache
+.gestalt
 test/assets/Budget_uno.xlsx
 test/assets/Budget_due.xlsx
 test/assets/Budget_tre.xlsx
