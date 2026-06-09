@@ -23,6 +23,7 @@
    [agiladmin.tabular :as tab]
    [agiladmin.utils :as util]
    [agiladmin.graphics :refer :all]
+   [agiladmin.visualization :as viz]
    [agiladmin.webpage :as web]
    [agiladmin.session :as s]
    [failjure.core :as f]
@@ -30,6 +31,7 @@
    [clojure.data.json :as json :refer [read-str]]
    [agiladmin.config :as conf]
    [agiladmin.view-timesheet :as view-timesheet]
+   [clojure.string :as str]
    [taoensso.timbre :as log :refer [debug]]
    [hiccup.form :as hf]))
 
@@ -72,6 +74,95 @@
           :Voluntary_hours voluntary-hours}]
         tab/dataset
         to-table)))
+
+(defn- chart-id
+  [person year suffix]
+  (-> (str "person-" person "-" year "-" suffix)
+      str/lower-case
+      (str/replace #"[^a-z0-9_-]+" "-")))
+
+(defn- month-totals
+  [hours year]
+  (vec
+   (for [month (range 1 13)]
+     (let [month-key (str year "-" month)
+           month-hours (tab/filter-by hours {:month month-key})]
+       {:month month-key
+        :hours (tab/sum-col month-hours :hours)
+        :projects (count (distinct (tab/column-values month-hours :project)))}))))
+
+(defn- longest-active-run
+  [months]
+  (loop [months months
+         current 0
+         best 0]
+    (if-let [month (first months)]
+      (let [active? (pos? (:hours month))
+            next-current (if active? (inc current) 0)
+            next-best (max best next-current)]
+        (recur (rest months) next-current next-best))
+      best)))
+
+(defn- person-activity-summary
+  [hours year]
+  (let [month-data (month-totals hours year)
+        active-months (filter #(pos? (:hours %)) month-data)
+        total-hours (tab/sum-col hours :hours)
+        peak-month (->> month-data (apply max-key :hours) :month)
+        peak-hours (->> month-data (apply max-key :hours) :hours)]
+    (into
+     [:div {:class "grid gap-3 md:grid-cols-2 xl:grid-cols-4"}]
+     [[:div {:class "rounded-box border border-base-300 bg-base-100 p-4 shadow-sm"}
+       [:div {:class "text-sm text-base-content/70"} "Total hours"]
+       [:div {:class "text-2xl font-semibold"} (util/round total-hours)]]
+      [:div {:class "rounded-box border border-base-300 bg-base-100 p-4 shadow-sm"}
+       [:div {:class "text-sm text-base-content/70"} "Active months"]
+       [:div {:class "text-2xl font-semibold"} (count active-months)]]
+      [:div {:class "rounded-box border border-base-300 bg-base-100 p-4 shadow-sm"}
+       [:div {:class "text-sm text-base-content/70"} "Peak month"]
+       [:div {:class "text-2xl font-semibold"} (str (viz/month->label peak-month) " " (util/round peak-hours))]]
+      [:div {:class "rounded-box border border-base-300 bg-base-100 p-4 shadow-sm"}
+       [:div {:class "text-sm text-base-content/70"} "Longest active run"]
+       [:div {:class "text-2xl font-semibold"} (longest-active-run month-data)]]])))
+
+(defn- person-activity-section
+  [config person year hours]
+  (let [rows (:rows hours)
+        month-data (month-totals hours year)
+        monthly-spec (viz/person-monthly-project-chart-spec hours year)
+        period-spec (viz/person-period-chart-spec hours year)
+        projects (count (distinct (map :project rows)))
+        heatmap-spec (when (>= projects 2)
+                       (viz/person-activity-heatmap-spec hours year))]
+    [:section {:class "space-y-4"}
+     [:div {:class "space-y-1"}
+      [:h2 {:class "text-2xl font-semibold"} "Yearly activity"]
+      [:p {:class "text-sm text-base-content/70"}
+       "These charts summarize the year before the monthly detail cards."]]
+     (person-activity-summary hours year)
+     [:div {:class "grid gap-4 xl:grid-cols-2"}
+      [:div
+       (viz/plotly-chart-block
+        (chart-id person year "monthly")
+        "Monthly project mix"
+        monthly-spec
+        {:description "Stacked hours by project across the selected year."
+         :fallback "No monthly activity is available for this person."})]
+      [:div
+       (viz/plotly-chart-block
+        (chart-id person year "period")
+        "Period totals"
+        period-spec
+        {:description "Quarter totals show how activity changed through the year."
+         :fallback "No period totals are available for this person."})]
+      (when heatmap-spec
+        [:div {:class "xl:col-span-2"}
+         (viz/plotly-chart-block
+          (chart-id person year "heatmap")
+          "Project heatmap"
+          heatmap-spec
+          {:description "Projects on the y-axis, months on the x-axis."
+           :fallback "A heatmap needs at least two active projects and two active months."})])]]))
 
 (defn- voluntary-hours?
   "Return true when personnel pages should mention voluntary hours."
@@ -145,9 +236,10 @@
        [:div {:class "space-y-6"}
         (person-download-timesheet config ts-file)
         [:br]
-        [:div {:class "space-y-6"}
+       [:div {:class "space-y-6"}
          [:h1 "Yearly totals"]
          (person-hours-summary hours)
+         (person-activity-section config person year hours)
          [:div {:class "divider"}]
          [:h1 "Monthly totals"]
          monthly-sections]
@@ -263,13 +355,14 @@
                                                {:cost (reduce + 0 (map :cost rows))}))))
                    monthly-average (-> (tab/average-col monthly-costs :cost)
                                        util/round)]
-               [:div {:class "space-y-6"}
+                [:div {:class "space-y-6"}
                 [:h1 "Yearly totals"]
                 (-> {:Total_hours (-> (tab/sum-col costs :hours) util/round)
                      :Voluntary_hours (-> (tab/sum-col voluntary-costs :hours) util/round)
                      :Total_billed (-> (tab/sum-col billed-costs :cost) util/round)
                      :Monthly_average monthly-average}
                     vector tab/dataset to-table)
+                (person-activity-section config person year hours)
                 (person-download-toolbar
                  config person year
                  (into [["Date" "Name" "Project" "Task" "Tags" "Hours" "Cost" "CPH"]]
