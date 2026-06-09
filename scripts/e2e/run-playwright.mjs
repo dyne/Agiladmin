@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { promises as fs } from "node:fs";
 import http from "node:http";
 import path from "node:path";
@@ -14,6 +14,17 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..
 let server;
 let proxyServer;
 let caddyProcess;
+
+function stopProcessTree(child) {
+  if (!child || child.killed) return;
+  if (process.platform === "win32") {
+    spawnSync("taskkill.exe", ["/pid", String(child.pid), "/T", "/F"], {
+      stdio: "ignore",
+    });
+    return;
+  }
+  child.kill("SIGTERM");
+}
 
 function normalizeBasePath(basePath) {
   const raw = String(basePath ?? "").trim();
@@ -185,9 +196,7 @@ async function main() {
     runner.on("exit", (code) => resolve(code ?? 1));
   });
 
-  if (server && !server.killed) {
-    server.kill("SIGTERM");
-  }
+  stopProcessTree(server);
   if (proxyServer) {
     await new Promise((resolve) => proxyServer.close(resolve));
   }
@@ -197,9 +206,7 @@ async function main() {
 
 for (const signal of ["SIGINT", "SIGTERM"]) {
   process.on(signal, () => {
-    if (server && !server.killed) {
-      server.kill("SIGTERM");
-    }
+    stopProcessTree(server);
     if (proxyServer) {
       proxyServer.close();
     }
@@ -210,9 +217,7 @@ for (const signal of ["SIGINT", "SIGTERM"]) {
 
 main().catch((err) => {
   console.error(err);
-  if (server && !server.killed) {
-    server.kill("SIGTERM");
-  }
+  stopProcessTree(server);
   if (proxyServer) {
     proxyServer.close();
   }

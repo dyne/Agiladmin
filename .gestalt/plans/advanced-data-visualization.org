@@ -1,0 +1,278 @@
+#+TITLE: Advanced Data Visualization
+#+SUBTITLE: Add Tablecloth and Tableplot charts to project and personnel views, with Clay as the exploration and verification workspace
+#+DATE: 2026-06-09
+#+KEYWORDS: visualization tablecloth tableplot clay plotly projects personnel managers hours
+
+* DONE [#A] Establish the visualization architecture and dependency baseline
+Effort: M
+Goal: Introduce the requested Scicloj stack with a narrow boundary that does not rewrite spreadsheet ingestion or run Clay inside normal HTTP requests.
+Notes: Challenge the direct idea of replacing `agiladmin.tabular` everywhere with Tablecloth. The existing table abstraction is small, tested, and used throughout old domain code. Keep it authoritative for current application behavior and convert to Tablecloth only at the visualization boundary. Use Tableplot's stable v1 Plotly API for production charts because it realizes a plain Plotly specification that Ring can embed. Use Clay for REPL exploration, chart prototyping, and generated review reports, not as request middleware or a second application server. At planning time the current artifacts were `scicloj/tablecloth` 8.021, `org.scicloj/tableplot` 1-beta17, and `org.scicloj/clay` 2.0.16; verify these again immediately before implementation and pin exact versions.
+
+** DONE [#A] Add pinned Scicloj dependencies with Clay isolated to development
+Why: Tablecloth and Tableplot are needed by production chart-model code, while Clay has a broader report/notebook role and should not increase the normal runtime surface unless required.
+Change: Update `deps.edn` as follows:
+- add exact compatible versions of `scicloj/tablecloth` and `org.scicloj/tableplot` to `:deps`;
+- add `org.scicloj/clay` under a dedicated `:viz` alias with `:extra-paths ["dev"]`;
+- do not add `dataset-io`: Agiladmin already reads Excel through Docjure and only needs to convert its in-memory row maps;
+- resolve the dependency tree before coding and check for version conflicts involving Clojure, Jackson, SLF4J, Apache POI, and `tech.ml.dataset`;
+- keep existing application logging bindings authoritative and exclude/override only if dependency resolution proves it necessary.
+Create `dev/agiladmin/visualization_notebook.clj` as a minimal Clay entry point that requires the same production chart-model functions used by the web views. Do not duplicate chart logic in the notebook.
+Tests: Run `clj -Stree`, `clj -M:test`, and `clj -M:viz -e "(require 'agiladmin.visualization-notebook)"`. If the environment needs redirected Clojure config/cache paths, use the repository-approved writable locations.
+Done when: Dependencies resolve without warnings that change the effective logging or POI stack, the existing full test suite passes, and the Clay namespace loads without starting a server during application startup.
+
+** DONE [#A] Add the local Plotly browser asset and initializer
+Why: Tableplot's Plotly API produces Plotly specifications but a browser still needs Plotly.js. Agiladmin already serves frontend libraries locally and should not introduce a CDN dependency or inline chart scripts.
+Change: Add the smallest browser dependency needed to package a pinned minified Plotly.js distribution locally. Prefer `plotly.js-dist-min` as a development dependency in `package.json`, then extend `scripts/sync-frontend-assets.mjs` to copy its browser file into `resources/public/static/js/plotly.min.js`. Preserve its license notice. Include the copied asset in `web/render-head` before `app.js`, using `web/asset-path` so configured base paths work. In `resources/public/static/js/app.js`, add a native initializer that:
+- finds elements marked with `data-plotly-chart`;
+- reads and parses the escaped JSON specification from a data attribute or adjacent safe JSON container;
+- calls `Plotly.newPlot` with `spec.data`, `spec.layout`, and a small shared config (`responsive`, no vendor logo, accessible modebar choices);
+- marks initialized elements to avoid duplicate rendering;
+- runs on initial DOM load and `htmx:load`, because project details arrive as HTMX fragments;
+- uses `Plotly.Plots.resize` on relevant tab activation or container resize so charts do not render at zero width in hidden tabs;
+- leaves an accessible textual fallback in the chart container if JavaScript is disabled or parsing fails.
+Do not add a frontend framework, bundler, or custom chart library.
+Tests: Run `npm install`, `npm run build:frontend`, and focused `webpage` tests for the script path. Add a Playwright assertion that `window.Plotly` exists, one chart initializes, and an HTMX-loaded project chart has an SVG/canvas descendant.
+Done when: Plotly is served locally under the configured base path, initializes both full-page and HTMX fragment charts, and existing frontend behavior remains intact.
+
+** DONE [#A] Create a single adapter and chart rendering boundary
+Why: Domain and view namespaces should not know Tableplot internals, JSON embedding rules, or browser initialization details.
+Change: Add `src/agiladmin/visualization.clj` with native doc-comments and three small responsibilities:
+- `to-tablecloth`: convert an `agiladmin.tabular` dataset from `:rows` into `tc/dataset`, preserving keyword columns and returning an empty typed dataset for empty input;
+- `realize-plot`: call `plotly/plot` on a Tableplot template and normalize the resulting map to JSON-safe values;
+- `plotly-chart`: return Hiccup containing a titled responsive chart region, optional description, accessible fallback summary/table link, and the safely escaped realized specification consumed by `app.js`.
+Keep chart IDs deterministic within a page and unique across repeated components. Put theme/layout defaults in one helper: transparent/base background, Nord-compatible colors, readable axes, horizontal legend where appropriate, responsive width, and margins that work on narrow screens. Never interpolate untrusted values into JavaScript source. Prefer Hiccup-escaped data attributes; if specifications are too large, use an `application/json` element with explicit escaping of `<`, `>`, `&`, U+2028, and U+2029.
+Tests: Add `test/agiladmin/visualization_test.clj` for legacy-to-Tablecloth conversion, empty data, Plotly spec shape, safe serialization of strings containing quotes and `</script>`, deterministic IDs, and fallback markup. Add the namespace to `test/agiladmin/test_runner.clj` if test discovery is explicit.
+Done when: Views can render a chart by passing a realized chart model to one helper, no view emits inline plotting JavaScript, and hostile labels cannot break out of the serialized chart payload.
+
+* DONE [#A] Define reusable visualization data models from existing domain facts
+Effort: L
+Goal: Produce deterministic, testable chart datasets for monthly, annual, period, task, project, person, and planned-versus-actual interpretations.
+Notes: Keep this as a vertical visualization slice, not a second domain model. The ubiquitous terms are `worked hours`, `voluntary hours`, `billable hours`, `person`, `project`, `task`, `month`, `year`, `period`, `planned hours`, and `actual hours`. Invariants: hours are non-negative; month order is chronological rather than lexical; missing months appear as zero where a timeline requires continuity; managers never receive cost fields; voluntary rows stay distinguishable on personnel charts but remain excluded from project hours according to the existing `load-project-monthly-hours` behavior.
+
+** DONE [#A] Normalize month and period dimensions
+Why: Existing month values use both `YYYY-M` and `YYYY-MM`; lexical sorting would place months incorrectly and gaps would make trend charts misleading.
+Change: In `agiladmin.visualization`, add pure helpers that parse existing month strings into:
+- `:month-date` as a typed first-of-month date suitable for Tableplot;
+- numeric `:year-number` and `:month-number`;
+- display `:month-label`;
+- `:quarter` (`Q1` through `Q4`);
+- `:period` for configurable contiguous month groups, defaulting to quarters;
+- a sortable month index.
+Add `complete-months` for a selected year and `complete-project-months` for a project's observed or configured date range. Fill absent aggregates with zero only after grouping, not at raw-entry level. Invalid month strings should return a Failjure failure or explicit validation result consistent with the caller, never silently sort as text.
+Tests: Add table-driven tests for one- and two-digit months, leap-year February labels, chronological ordering, quarter boundaries, missing-month completion, and invalid input. Include the fixture shape from `2016_timesheet_Luca-Pacioli.xlsx`.
+Done when: Every chart model consumes one canonical chronological month representation and a January-to-December series always has exactly twelve ordered rows.
+
+** DONE [#A] Build personnel activity datasets
+Why: Personnel pages currently repeat monthly cards and tables, which expose detail but make yearly patterns and concentrated periods difficult to see.
+Change: Add pure functions that accept the existing personnel `hours` dataset and return Tablecloth datasets for:
+- monthly total hours for all twelve months;
+- monthly hours grouped by project, with absent combinations omitted and absent month totals represented as zero;
+- monthly hours grouped into billable and voluntary categories, where tag `VOL` is voluntary and all other tags are worked/billable for visualization wording;
+- project-by-month heatmap values;
+- quarter/period totals and percentage of the selected year's total;
+- yearly summary rows containing total hours, active months, average hours per active month, highest month, and longest consecutive active-month run.
+Do not derive daily or week-of-month values. The spreadsheet contains daily cells, but current application data only retains monthly assignment totals; adding day-level activity belongs to a separate parser plan.
+Tests: Use small synthetic datasets plus the 2016 Luca Pacioli expected rows. Assert total conservation: monthly totals, project stacks, billable/voluntary stacks, period totals, and yearly total must all sum to the same source hours. Assert that zero months remain visible and voluntary hours are not lost.
+Done when: Personnel chart models explain both the shape through the year and concentrated periods without changing the existing monthly detail datasets.
+
+** DONE [#A] Build project manager datasets
+Why: Managers need to understand when work happened, who performed it, which tasks consumed effort, and how actual effort compares with the configured plan.
+Change: Add pure project chart-model functions for:
+- monthly total hours across the complete observed project range;
+- monthly hours grouped by task;
+- monthly hours grouped by person;
+- annual total hours;
+- task actual hours versus configured task budget (`pm * 150`);
+- task remaining hours, clamped only for display where needed while preserving negative overrun values in the model;
+- cumulative actual project hours;
+- cumulative planned hours derived conservatively from configured task `start_date`, `duration`, and `pm`.
+For planned hours, use an explicit well-known linear allocation: distribute each task's `pm * 150` evenly over its configured duration months. Tasks missing start, duration, or PM must be excluded from the planned curve and reported in model metadata; do not invent dates or budgets. Treat an overrun as actual greater than planned/total and make it visible. For infra/rolling projects without task schedules, omit planned curves and retain monthly/annual/person totals.
+Tests: Add fixtures covering multiple people and tasks, multiple years, empty months, a task overrun, tasks with incomplete configuration, and an infra/rolling project. Assert conservation between raw hours and every aggregation. Assert planned totals equal the sum of valid task budgets.
+Done when: A manager-facing model can answer monthly trend, annual trend, composition, task budget usage, and cumulative actual-versus-plan without exposing cost data.
+
+** DONE [#B] Define chart specifications as pure functions
+Why: Chart choices and encoding should be reviewable and testable without rendering an HTTP page or opening a browser.
+Change: Add pure Tableplot functions returning realized Plotly specifications:
+- `person-monthly-project-chart`: stacked monthly bars by project, ordered January to December, with total hours in hover text;
+- `person-activity-heatmap`: projects on the y-axis, months on the x-axis, color representing hours; limit to the most active projects and combine the remainder as `Other` when the legend/axis would become unreadable;
+- `person-period-chart`: quarter/period bars with hours and share of annual total;
+- `project-monthly-task-chart`: stacked monthly bars by task, with a configurable fallback to person grouping when task values are blank or only one task exists;
+- `project-annual-hours-chart`: annual bars for multi-year data, omitted when only one year exists;
+- `project-task-budget-chart`: horizontal actual-versus-budget bars ordered by utilization, with overruns clearly marked;
+- `project-cumulative-chart`: cumulative actual line against cumulative planned line, omitted when no valid planned series exists.
+Use color to reinforce categories, not as the only carrier of meaning. Include explicit axis titles, hover templates, units, legend labels, and readable empty-state metadata. Do not use pie/donut charts, 3D charts, smoothing, or dual y-axes: they add interpretation cost without improving these comparisons.
+Tests: Assert each realized spec has expected trace types, x/y values, grouping names, chronological order, units, layout titles, and no `:cost` values for manager models. Snapshot only small normalized spec fragments rather than whole generated maps, because Tableplot defaults may change.
+Done when: Every approved chart has a pure constructor with focused tests and can be rendered in Clay from the same function used by Ring.
+
+* DONE [#A] Prototype and review chart semantics in Clay
+Effort: M
+Goal: Use Clay to evaluate the charts against real fixture data before placing them in production views.
+Notes: Clay is the design and reporting adapter in this architecture. It should make assumptions visible and support reviewer discussion, while the production renderer continues to consume realized Plotly specs directly. Keep fixture data local and do not publish personnel data to external services.
+
+** DONE [#A] Build a reproducible visualization notebook
+Why: Chart semantics are easier to challenge side by side with source tables, intermediate datasets, and explicit caveats than inside the final application page.
+Change: Expand `dev/agiladmin/visualization_notebook.clj` into a Clay document that:
+- loads `test/assets/2016_timesheet_Luca-Pacioli.xlsx` and project YAML through existing Agiladmin functions;
+- displays the legacy raw dataset, normalized Tablecloth dataset, each personnel chart, and representative project charts;
+- states the monthly-only granularity limitation;
+- shows aggregation checks and omitted-plan metadata;
+- includes narrow and wide rendering variants;
+- contains no production credentials, budgets paths, or user data outside test fixtures.
+Add a `:viz` command or documented `clj -M:viz -m ...` entry that writes a static report under a gitignored `target/visualization/` directory. Do not commit generated HTML unless explicitly requested.
+Tests: Run the Clay generation command and inspect that the report contains the expected headings, source tables, and charts without evaluation errors.
+Done when: A reviewer can regenerate one local HTML report and compare every proposed chart against fixture data and its source totals.
+
+** DONE [#A] Record visualization acceptance criteria from the prototype
+Why: Attractive output is not enough; each graph must answer a concrete management or personnel question and remain legible with realistic category counts.
+Change: In the Clay notebook and implementation notes, evaluate each chart against these questions:
+- Project manager: In which months and years was effort spent? Which tasks and people drove it? Is effort ahead of or behind the configured plan? Which tasks are near or beyond budget?
+- Personnel: How did activity vary through the selected year? Which projects dominated each period? Where are inactive or unusually concentrated months? How much activity was voluntary when that setting is enabled?
+Test stress cases with 1, 5, 12, and more than 12 projects/tasks; one month versus twelve months; blank task IDs; missing plan data; and an overrun. Choose deterministic category reduction rules, default chart heights, and legend placement from those results. Update the pure chart tests with the accepted rules.
+Tests: Regenerate the Clay report after stress fixtures are added. No browser E2E is required in this L2 unless production code changes.
+Done when: Each chart has a written question, omission rule, category limit, empty state, and accepted narrow-screen behavior.
+
+* DONE [#A] Add manager-focused charts to project views without replacing detail tables
+Effort: L
+Goal: Put high-level interpretation above existing detailed project tables while preserving manager authorization and HTMX behavior.
+Notes: Follow REPR within the existing route: request handling remains in `view-project/start`, chart preparation belongs to project visualization functions, and the response remains Hiccup/full-page or fragment through `render-project-response`. This is one project-detail use-case slice. Managers can see hours but never costs; admins may retain current cost tables, but the first chart set should be hour-based and identical for both roles.
+
+** DONE [#A] Add the H2020 project overview charts
+Why: The current H2020 page leads with totals, Gantt, and tables but does not reveal effort over time or actual-versus-plan at a glance.
+Change: In `src/agiladmin/view_project.clj`, prepare chart models once from `project-hours`, `task-details`, and project configuration. Add a `Project activity` section above the detailed tabs containing:
+- cumulative actual versus planned hours when valid plan data exists;
+- stacked monthly hours by task, or by person according to the deterministic fallback rule;
+- horizontal task actual-versus-budget utilization.
+Keep the Gantt JS island unchanged. Keep all existing tables authoritative beneath the charts. Include concise explanatory text and accessible fallback summaries. Do not calculate or serialize costs for managers. Avoid recomputing project hours or task details per chart.
+Tests: Extend `view_project_test.clj` to assert chart containers and meaningful headings for managers/admins, omission of plan chart with incomplete configuration, absence of cost values in manager chart payloads, and retention of existing tables/edit rules. Run visualization, project view, session, and handler tests.
+Done when: An HTMX-loaded H2020 project displays the approved overview charts before details, existing tables still render, and manager HTML contains no cost data.
+
+** DONE [#A] Add monthly and annual charts to infra and rolling project views
+Why: These project types currently show only yearly and personnel tables, even though the source rows can reveal monthly seasonality and multi-year change.
+Change: Refactor only enough duplicated `infra`/`rolling` rendering to share one small fixed-cost project overview helper. Add:
+- monthly total hours, grouped by person when useful;
+- annual total hours when the data spans more than one year;
+- the existing yearly and personnel detail tables directly below the charts.
+Do not add task budget or planned curves where schedules/tasks are absent. Preserve role-based cost columns in tables exactly as today; charts remain hours-only for consistent manager interpretation.
+Tests: Add view tests for single-year omission of the annual chart, multi-year annual chart inclusion, manager cost exclusion, and empty data. Run project and visualization tests.
+Done when: Infra and rolling views provide time-based interpretation without pretending to have task-plan data.
+
+** DONE [#B] Verify responsive and HTMX project rendering in the browser
+Why: Plotly charts can initialize incorrectly in hidden tabs or newly swapped fragments even when server-side tests pass.
+Change: Extend Playwright project coverage to log in as manager, select a project through the existing HTMX list, and verify:
+- chart containers become initialized;
+- at least one chart has rendered graphical content;
+- no browser console errors occur;
+- resize to a narrow viewport preserves readable horizontal scrolling/responsiveness;
+- existing detail tabs and tables remain usable;
+- no cost labels or amounts appear for the manager.
+Use fixture/harness data with enough months and tasks to exercise the charts. Do not assert exact SVG paths or pixel output.
+Tests: Run the focused project Playwright spec, then `npm run test:e2e`.
+Done when: Manager project charts render after HTMX swaps at desktop and narrow widths with no console errors or authorization regression.
+
+* DONE [#A] Add activity interpretation charts to personnel views
+Effort: L
+Goal: Make yearly personnel activity understandable before the reader enters month-by-month detail cards.
+Notes: Use one personnel visualization slice shared by admin, manager, and regular own-person views. Chart content must follow capabilities and configuration: all roles can see their own hours; only admins may continue to see monetary tables; voluntary hours are shown as a separate visual category only when `:voluntary-hours` is enabled. Keep the selected year as the route's scope and do not silently load every historical timesheet in the first implementation.
+
+** DONE [#A] Add the shared yearly personnel activity section
+Why: Both manager and admin variants repeat the same month cards, and both benefit from one consistent hours-first interpretation layer.
+Change: Add a private `person-activity-section` in `src/agiladmin/view_person.clj` or a small dedicated `view_person_activity.clj` slice if the existing namespace becomes harder to read. It receives config, person, year, and the already-loaded `hours` dataset and renders:
+- stacked monthly hours by project for all twelve months;
+- project-by-month heatmap when at least two active projects and two active months exist;
+- quarter/period totals;
+- compact summary facts: total hours, active months, monthly average, peak month, and longest active run.
+Place this section after yearly totals and before monthly detail cards in both `list-person-manager` and the admin branch of `list-person`. Reuse one computed chart model; do not rerun workbook parsing or cost derivation. Keep monthly detail tables unchanged.
+Tests: Extend `view_person_test.clj` for chart presence, January-to-December payload ordering, zero-month inclusion, shared rendering for manager/admin, existing download/upload controls, and no extra cost derivation. Run personnel, visualization, graphics, and handler tests.
+Done when: Every authorized personnel page shows the same hours-based yearly activity overview above the detailed month cards.
+
+** DONE [#A] Apply voluntary and cost visibility rules to personnel charts
+Why: The chart layer must not bypass the existing capability and configuration boundaries.
+Change: When `:voluntary-hours` is true and voluntary rows exist, distinguish voluntary hours in hover/fallback summaries and optionally add the accepted billable-versus-voluntary chart from the Clay review. When false, do not label or expose voluntary categories separately, matching current page wording. Keep cost charts out of the initial personnel visualization scope: costs are already available in detailed admin tables, while the requested interpretation focuses on activity and hours. Confirm that manager and regular-user serialized chart specs contain only hour/category/date fields.
+Tests: Add positive and negative voluntary-setting tests, manager payload scans for cost-related fields, and conservation assertions showing hidden labeling does not change total hours.
+Done when: Visualization output follows the same voluntary-hours and cost-visibility policy as the surrounding page.
+
+** DONE [#B] Verify personnel charts and details in the browser
+Why: The yearly overview adds significant responsive content above a long list of monthly cards and must remain usable on narrow screens.
+Change: Extend Playwright personnel coverage to verify a manager/regular own-person page and an admin page:
+- charts initialize without console errors;
+- the 12-month axis and accessible fallback/description exist;
+- monthly detail cards and project links still work;
+- voluntary labeling follows the generated config;
+- charts resize at mobile width and do not obscure upload/download controls.
+Do not depend on exact Plotly-generated DOM structure beyond a stable initialized marker and graphical child.
+Tests: Run the focused personnel Playwright spec and then `npm run test:e2e`.
+Done when: Personnel charts render for each relevant role at desktop and mobile widths without breaking existing detail interactions.
+
+* DONE [#B] Add performance, empty-state, and operational safeguards
+Effort: M
+Goal: Ensure richer views remain predictable with large budgets repositories and incomplete data.
+Notes: The charts are derived from data already loaded by each page. Do not introduce background jobs, databases, or a new cache unless measurement proves it necessary. Prefer omission plus explanation over malformed empty charts.
+
+** DONE [#B] Add explicit chart eligibility and empty states
+Why: Plotting one point, no categories, or incomplete plan data often creates more confusion than a short explanation.
+Change: Centralize eligibility predicates and return chart model metadata such as `:status`, `:reason`, and `:omitted-rows`. Required rules:
+- no hours: show one compact `No recorded hours for this period` state and retain detail tables;
+- one active month: show a simple bar, not a misleading trend line;
+- one year: omit the annual comparison chart;
+- no valid task budgets: omit budget/progress charts and explain that task PM/date configuration is incomplete;
+- too many categories: apply the accepted deterministic top-N plus `Other` aggregation;
+- all-zero voluntary series: omit that category.
+Log invalid source dates/configuration once at warning level with project context, without logging personnel costs or full datasets.
+Tests: Add model and view tests for each rule and confirm no exception is thrown for empty Tablecloth datasets.
+Done when: Every chart location has a deterministic useful output or a concise reason for omission.
+
+** DONE [#B] Measure and bound request-time work
+Why: Tableplot realization and JSON serialization add CPU and response size, especially when many people, tasks, or months are present.
+Change: Add lightweight development measurements in the Clay notebook or a test helper for:
+- conversion and aggregation time;
+- plot realization time;
+- serialized bytes per chart and per page.
+Use realistic synthetic upper bounds based on repository data (for example 10 years, 50 people, 50 tasks) and confirm category reduction occurs before serialization. Reuse chart models within each request. Only if measurements show a meaningful problem, add an in-memory chart-spec cache keyed by budgets path, entity, selected year/project, role capability set, and source-data cache generation; invalidate it alongside existing reload/timesheet cache invalidation. Do not cache by default merely because charts exist.
+Tests: Add a non-flaky size assertion or benchmark note, not a strict timing test in CI. If a cache is introduced, add invalidation and role-isolation tests.
+Done when: Typical pages have bounded chart payloads, no repeated workbook loads or repeated model construction, and any cache is justified by recorded measurements.
+
+* DONE [#A] Complete regression coverage, documentation, and reviewer evidence
+Effort: M
+Goal: Finish with reproducible tests, maintainable conventions, and a clear record of what the graphs can and cannot claim.
+Notes: Follow the repository plan workflow during implementation: create branch `advanced-data-visualization`, run the baseline suite before edits, execute L1/L2 in order, run touched tests per code-changing L2, and create one conventional commit for every changed L2 before marking it DONE.
+
+** DONE [#A] Run focused and full verification
+Why: The change crosses dependency resolution, server-side data preparation, HTML serialization, local assets, HTMX swaps, and browser rendering.
+Change: After all focused tests pass:
+- run `clj -M:test`;
+- run `npm run build:frontend`;
+- run `npm run test:e2e`;
+- run `npm run test:e2e:base-path` to prove Plotly assets work below a public prefix;
+- regenerate the Clay fixture report;
+- inspect browser console output for chart errors;
+- use `rg` to confirm no CDN URL, inline `Plotly.newPlot`, or cost field was added to manager chart code.
+Record any environment-only failure with the exact command and error; do not declare completion after code edits alone.
+Tests: The commands above are the tests.
+Done when: Full Clojure and browser suites pass, frontend assets build, base-path rendering works, and the Clay report regenerates.
+
+** DONE [#A] Document visualization ownership and data limitations
+Why: Future agents need to know where chart models belong and must not infer daily precision from monthly totals.
+Change: Update `AGENTS.md` with a concise LLM-oriented section stating:
+- legacy `agiladmin.tabular` remains the domain/application table format;
+- `agiladmin.visualization` adapts to Tablecloth and owns Tableplot specifications;
+- Clay is for local exploration/review, not request handling;
+- Plotly.js is a local frontend asset initialized by `app.js`, including after `htmx:load`;
+- chart models must obey role capabilities and preserve detail tables;
+- available application facts are monthly assignment totals, not daily activity.
+Update `README.md` with dependency/setup commands, how to regenerate the Clay visualization report, and a short description of project/personnel graphs. Mention that `npm install`/frontend build now also synchronizes Plotly.
+Tests: Verify all documented commands against the implemented aliases and scripts.
+Done when: A maintainer can locate chart data preparation, production rendering, Clay prototypes, and the monthly-granularity boundary without reverse engineering the implementation.
+
+** DONE [#A] Produce the reviewer summary and evidence
+Why: Reviewers need a concise mapping from business questions to charts, data sources, permissions, and verification.
+Change: End implementation with a brief reviewer summary covering:
+- dependencies and why Clay is development-only;
+- project charts added for H2020, infra, and rolling projects;
+- personnel charts and voluntary-hours behavior;
+- retained detail tables and unchanged Gantt island;
+- manager cost-exclusion evidence;
+- monthly-only limitation and deferred daily parser work;
+- test, E2E, base-path, and Clay report results;
+- payload/performance observations and whether caching was needed.
+Tests: No new test. Cross-check the summary against commits and actual command results.
+Done when: The final review note is factual, concise, and identifies any remaining limitation without suggesting that unimplemented daily data exists.

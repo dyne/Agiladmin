@@ -109,6 +109,15 @@
 - Project and task identifiers are normalized to uppercase in several paths. Preserve that behavior when changing import or matching logic.
 - The codebase is old and not aggressively refactored. Prefer targeted fixes over stylistic rewrites.
 
+## Visualization Ownership
+- `agiladmin.tabular` remains the domain and application table format.
+- `src/agiladmin/visualization.clj` is the adapter to Tablecloth and owns all production Tableplot/Plotly specifications.
+- Clay is limited to local exploration and reviewer reports under the `:viz` alias; never invoke it during HTTP request handling.
+- Plotly.js is a local frontend asset initialized by `resources/public/static/js/app.js` on page load and `htmx:load`.
+- Chart models must follow the same role and configuration capabilities as their surrounding views. Manager payloads are hours-only.
+- Keep existing detail tables authoritative beneath charts and leave the DHTMLX Gantt island unchanged.
+- Available activity facts are monthly assignment totals. Do not infer daily, weekly, or within-month activity without a separate parser change.
+
 ## High-Risk Areas
 - `src/agiladmin/core.clj`
   - spreadsheet parsing is position-based and depends on hard-coded row/column coordinates.
