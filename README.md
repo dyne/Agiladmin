@@ -306,6 +306,33 @@ Notes:
 - [pb_migrations/](/home/jrml/devel/agiladmin/pb_migrations): PocketBase schema migrations kept for future schema changes
 - [test/agiladmin/](/home/jrml/devel/planb-agiladmin/test/agiladmin): Midje test suite
 
+## Data Visualizations
+
+Project pages add hours-only monthly, annual, task-budget, and cumulative
+plan-versus-actual charts where the available project data supports them.
+Personnel pages add a twelve-month project mix, quarter totals, a project
+heatmap when enough activity exists, and compact yearly summary facts. Existing
+tables remain the detailed and authoritative view.
+
+The production visualization boundary is `agiladmin.visualization`. It converts
+the existing tabular rows to Tablecloth and builds Tableplot/Plotly
+specifications. Plotly.js is served locally and synchronized with the other
+frontend assets:
+
+```sh
+npm install
+npm run build:frontend
+```
+
+Clay is development-only. Regenerate the fixture-based review report with:
+
+```sh
+clj -M:viz -m agiladmin.visualization-notebook
+```
+
+The report is written to `target/visualization/`. Charts use monthly assignment
+totals retained by the application; they do not imply daily or weekly precision.
+
 ## Operational Notes
 
 - Timesheet upload and commit logic writes temporary files under `/tmp/...`
