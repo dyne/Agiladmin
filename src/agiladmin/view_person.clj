@@ -108,16 +108,22 @@
   (let [month-data (month-totals hours year)
         active-months (filter #(pos? (:hours %)) month-data)
         total-hours (tab/sum-col hours :hours)
+        average-hours (if (seq active-months)
+                        (/ total-hours (count active-months))
+                        0)
         peak-month (->> month-data (apply max-key :hours) :month)
         peak-hours (->> month-data (apply max-key :hours) :hours)]
     (into
-     [:div {:class "grid gap-3 md:grid-cols-2 xl:grid-cols-4"}]
+     [:div {:class "grid gap-3 md:grid-cols-2 xl:grid-cols-5"}]
      [[:div {:class "rounded-box border border-base-300 bg-base-100 p-4 shadow-sm"}
        [:div {:class "text-sm text-base-content/70"} "Total hours"]
        [:div {:class "text-2xl font-semibold"} (util/round total-hours)]]
       [:div {:class "rounded-box border border-base-300 bg-base-100 p-4 shadow-sm"}
        [:div {:class "text-sm text-base-content/70"} "Active months"]
        [:div {:class "text-2xl font-semibold"} (count active-months)]]
+      [:div {:class "rounded-box border border-base-300 bg-base-100 p-4 shadow-sm"}
+       [:div {:class "text-sm text-base-content/70"} "Average per active month"]
+       [:div {:class "text-2xl font-semibold"} (util/round average-hours)]]
       [:div {:class "rounded-box border border-base-300 bg-base-100 p-4 shadow-sm"}
        [:div {:class "text-sm text-base-content/70"} "Peak month"]
        [:div {:class "text-2xl font-semibold"} (str (viz/month->label peak-month) " " (util/round peak-hours))]]
@@ -131,8 +137,8 @@
         month-data (month-totals hours year)
         monthly-spec (viz/person-monthly-project-chart-spec hours year)
         period-spec (viz/person-period-chart-spec hours year)
-        projects (count (distinct (map :project rows)))
-        heatmap-spec (when (>= projects 2)
+        heatmap-ready? (= :ready (:status (viz/chart-eligibility hours :heatmap)))
+        heatmap-spec (when heatmap-ready?
                        (viz/person-activity-heatmap-spec hours year))]
     [:section {:class "space-y-4"}
      [:div {:class "space-y-1"}
