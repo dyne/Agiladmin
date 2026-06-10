@@ -335,3 +335,28 @@
                                     "budgets/"
                                     #".*_timesheet_.*xlsx$")
           @calls => 2)))
+
+(fact "Recent project discovery uses the config-aware monthly loader"
+      (let [calls (atom [])]
+        (with-redefs [agiladmin.core/load-all-timesheets
+                      (fn [_ _ _]
+                        [:timesheet])
+                      agiladmin.core/monthly-hours-loader
+                      (fn [config]
+                        (swap! calls conj [:loader config])
+                        (fn [_ _ _]
+                          [{:month "2026-1"
+                            :project "INFRA"
+                            :hours 3}]))
+                      agiladmin.core/map-timesheets
+                      (fn [timesheets loop-fn cond-fn]
+                        (swap! calls conj [:map timesheets])
+                        {:column-names [:month :project :hours]
+                         :rows (loop-fn nil "2026-1" cond-fn)})]
+          (core/recent-project-names
+           {:agiladmin {:default-project "INFRA"}}
+           "budgets/"
+           2026)
+          => #{"INFRA"}
+          @calls => [[:loader {:agiladmin {:default-project "INFRA"}}]
+                     [:map [:timesheet]]])))

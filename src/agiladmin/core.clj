@@ -426,7 +426,7 @@
   [conf path current-year]
   (let [recent-years #{current-year (dec current-year)}]
     (->> (map-timesheets (load-all-timesheets conf path #".*_timesheet_.*xlsx$")
-                         load-monthly-hours
+                         (monthly-hours-loader conf)
                          (fn [info]
                            (when-let [month (:month info)]
                              (contains? recent-years
