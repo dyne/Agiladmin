@@ -170,6 +170,96 @@
       (let [failure (f/fail "bad project cell")]
         (core/effective-project failure "INFRA") => failure))
 
+(fact "Monthly hours loader applies the configured default project to blank assignments"
+      (with-redefs [dk.ative.docjure.spreadsheet/select-sheet (fn [_ _] :sheet)
+                    agiladmin.core/get-cell
+                    (fn [_ col row]
+                      (case [col row]
+                        ["B" "7"] "   "
+                        ["B" "8"] " task-1 "
+                        ["B" "9"] " vol "
+                        ["B" 43] 8.0
+                        nil))]
+        (let [loader (core/monthly-hours-loader {:agiladmin {:default-project "INFRA"}})]
+          (loader {:xls :book
+                   :name "Alice"}
+                  "2026-1"
+                  (fn [info]
+                    (= (:project info) "INFRA")))
+          => [{:month "2026-1"
+               :name "Alice"
+               :project "INFRA"
+               :task "TASK-1"
+               :tag "VOL"
+               :hours 8.0}])))
+
+(fact "Monthly hours loader keeps explicit projects and omits rows without a fallback"
+      (with-redefs [dk.ative.docjure.spreadsheet/select-sheet (fn [_ _] :sheet)
+                    agiladmin.core/get-cell
+                    (fn [_ col row]
+                      (case [col row]
+                        ["B" "7"] " CORE "
+                        ["B" "8"] " task-1 "
+                        ["B" "9"] ""
+                        ["B" 43] 8.0
+                        ["C" "7"] "   "
+                        ["C" "8"] " task-2 "
+                        ["C" "9"] ""
+                        ["C" 43] 5.0
+                        nil))]
+        (let [loader (core/monthly-hours-loader {:agiladmin {:default-project "INFRA"}})]
+          (loader {:xls :book
+                   :name "Alice"}
+                  "2026-1"
+                  (fn [_] true))
+          => [{:month "2026-1"
+               :name "Alice"
+               :project "CORE"
+               :task "TASK-1"
+               :tag ""
+               :hours 8.0}
+              {:month "2026-1"
+               :name "Alice"
+               :project "INFRA"
+               :task "TASK-2"
+               :tag ""
+               :hours 5.0}])
+        (core/load-monthly-hours {:xls :book
+                                  :name "Alice"}
+                                 "2026-1"
+                                 (fn [_] true))
+        => [{:month "2026-1"
+             :name "Alice"
+             :project "CORE"
+             :task "TASK-1"
+             :tag ""
+             :hours 8.0}]))
+
+(fact "Monthly hours loader still omits totals and non-positive fallback rows"
+      (with-redefs [dk.ative.docjure.spreadsheet/select-sheet (fn [_ _] :sheet)
+                    agiladmin.core/get-cell
+                    (fn [_ col row]
+                      (case [col row]
+                        ["B" "7"] " total "
+                        ["B" "8"] ""
+                        ["B" "9"] ""
+                        ["B" 43] 8.0
+                        ["C" "7"] "   "
+                        ["C" "8"] ""
+                        ["C" "9"] ""
+                        ["C" 43] 0.0
+                        ["D" "7"] "   "
+                        ["D" "8"] ""
+                        ["D" "9"] ""
+                        ["D" 43] nil
+                        nil))]
+        ((core/monthly-hours-loader {:agiladmin {:default-project "INFRA"}})
+         {:xls :book
+          :name "Alice"}
+         "2026-1"
+         (fn [_] true))
+        => []))
+
 (fact "Timesheet loads are uncached by default"
       (let [calls (atom 0)]
         (core/invalidate-timesheet-cache!)
