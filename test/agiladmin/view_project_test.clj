@@ -1,6 +1,7 @@
 (ns agiladmin.view-project-test
   (:require [agiladmin.view-project :as view-project]
             [failjure.core]
+            [agiladmin.tabular :as tab]
             [midje.sweet :refer :all]))
 
 (fact "Project start dispatches infra projects to the infra view"
@@ -277,6 +278,24 @@
           (:body response) =not=> (contains "Edit project configuration")
           (:body response) =not=> (contains ":cost")
           (:body response) =not=> (contains ">cost<"))))
+
+(fact "Project monthly chart falls back to person grouping when only one distinct task exists"
+      (with-redefs [agiladmin.visualization/project-monthly-task-chart-spec
+                    (fn [& _] :task-chart)
+                    agiladmin.visualization/project-monthly-person-chart-spec
+                    (fn [& _] :person-chart)]
+        (#'agiladmin.view-project/project-monthly-chart-spec
+         {:rows [{:task "TASK-1"} {:task "TASK-1"} {:task ""}]}
+         {}
+         2026) => :person-chart))
+
+(fact "Project activity section keeps the empty-state message when there are no recorded hours"
+      (let [html (#'agiladmin.view-project/project-activity-section
+                  "CORE"
+                  (tab/dataset [])
+                  (tab/dataset [])
+                  {})]
+        (str html) => (contains "No recorded hours are available for this project.")))
 
 (fact "Admin project monthly details retain cost output"
       (with-redefs [agiladmin.config/load-project

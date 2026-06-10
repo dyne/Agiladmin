@@ -82,6 +82,17 @@
         (map :planned rows) => [150.0 75.0]
         (map :utilization rows) => [0.2 0.0]))
 
+(fact "Task budget chart uses numeric x values for horizontal bars"
+      (let [spec (viz/project-task-budget-chart-spec
+                  (tab/dataset
+                   [{:task "T1" :description "Task one" :hours 30 :pm 1}
+                    {:task "T2" :description "Task two" :hours 15 :pm 0.5}]))
+            actual-trace (first (:data spec))]
+        (:orientation actual-trace) => "h"
+        (:x actual-trace) => [30.0 15.0]
+        (:y actual-trace) => ["T1" "T2"]
+        (:hovertemplate actual-trace) => "%{y}<br>%{x:.1f} hours<extra>Actual</extra>"))
+
 (fact "Project cumulative charts expose actual and planned traces"
       (let [hours (tab/dataset
                    [:month :name :project :task :tag :hours]
@@ -93,4 +104,6 @@
             spec (viz/project-cumulative-chart-spec hours tasks)]
         (count (:data spec)) => 2
         (map :name (:data spec)) => ["Actual" "Planned"]
+        (count (:x (first (:data spec)))) => 12
+        (count (:y (first (:data spec)))) => 12
         (get-in spec [:layout :title :text]) => "Cumulative hours"))
