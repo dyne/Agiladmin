@@ -38,6 +38,7 @@ function yamlConfig(budgetsPath, sshKeyPath) {
     "  source:",
     "    git: https://github.com/dyne/agiladmin",
     "    update: true",
+    "  default-project: DIRECT",
     "  webserver:",
     "    host: 127.0.0.1",
     "    port: 18080",
@@ -52,7 +53,7 @@ function yamlConfig(budgetsPath, sshKeyPath) {
 async function copyBudgetFixtures(targetDir) {
   const srcDir = path.join(REPO_ROOT, "test", "assets");
   const entries = await fs.readdir(srcDir, { withFileTypes: true });
-  const whitelist = new Set(["UNO.yaml", "DUE.yaml", "TRE.yaml", "BADFIELDS.yaml", "BROKEN.yaml", "INVALIDYAML.yaml"]);
+  const whitelist = new Set(["UNO.yaml", "DIRECT.yaml", "DUE.yaml", "TRE.yaml", "BADFIELDS.yaml", "BROKEN.yaml", "INVALIDYAML.yaml"]);
   for (const entry of entries) {
     if (!entry.isFile() || !entry.name.endsWith(".yaml")) continue;
     if (!whitelist.has(entry.name)) continue;
@@ -60,10 +61,14 @@ async function copyBudgetFixtures(targetDir) {
   }
 }
 
-async function generateOwnedFixture(sourceFixturePath, targetFixturePath, ownerName) {
+function toCljStringLiteral(value) {
+  return value == null ? "nil" : JSON.stringify(value);
+}
+
+async function generateOwnedFixture(sourceFixturePath, targetFixturePath, ownerName, blankProjectCol = null) {
   const expr = [
     "(load-file \"scripts/e2e/generate-manager-fixture.clj\")",
-    `(agiladmin.e2e.generate-manager-fixture/-main ${JSON.stringify(sourceFixturePath)} ${JSON.stringify(targetFixturePath)} ${JSON.stringify(ownerName)})`,
+    `(agiladmin.e2e.generate-manager-fixture/-main ${toCljStringLiteral(sourceFixturePath)} ${toCljStringLiteral(targetFixturePath)} ${toCljStringLiteral(ownerName)} ${toCljStringLiteral(blankProjectCol)})`,
   ].join(" ");
   await new Promise((resolve, reject) => {
     const child = spawn(CLOJURE_CMD, ["-M", "-e", expr], {
@@ -103,9 +108,11 @@ async function prepareEnv() {
   const adminFixturePath = path.join(fixturesDir, "2016_timesheet_Luca-Pacioli.xlsx");
   const managerFixturePath = path.join(fixturesDir, "2016_timesheet_Manager.xlsx");
   const guestFixturePath = path.join(fixturesDir, "2016_timesheet_Guest.xlsx");
+  const unassignedFixturePath = path.join(fixturesDir, "2016_timesheet_Luca-Pacioli-unassigned.xlsx");
   await fs.copyFile(path.join(REPO_ROOT, "test", "assets", "2016_timesheet_Luca-Pacioli.xlsx"), adminFixturePath);
   await generateOwnedFixture(adminFixturePath, managerFixturePath, "Manager");
   await generateOwnedFixture(adminFixturePath, guestFixturePath, "Guest");
+  await generateOwnedFixture(adminFixturePath, unassignedFixturePath, "L.Pacioli", "B");
 
   await fs.copyFile(managerFixturePath, path.join(budgetsDir, "2026_timesheet_Manager.xlsx"));
   await fs.copyFile(guestFixturePath, path.join(budgetsDir, "2026_timesheet_Guest.xlsx"));
@@ -121,6 +128,7 @@ async function prepareEnv() {
       admin: adminFixturePath,
       manager: managerFixturePath,
       guest: guestFixturePath,
+      unassigned: unassignedFixturePath,
     },
     basePath: E2E_BASE_PATH,
     logPath: LOG_PATH,
@@ -135,6 +143,7 @@ async function prepareEnv() {
     console.error("[DEBUG_E2E] fixture_admin:", adminFixturePath);
     console.error("[DEBUG_E2E] fixture_manager:", managerFixturePath);
     console.error("[DEBUG_E2E] fixture_guest:", guestFixturePath);
+    console.error("[DEBUG_E2E] fixture_unassigned:", unassignedFixturePath);
   }
   return state;
 }
