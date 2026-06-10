@@ -160,6 +160,16 @@
              :tag "VOL"
              :hours 8.0}]))
 
+(fact "Effective project prefers explicit values and falls back only for blanks"
+      (core/effective-project " CORE " "INFRA") => "CORE"
+      (core/effective-project "total" "INFRA") => nil
+      (core/effective-project " ToTaL " "INFRA") => nil
+      (core/effective-project "" "INFRA") => "INFRA"
+      (core/effective-project "   " "INFRA") => "INFRA"
+      (core/effective-project "" nil) => nil
+      (let [failure (f/fail "bad project cell")]
+        (core/effective-project failure "INFRA") => failure))
+
 (fact "Timesheet loads are uncached by default"
       (let [calls (atom 0)]
         (core/invalidate-timesheet-cache!)

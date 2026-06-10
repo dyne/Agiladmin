@@ -103,6 +103,17 @@
            (log/spy :error) f/fail)
       cell)))
 
+(defn effective-project
+  "Return the explicit project when present, otherwise the configured default."
+  [project default-project]
+  (if (f/failed? project)
+    project
+    (let [project (some-> project trim)]
+      (cond
+        (blank? project) default-project
+        (strcasecmp project "total") nil
+        :else project))))
+
 (defn load-monthly-hours
   "load hours from a timesheet month if conditions match"
   ([timesheet month]
