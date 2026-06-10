@@ -51,6 +51,10 @@
   (when (f/failed? @config)
     (throw (ex-info (f/message @config)
                     {:type ::config-load-failed})))
+  (reset! config (conf/validate-default-project @config))
+  (when (f/failed? @config)
+    (throw (ex-info (f/message @config)
+                    {:type ::config-load-failed})))
   (let [keypath (conf/q @config [:agiladmin :budgets :ssh-key])]
     (if-not (.exists (io/as-file keypath))
       (let [kp (generate-key-pair)]

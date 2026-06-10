@@ -234,6 +234,34 @@
         (f/failed? conf) => false
         (conf/default-project conf) => "INFRA"))
 
+(fact "Default project validation leaves config unchanged when absent"
+      (let [conf {:agiladmin {:budgets {:path "test/assets/"}}
+                  :filename "agiladmin.yaml"}]
+        (conf/validate-default-project conf) => conf))
+
+(fact "Default project validation accepts a valid project"
+      (let [conf {:agiladmin {:budgets {:path "test/assets/"}
+                              :default-project "UNO"}
+                  :filename "agiladmin.yaml"}]
+        (conf/validate-default-project conf) => conf))
+
+(fact "Default project validation rejects a missing project"
+      (let [conf {:agiladmin {:budgets {:path "test/assets/"}
+                              :default-project "MISSING"}
+                  :filename "agiladmin.yaml"}
+            validated (conf/validate-default-project conf)]
+        (f/failed? validated) => true
+        (f/message validated) => (contains "Configured default project MISSING cannot be loaded")))
+
+(fact "Default project validation rejects an invalid project file"
+      (let [conf {:agiladmin {:budgets {:path "test/assets/"}
+                              :default-project "BADFIELDS"}
+                  :filename "agiladmin.yaml"}
+            validated (conf/validate-default-project conf)]
+        (f/failed? validated) => true
+        (f/message validated) => (contains "Configured default project BADFIELDS cannot be loaded")
+        (f/message validated) => (contains "Invalid project configuration")))
+
 (fact "Application config loader preserves personnel display settings"
       (let [path "/tmp/agiladmin-personnel-display.yaml"
             _ (spit path

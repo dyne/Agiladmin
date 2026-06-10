@@ -103,6 +103,8 @@
 
 (def project-defaults {})
 
+(declare load-project)
+
 (defn- project-entry-map?
   [value]
   (and (map? value)
@@ -254,6 +256,19 @@
   "Return the configured default project name in canonical uppercase form."
   [conf]
   (get-in conf [:agiladmin :default-project]))
+
+(defn validate-default-project
+  "Ensure the configured default project resolves to a valid project configuration."
+  [conf]
+  (if-let [project-name (default-project conf)]
+    (let [project (load-project conf project-name)]
+      (if (f/failed? project)
+        (f/fail (str "Configured default project "
+                     project-name
+                     " cannot be loaded: "
+                     (f/message project)))
+        conf))
+    conf))
 
 (defn- normalize-default-project
   [conf]
