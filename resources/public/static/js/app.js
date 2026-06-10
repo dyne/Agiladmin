@@ -161,6 +161,28 @@
     window.Plotly.newPlot(chart, spec.data || [], spec.layout || {}, plotlyConfig());
   }
 
+  function schedulePlotlyChart(chart) {
+    if (
+      !chart ||
+      chart.dataset.plotlyInitialized === "true" ||
+      chart.dataset.plotlyScheduled === "true"
+    ) {
+      return;
+    }
+
+    chart.dataset.plotlyScheduled = "true";
+    var render = function () {
+      chart.dataset.plotlyScheduled = "false";
+      renderPlotlyChart(chart);
+    };
+
+    if (window.requestIdleCallback) {
+      window.requestIdleCallback(render, { timeout: 250 });
+    } else {
+      window.setTimeout(render, 0);
+    }
+  }
+
   function resizePlotlyCharts(root) {
     if (!window.Plotly || !window.Plotly.Plots) {
       return;
@@ -179,7 +201,7 @@
     Array.prototype.slice
       .call(root.querySelectorAll("[data-plotly-chart]"))
       .forEach(function (chart) {
-        renderPlotlyChart(chart);
+        schedulePlotlyChart(chart);
       });
   }
 

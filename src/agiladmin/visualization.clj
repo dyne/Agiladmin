@@ -199,6 +199,29 @@
               {:name person
                :hours (sum-hours (get by-month-person [(:month month) person] []))})))))
 
+(defn compact-person-series
+  "Keep the most active people for a year and combine the remainder as Other."
+  [hours year max-series]
+  (let [year (Integer/parseInt (str year))
+        rows (filter #(= (some-> % :month parse-month :year) year)
+                     (tab/rows hours))
+        people (->> rows
+                    (group-by :name)
+                    (map (fn [[person person-rows]]
+                           [person (sum-hours person-rows)]))
+                    (sort-by (fn [[person total]]
+                               [(- total) (str person)])))
+        visible-people (set (map first (take max-series people)))
+        compact? (> (count people) max-series)]
+    (tab/dataset
+     (:column-names hours)
+     (mapv (fn [row]
+             (if (and compact?
+                      (not (contains? visible-people (:name row))))
+               (assoc row :name "Other")
+               row))
+           rows))))
+
 (defn project-annual-hours-data
   "Return annual totals for multi-year project data."
   [hours]

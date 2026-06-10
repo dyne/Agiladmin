@@ -112,10 +112,17 @@
 (defn- fixed-cost-project-activity-section
   [projname project-hours]
   (let [rows (:rows project-hours)
-        years (->> rows (keep #(some-> % :month viz/parse-month :year)) distinct count)
-        year (some-> rows first :month viz/parse-month :year)
+        project-years (->> rows
+                           (keep #(some-> % :month viz/parse-month :year))
+                           distinct
+                           clojure.core/sort
+                           vec)
+        years (count project-years)
+        year (last project-years)
+        monthly-hours (when year
+                        (viz/compact-person-series project-hours year 12))
         monthly-spec (when year
-                       (viz/project-monthly-person-chart-spec project-hours year))
+                       (viz/project-monthly-person-chart-spec monthly-hours year))
         annual-spec (when (> years 1)
                       (viz/project-annual-hours-chart-spec project-hours))]
     [:section {:class "space-y-4"}

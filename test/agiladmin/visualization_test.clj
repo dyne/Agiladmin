@@ -107,3 +107,17 @@
         (count (:x (first (:data spec)))) => 12
         (count (:y (first (:data spec)))) => 12
         (get-in spec [:layout :title :text]) => "Cumulative hours"))
+
+(fact "Fixed-cost person series keep top contributors and preserve all hours"
+      (let [hours (tab/dataset
+                   (for [person (range 15)
+                         month [1 2]]
+                     {:month (str "2026-" month)
+                      :name (str "Person-" person)
+                      :project "INFRA"
+                      :hours (inc person)}))
+            compact (viz/compact-person-series hours 2026 12)
+            spec (viz/project-monthly-person-chart-spec compact 2026)]
+        (count (:data spec)) => 13
+        (set (map :name (:data spec))) => (contains "Other")
+        (tab/sum-col compact :hours) => (tab/sum-col hours :hours)))

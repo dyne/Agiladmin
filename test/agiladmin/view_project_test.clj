@@ -297,6 +297,30 @@
                   {})]
         (str html) => (contains "No recorded hours are available for this project.")))
 
+(fact "Fixed-cost project charts use the latest year and compact person series"
+      (let [calls (atom [])
+            hours (tab/dataset
+                   [{:month "2024-1" :name "Old Person" :hours 1}
+                    {:month "2026-1" :name "Current Person" :hours 2}])]
+        (with-redefs [agiladmin.visualization/compact-person-series
+                      (fn [source year max-series]
+                        (swap! calls conj [:compact source year max-series])
+                        source)
+                      agiladmin.visualization/project-monthly-person-chart-spec
+                      (fn [source year]
+                        (swap! calls conj [:monthly source year])
+                        {:data [] :layout {}})
+                      agiladmin.visualization/project-annual-hours-chart-spec
+                      (fn [source]
+                        (swap! calls conj [:annual source])
+                        {:data [] :layout {}})]
+          (#'agiladmin.view-project/fixed-cost-project-activity-section
+           "INFRA"
+           hours)
+          @calls => [[:compact hours 2026 12]
+                     [:monthly hours 2026]
+                     [:annual hours]])))
+
 (fact "Admin project monthly details retain cost output"
       (with-redefs [agiladmin.config/load-project
                     (fn [_ _]
