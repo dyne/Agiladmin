@@ -207,6 +207,33 @@
         (f/failed? conf) => false
         (get-in conf [:agiladmin :cache]) => true))
 
+(fact "Application config loader leaves default project unset when omitted"
+      (let [path "/tmp/agiladmin-default-project-absent.yaml"
+            _ (spit path
+                    (str "appname: agiladmin\n\n"
+                         "agiladmin:\n"
+                         "  budgets:\n"
+                         "    git: ssh://git@example.org/admin-budgets\n"
+                         "    ssh-key: id_rsa\n"
+                         "    path: budgets/\n"))
+            conf (conf/load-config path conf/default-settings)]
+        (f/failed? conf) => false
+        (conf/default-project conf) => nil))
+
+(fact "Application config loader normalizes an explicit default project"
+      (let [path "/tmp/agiladmin-default-project-explicit.yaml"
+            _ (spit path
+                    (str "appname: agiladmin\n\n"
+                         "agiladmin:\n"
+                         "  budgets:\n"
+                         "    git: ssh://git@example.org/admin-budgets\n"
+                         "    ssh-key: id_rsa\n"
+                         "    path: budgets/\n"
+                         "  default-project: \" infra \"\n"))
+            conf (conf/load-config path conf/default-settings)]
+        (f/failed? conf) => false
+        (conf/default-project conf) => "INFRA"))
+
 (fact "Application config loader preserves personnel display settings"
       (let [path "/tmp/agiladmin-personnel-display.yaml"
             _ (spit path
@@ -360,3 +387,31 @@
             conf (conf/load-config path conf/default-settings)]
         (f/failed? conf) => true
         (f/message conf) => (contains ":upload-max-size")))
+
+(fact "Application config loader rejects a blank default project"
+      (let [path "/tmp/agiladmin-invalid-default-project-blank.yaml"
+            _ (spit path
+                    (str "appname: agiladmin\n\n"
+                         "agiladmin:\n"
+                         "  budgets:\n"
+                         "    git: ssh://git@example.org/admin-budgets\n"
+                         "    ssh-key: id_rsa\n"
+                         "    path: budgets/\n"
+                         "  default-project: \"   \"\n"))
+            conf (conf/load-config path conf/default-settings)]
+        (f/failed? conf) => true
+        (f/message conf) => (contains ":default-project")))
+
+(fact "Application config loader rejects a non-string default project"
+      (let [path "/tmp/agiladmin-invalid-default-project-type.yaml"
+            _ (spit path
+                    (str "appname: agiladmin\n\n"
+                         "agiladmin:\n"
+                         "  budgets:\n"
+                         "    git: ssh://git@example.org/admin-budgets\n"
+                         "    ssh-key: id_rsa\n"
+                         "    path: budgets/\n"
+                         "  default-project: 42\n"))
+            conf (conf/load-config path conf/default-settings)]
+        (f/failed? conf) => true
+        (f/message conf) => (contains ":default-project")))

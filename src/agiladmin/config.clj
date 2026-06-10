@@ -18,7 +18,7 @@
 
 (ns agiladmin.config
   (:require [clojure.pprint :refer [pprint]]
-            [clojure.string :as str :refer [upper-case]]
+            [clojure.string :as str :refer [blank? trim upper-case]]
             [clojure.java.io :as io]
             [clojure.walk :refer [keywordize-keys]]
             [auxiliary.core :as aux]
@@ -28,6 +28,9 @@
             [yaml.core :as yaml]
             [cheshire.core :refer :all]))
 
+(def NonBlankString
+  (s/constrained s/Str #(not (blank? %)) 'non-blank-string))
+
 (s/defschema Config
   {s/Keyword
    {:budgets {:git s/Str
@@ -35,6 +38,7 @@
               :path s/Str}
     (s/optional-key :projects) [s/Str]
     (s/optional-key :cache) s/Bool
+    (s/optional-key :default-project) NonBlankString
     (s/optional-key :voluntary-hours) s/Bool
     (s/optional-key :vat-percentage) s/Num
     (s/optional-key :webserver) {(s/optional-key :port) s/Num
@@ -246,6 +250,20 @@
   ;;     (f/fail (log/spy :error ["Invalid configuration: " conf ex]))))
   (get-in conf path))
 
+(defn default-project
+  "Return the configured default project name in canonical uppercase form."
+  [conf]
+  (get-in conf [:agiladmin :default-project]))
+
+(defn- normalize-default-project
+  [conf]
+  (let [project (get-in conf [:agiladmin :default-project])]
+    (cond
+      (nil? project) conf
+      (string? project) (assoc-in conf [:agiladmin :default-project]
+                                  (-> project trim upper-case))
+      :else conf)))
+
 (defn- project-file?
   [conf file]
   (let [name (.getName file)
@@ -288,9 +306,10 @@
         conf (if (f/failed? conf)
                conf
                (let [app-key (keyword (:appname conf))]
-                 (update-in conf
-                            [app-key :webserver]
-                            #(merge (:webserver default-settings) %))))
+                 (-> conf
+                     (update-in [app-key :webserver]
+                                #(merge (:webserver default-settings) %))
+                     normalize-default-project)))
         loaded-paths (->> (:paths conf)
                           (filter #(.exists (io/as-file %)))
                           vec)
