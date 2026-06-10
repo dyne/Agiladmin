@@ -1,6 +1,7 @@
 appname: agiladmin
 
 agiladmin:
+  default-project: DIRECT
   webserver:
     anti-forgery: false
     ssl-redirect: false

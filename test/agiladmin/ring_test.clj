@@ -13,6 +13,8 @@
                                                   :users-collection "users"
                                                   :superuser-email "admin@example.org"
                                                   :superuser-password "secret"}}})
+                      agiladmin.config/validate-default-project
+                      identity
                       clojure.java.io/as-file
                       (fn [_] (proxy [java.io.File] ["test/assets/id_rsa"]
                                 (exists [] true)))
@@ -55,6 +57,8 @@
                                                   :manage-process true
                                                   :binary "pocketbase"
                                                   :dir "/tmp/pb"}}})
+                      agiladmin.config/validate-default-project
+                      identity
                       clojure.java.io/as-file
                       (fn [_] (proxy [java.io.File] ["test/assets/id_rsa"]
                                 (exists [] true)))
@@ -100,6 +104,8 @@
         (with-redefs [agiladmin.config/load-config
                       (fn [_ _]
                         {:agiladmin {:budgets {:ssh-key "test/assets/id_rsa"}}})
+                      agiladmin.config/validate-default-project
+                      identity
                       clojure.java.io/as-file
                       (fn [_] (proxy [java.io.File] ["test/assets/id_rsa"]
                                 (exists [] true)))
@@ -142,6 +148,8 @@
                                                 :users-collection "users"
                                                 :superuser-email "admin@example.org"
                                                 :superuser-password "secret"}}})
+                    agiladmin.config/validate-default-project
+                    identity
                     clojure.java.io/as-file
                     (fn [_] (proxy [java.io.File] ["test/assets/id_rsa"]
                               (exists [] true)))
@@ -160,3 +168,32 @@
           false => true
           (catch clojure.lang.ExceptionInfo ex
             (.getMessage ex) => (contains "Authentication backend health check failed")))))
+
+(fact "Ring init validates the configured default project before side effects"
+      (let [key-checked? (atom false)
+            original-config @ring/config]
+        (with-redefs [agiladmin.config/load-config
+                      (fn [_ _]
+                        {:agiladmin {:budgets {:ssh-key "test/assets/id_rsa"}
+                                     :default-project "INFRA"}})
+                      agiladmin.config/validate-default-project
+                      (fn [_]
+                        (failjure.core/fail
+                         "Configured default project INFRA cannot be loaded: Project not found in budgets path: INFRA"))
+                      clojure.java.io/as-file
+                      (fn [_]
+                        (proxy [java.io.File] ["test/assets/id_rsa"]
+                          (exists []
+                            (reset! key-checked? true)
+                            true)))
+                      auxiliary.translation/init
+                      (fn [& _] true)]
+          (try
+            (try
+              (ring/init)
+              false => true
+              (catch clojure.lang.ExceptionInfo ex
+                (.getMessage ex) => (contains "Configured default project INFRA cannot be loaded")
+                @key-checked? => false))
+            (finally
+              (reset! ring/config original-config))))))

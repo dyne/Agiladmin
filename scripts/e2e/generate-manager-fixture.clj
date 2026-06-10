@@ -8,17 +8,21 @@
   (System/exit 1))
 
 (defn -main [& args]
-  (let [[src dst owner] args
+  (let [[src dst owner blank-project-col] args
         owner-name (or owner "Manager")]
     (when (str/blank? src)
       (fail! "Missing src path"))
     (when (str/blank? dst)
       (fail! "Missing dst path"))
     (let [workbook (xls/load-workbook src)
-          sheet (first (xls/sheet-seq workbook))]
+          sheets (xls/sheet-seq workbook)
+          sheet (first sheets)]
       (when (nil? sheet)
         (fail! "Workbook has no sheets"))
-      (xls/set-cell! (xls/select-cell "B3" sheet) owner-name)
+      (doseq [current-sheet sheets]
+        (xls/set-cell! (xls/select-cell "B3" current-sheet) owner-name)
+        (when-not (str/blank? blank-project-col)
+          (xls/set-cell! (xls/select-cell (str (str/upper-case blank-project-col) "7") current-sheet) "")))
       (xls/save-workbook! dst workbook))))
 
 (when (= *file* (System/getProperty "babashka.file"))

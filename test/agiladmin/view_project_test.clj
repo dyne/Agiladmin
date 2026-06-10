@@ -257,7 +257,7 @@
                     agiladmin.config/q (fn [_ _] "ignored/")
                     agiladmin.core/load-all-timesheets (fn [& _] [])
                     agiladmin.core/load-project-monthly-hours
-                    (fn [_ _]
+                    (fn [_ _ _]
                       {:column-names [:month :name :project :task :tag :hours]
                        :rows [{:month "2026-01"
                                :name "Manager User"
@@ -331,7 +331,7 @@
                     agiladmin.config/q (fn [_ _] "ignored/")
                     agiladmin.core/load-all-timesheets (fn [& _] [])
                     agiladmin.core/load-project-monthly-hours
-                    (fn [_ _]
+                    (fn [_ _ _]
                       {:column-names [:month :name :project :task :tag :hours]
                        :rows [{:month "2026-01"
                                :name "Admin User"
@@ -360,3 +360,37 @@
                          :role "admin"})]
           (:body response) => (contains ">cost<")
           (:body response) => (contains ">1500<"))))
+
+(fact "Project hours pass configuration into project monthly loading"
+      (let [calls (atom [])]
+        (with-redefs [agiladmin.config/q
+                      (fn [_ _] "budgets/")
+                      agiladmin.core/load-all-timesheets
+                      (fn [config path regex]
+                        (swap! calls conj [:timesheets config path regex])
+                        [:ts])
+                      agiladmin.core/load-project-monthly-hours
+                      (fn [config timesheets projname]
+                        (swap! calls conj [:project-hours config timesheets projname])
+                        {:column-names [:month :project :hours]
+                         :rows [{:month "2026-01"
+                                 :project projname
+                                 :hours 4}]})]
+          (view-project/project-hours
+           {:agiladmin {:budgets {:path "budgets/"}
+                        :default-project "INFRA"}}
+           "CORE")
+          => {:column-names [:month :project :hours]
+              :rows [{:month "2026-01"
+                      :project "CORE"
+                      :hours 4}]}
+          (count @calls) => 2
+          (first @calls) => (contains [:timesheets
+                                        {:agiladmin {:budgets {:path "budgets/"}
+                                                     :default-project "INFRA"}}
+                                        "budgets/"])
+          (nth @calls 1) => [:project-hours
+                             {:agiladmin {:budgets {:path "budgets/"}
+                                          :default-project "INFRA"}}
+                             [:ts]
+                             "CORE"])))

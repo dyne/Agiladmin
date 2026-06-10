@@ -103,42 +103,66 @@
            (log/spy :error) f/fail)
       cell)))
 
+(defn effective-project
+  "Return the explicit project when present, otherwise the configured default."
+  [project default-project]
+  (if (f/failed? project)
+    project
+    (let [project (some-> project trim)]
+      (cond
+        (blank? project) default-project
+        (strcasecmp project "total") nil
+        :else project))))
+
+(defn- load-monthly-hours*
+  [timesheet month cond-fn default-project]
+  (if-let [sheet (select-sheet month (:xls timesheet))]
+    (loop [[n & cols] timesheet-cols-projects
+           res []]
+      (let [proj  (f/ok-> (get-cell sheet n "7") str trim) ;; row project
+            task  (f/ok-> (get-cell sheet n "8") str trim) ;; row task
+            tag   (f/ok-> (get-cell sheet n "9") str trim) ;; row tag(s) (TODO: support multiple tags)
+            ;; take lowest in row totals starting from 42 (as month lenght varies)
+            hours  (first (for [i timesheet-rows-hourtots
+                                :let  [cell (get-cell sheet n i)]
+                                :when  (not (nil? cell))]
+                            cell))
+            project (effective-project proj default-project)
+            info {:project project
+                  :task task
+                  :tag tag
+                  :hours hours}
+            entry  (if (and (not (nil? hours))
+                            (> hours 0.0)
+                            (not (f/failed? project))
+                            (not (nil? project))
+                            (cond-fn info))
+                     {:month month
+                      :name (:name timesheet)
+                      :project (upper-case project)
+                      :task (if-not (blank? task) (upper-case task) "") ;; uppercase all tasks
+                      :tag  (if-not (blank? tag)  (upper-case tag)  "") ;; uppercase all tags
+                      :hours hours} nil)]
+        ;; check for errors
+        (map #(when (f/failed? %) (log/error (f/message %)))
+             [proj task tag project])
+
+        (if (empty? cols) (if (nil? entry) res (conj res entry))
+            (recur  cols  (if (nil? entry) res (conj res entry))))))))
+
+(defn monthly-hours-loader
+  "Return a load-monthly-hours compatible function using configuration defaults."
+  [conf]
+  (let [default-project (conf/default-project conf)]
+    (fn [timesheet month cond-fn]
+      (load-monthly-hours* timesheet month cond-fn default-project))))
+
 (defn load-monthly-hours
   "load hours from a timesheet month if conditions match"
   ([timesheet month]
    (load-monthly-hours timesheet month #(true)))
   ([timesheet month cond-fn]
-   (if-let [sheet (select-sheet month (:xls timesheet))]
-     (loop [[n & cols] timesheet-cols-projects
-            res []]
-       (let [proj  (f/ok-> (get-cell sheet n "7") str trim) ;; row project
-             task  (f/ok-> (get-cell sheet n "8") str trim) ;; row task
-             tag   (f/ok-> (get-cell sheet n "9") str trim) ;; row tag(s) (TODO: support multiple tags)
-             ;; take lowest in row totals starting from 42 (as month lenght varies)
-             hours  (first (for [i timesheet-rows-hourtots
-                                 :let  [cell (get-cell sheet n i)]
-                                 :when  (not (nil? cell))]
-                             cell))
-             entry  (if (and (not (nil? hours))
-                             (> hours 0.0)
-                             (not (blank? proj))
-                             (not (strcasecmp proj "total"))
-                             (cond-fn {:project proj
-                                       :task    task
-                                       :tag     tag
-                                       :hours   hours}))
-                      {:month month
-                       :name (:name timesheet)
-                       :project (upper-case proj)
-                       :task (if-not (blank? task) (upper-case task) "") ;; uppercase all tasks
-                       :tag  (if-not (blank? tag)  (upper-case tag)  "") ;; uppercase all tags
-                       :hours hours} nil)]
-         ;; check for errors
-         (map #(when (f/failed? %) (log/error (f/message %)))
-              [proj task tag])
-
-         (if (empty? cols) (if (nil? entry) res (conj res entry))
-             (recur  cols  (if (nil? entry) res (conj res entry)))))))))
+   (load-monthly-hours* timesheet month cond-fn nil)))
 
 (defn map-timesheets
   "Map a function across all loaded timesheets. The function prototype
@@ -164,12 +188,15 @@
 (defn load-project-monthly-hours
   "load the named project hours from a sequence of timesheets and
   return a bidimensional vector: [\"Name\" \"Date\" \"Task\" \"Hours\"]"
-  [timesheets pname]
-  (log/info (str "Loading project hours: " pname))
-  (map-timesheets timesheets load-monthly-hours
-                  (fn [info]
-                    (and (not (strcasecmp (:tag info) "VOL"))
-                         (strcasecmp (:project info) pname)))))
+  ([timesheets pname]
+   (load-project-monthly-hours nil timesheets pname))
+  ([conf timesheets pname]
+   (log/info (str "Loading project hours: " pname))
+   (map-timesheets timesheets
+                   (monthly-hours-loader conf)
+                   (fn [info]
+                     (and (not (strcasecmp (:tag info) "VOL"))
+                          (strcasecmp (:project info) pname))))))
 
 (def time-format (tf/formatter "dd-MM-yyyy"))
 (defn current-proj-month [conf]
@@ -399,7 +426,7 @@
   [conf path current-year]
   (let [recent-years #{current-year (dec current-year)}]
     (->> (map-timesheets (load-all-timesheets conf path #".*_timesheet_.*xlsx$")
-                         load-monthly-hours
+                         (monthly-hours-loader conf)
                          (fn [info]
                            (when-let [month (:month info)]
                              (contains? recent-years

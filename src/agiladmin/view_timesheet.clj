@@ -398,7 +398,7 @@
           (f/attempt-all
            [_ (require-upload-ownership account filename path)
             ts (load-timesheet path)
-            hours (map-timesheets [ts])]
+            hours (map-timesheets [ts] (monthly-hours-loader config))]
            (render-workspace
             request
             account
@@ -433,7 +433,7 @@
                               (load-timesheet
                                (str (conf/q config [:agiladmin :budgets :path])
                                     (fs/base-name filename)))
-                              old-hours (map-timesheets [old-ts])]
+                              old-hours (map-timesheets [old-ts] (monthly-hours-loader config))]
                              (timesheet-diff old-hours hours)
                              (f/when-failed [e]
                                (web/render-error

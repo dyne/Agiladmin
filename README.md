@@ -213,6 +213,7 @@ agiladmin:
   cache: false
   voluntary-hours: false
   vat-percentage: 0
+  default-project: DIRECT
 
   webserver:
     host: localhost
@@ -244,12 +245,15 @@ Notes:
 - `budgets.ssh-key` is the private key path used for Git access; if it does not exist, Agiladmin generates a new keypair and exposes the public key in the `/config` page
 - project names are discovered from `*.yaml` files in `budgets.path`, using the part of the filename before the first `.`
 - `cache` enables runtime in-memory caches when `true`; it defaults to `false`
+- `default-project` is optional; when set, positive hours from assignment columns with a blank project cell are billed to that project
+- if `default-project` is omitted, blank project cells keep the previous behavior and are ignored
 - `voluntary-hours` controls whether personnel monthly summaries mention voluntary hours; it defaults to `false`
 - `vat-percentage` controls personnel VAT display; it defaults to `0`, which hides the VAT sentence
 - `pocketbase` is optional only if you are using dev auth locally
 - `webserver.upload-max-size` is in bytes and defaults to `500000`
 - `webserver.base-path` is the browser-visible mount prefix; if you publish under a subpath such as `/agiladmin`, your reverse proxy must strip that prefix before forwarding to Jetty routes
 - when TLS terminates at Caddy or another reverse proxy, keep `webserver.ssl-redirect: false` and let the proxy handle HTTP to HTTPS redirects
+- startup fails fast if `default-project` does not match a loadable project file under `budgets.path`; the error names the configured project and the reason it could not be loaded
 
 ## Project Configuration
 

@@ -29,6 +29,19 @@ test("admin can login and upload a real timesheet", async ({ page }) => {
   await expect(page.getByText("Error parsing timesheet")).toHaveCount(0);
 });
 
+test("upload assigns blank project columns to the configured default project", async ({ page }) => {
+  const state = await readE2EState();
+  await loginAs(page, "admin");
+  await openTimesheetUpload(page);
+  await uploadTimesheet(page, state.fixtures.unassigned);
+
+  await expect(page.getByText("Uploaded: 2016_timesheet_Luca-Pacioli-unassigned.xlsx")).toBeVisible();
+  await page.getByRole("button", { name: "Contents" }).click();
+  const table = page.locator("#timesheet-workspace table");
+  await expect(table).toContainText("DIRECT");
+  await expect(table).not.toContainText("UNO");
+});
+
 test("upload uses local progress without the page-loading overlay", async ({ page }) => {
   const state = await readE2EState();
   let releaseUpload;

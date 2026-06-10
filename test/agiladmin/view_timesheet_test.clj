@@ -241,6 +241,85 @@
           (:body response) => (contains "Uploaded: 2026_timesheet_A.Example.xlsx")
           (:body response) => (contains "This is a new timesheet, no historical information available to compare"))))
 
+(fact "Timesheet upload uses the config-aware loader for both preview and diff"
+      (let [calls (atom [])]
+        (with-redefs [clojure.java.io/copy (fn [& _] nil)
+                      clojure.java.io/delete-file (fn [& _] nil)
+                      clojure.java.io/file
+                      (fn
+                        ([path]
+                         (proxy [java.io.File] [path]
+                           (exists [] (or (= path "/tmp/2026_timesheet_A.Example.xlsx")
+                                          (= path "budgets/2026_timesheet_A.Example.xlsx")))))
+                        ([parent child]
+                         (proxy [java.io.File] [(str parent "/" child)]
+                           (exists [] false))))
+                      agiladmin.view-timesheet/load-timesheet-owner
+                      (fn [_] "Alice Example")
+                      agiladmin.core/load-timesheet
+                      (fn [path]
+                        {:name path
+                         :sheets [{:month "2026-1"}]})
+                      agiladmin.core/monthly-hours-loader
+                      (fn [config]
+                        (swap! calls conj [:loader config])
+                        (fn [timesheet month cond-fn]
+                          (let [row {:month month
+                                     :project "INFRA"
+                                     :task ""
+                                     :tag ""
+                                     :hours (if (= (:name timesheet) "/tmp/2026_timesheet_A.Example.xlsx") 6 4)}]
+                            (swap! calls conj [:cond-result (:name timesheet) (cond-fn row)])
+                            [row])))
+                      agiladmin.core/map-timesheets
+                      (fn
+                        ([timesheets loop-fn]
+                         {:column-names [:month :project :task :tag :hours]
+                          :rows (mapcat #(loop-fn % "2026-1" (fn [_] true)) timesheets)})
+                        ([timesheets loop-fn cond-fn]
+                         {:column-names [:month :project :task :tag :hours]
+                          :rows (mapcat #(loop-fn % "2026-1" cond-fn) timesheets)}))
+                      agiladmin.view-timesheet/timesheet-diff
+                      (fn [old-hours new-hours]
+                        (swap! calls conj [:diff old-hours new-hours])
+                        [:div "diff"])
+                      agiladmin.graphics/to-table
+                      (fn [hours]
+                        (swap! calls conj [:table hours])
+                        [:table "hours"])]
+          (let [config {:agiladmin {:budgets {:path "budgets/"}
+                                    :default-project "INFRA"}}
+                response (view-timesheet/upload
+                          {:params {:file {:size 1024
+                                           :filename "2026_timesheet_A.Example.xlsx"
+                                           :tempfile "/tmp/upload.xlsx"}}}
+                          config
+                          {:name "Alice Example"
+                           :role "manager"})]
+            (:body response) => (contains "Uploaded: 2026_timesheet_A.Example.xlsx")
+            @calls => [[:loader config]
+                       [:cond-result "/tmp/2026_timesheet_A.Example.xlsx" true]
+                       [:loader config]
+                       [:cond-result "budgets/2026_timesheet_A.Example.xlsx" true]
+                       [:diff {:column-names [:month :project :task :tag :hours]
+                               :rows [{:month "2026-1"
+                                       :project "INFRA"
+                                       :task ""
+                                       :tag ""
+                                       :hours 4}]}
+                              {:column-names [:month :project :task :tag :hours]
+                               :rows [{:month "2026-1"
+                                       :project "INFRA"
+                                       :task ""
+                                       :tag ""
+                                       :hours 6}]}]
+                       [:table {:column-names [:month :project :task :tag :hours]
+                                :rows [{:month "2026-1"
+                                        :project "INFRA"
+                                        :task ""
+                                        :tag ""
+                                        :hours 6}]}]]))))
+
 (fact "Timesheet upload explains when there is no historical file to diff against"
       (with-redefs [clojure.java.io/copy (fn [& _] nil)
                     clojure.java.io/delete-file (fn [& _] nil)
