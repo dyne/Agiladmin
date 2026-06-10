@@ -432,16 +432,16 @@
         rows (->> (tab/rows data)
                   (sort-by :utilization >))
         tasks (mapv :task rows)]
-    (-> {:data [(plot-bar tasks
-                          (mapv :actual rows)
+    (-> {:data [(plot-bar (mapv :actual rows)
+                          tasks
                           :name "Actual"
                           :orientation "h"
-                          :hovertemplate "%{x}<br>%{y:.1f} hours<extra>Actual</extra>")
-                (plot-bar tasks
-                          (mapv :planned rows)
+                          :hovertemplate "%{y}<br>%{x:.1f} hours<extra>Actual</extra>")
+                (plot-bar (mapv :planned rows)
+                          tasks
                           :name "Budget"
                           :orientation "h"
-                          :hovertemplate "%{x}<br>%{y:.1f} hours<extra>Budget</extra>")]
+                          :hovertemplate "%{y}<br>%{x:.1f} hours<extra>Budget</extra>")]
          :layout (assoc (chart-layout "Task budget usage")
                         :barmode "group")}
         realize-plot)))
@@ -475,8 +475,8 @@
                   (range duration))))
              {}
              valid-tasks)
-            actual-series (reductions + 0 (map #(sum-hours (get actual-by-month (:month-label %) [])) months))
-            planned-series (reductions + 0 (map #(double (or (get planned-by-month (:month-label %)) 0)) months))
+            actual-series (rest (reductions + 0 (map #(sum-hours (get actual-by-month (:month-label %) [])) months)))
+            planned-series (rest (reductions + 0 (map #(double (or (get planned-by-month (:month-label %)) 0)) months)))
             month-labels (mapv :month-label months)]
         (-> {:data [(plot-line month-labels actual-series
                                :name "Actual"

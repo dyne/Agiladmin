@@ -47,7 +47,11 @@
 
 (defn- project-monthly-chart-spec
   [project-hours conf year]
-  (let [task-count (count (remove str/blank? (map :task (:rows project-hours))))]
+  (let [task-count (->> (:rows project-hours)
+                        (map :task)
+                        (remove str/blank?)
+                        distinct
+                        count)]
     (if (> task-count 1)
       (viz/project-monthly-task-chart-spec project-hours year)
       (viz/project-monthly-person-chart-spec project-hours year))))
@@ -56,7 +60,9 @@
   [projname project-hours task-details conf]
   (let [rows (:rows project-hours)
         years (->> rows (keep #(some-> % :month viz/parse-month :year)) distinct count)
-        monthly-spec (project-monthly-chart-spec project-hours conf (some-> rows first :month viz/parse-month :year))
+        year (some-> rows first :month viz/parse-month :year)
+        monthly-spec (when year
+                       (project-monthly-chart-spec project-hours conf year))
         cumulative-spec (viz/project-cumulative-chart-spec project-hours task-details)
         budget-spec (when (seq (:rows task-details))
                       (viz/project-task-budget-chart-spec task-details))
