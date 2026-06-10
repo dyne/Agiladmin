@@ -138,6 +138,49 @@
           (:status response) => 200
           (:body response) => "User Name:2026:user@example.org")))
 
+(fact "Personnel page data uses the config-aware monthly loader"
+      (let [calls (atom [])]
+        (with-redefs [agiladmin.utils/name-year-to-timesheet
+                      (fn [_ _] "2026_timesheet_Manager-User.xlsx")
+                      agiladmin.core/load-timesheet
+                      (fn [path]
+                        (swap! calls conj [:load-timesheet path])
+                        {:name "Manager User"
+                         :sheets [{:month "2026-1"}]})
+                      agiladmin.core/load-all-projects
+                      (fn [_]
+                        {:INFRA {:idx {}}})
+                      agiladmin.core/monthly-hours-loader
+                      (fn [config]
+                        (swap! calls conj [:loader config])
+                        (fn [_ month cond-fn]
+                          (let [row {:month month
+                                     :project "INFRA"
+                                     :task ""
+                                     :tag ""
+                                     :hours 6}]
+                            (swap! calls conj [:cond-result (cond-fn row)])
+                            [row])))]
+          (#'agiladmin.view-person/load-person-page-data
+           {:agiladmin {:budgets {:path "budgets/"}
+                        :default-project "INFRA"}}
+           "Manager User"
+           2026)
+          => {:ts-file "2026_timesheet_Manager-User.xlsx"
+              :timesheet {:name "Manager User"
+                          :sheets [{:month "2026-1"}]}
+              :projects {:INFRA {:idx {}}}
+              :hours {:column-names [:month :project :task :tag :hours]
+                      :rows [{:month "2026-1"
+                              :project "INFRA"
+                              :task ""
+                              :tag ""
+                              :hours 6}]}}
+          @calls => [[:load-timesheet "budgets/2026_timesheet_Manager-User.xlsx"]
+                     [:loader {:agiladmin {:budgets {:path "budgets/"}
+                                           :default-project "INFRA"}}]
+                     [:cond-result true]])))
+
 (fact "Manager personnel view omits cost output and yearly export controls"
       (with-redefs [agiladmin.view-person/load-person-page-data
                     (fn [_ _ _]

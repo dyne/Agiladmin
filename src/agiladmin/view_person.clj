@@ -203,7 +203,7 @@
     ts-file (util/name-year-to-timesheet person year)
     timesheet (load-timesheet (str ts-path ts-file))
     projects (load-all-projects config)
-    hours (map-timesheets [timesheet] load-monthly-hours (fn [_] true))]
+    hours (map-timesheets [timesheet] (monthly-hours-loader config) (fn [_] true))]
    {:ts-file ts-file
     :timesheet timesheet
     :projects projects

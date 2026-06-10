@@ -214,7 +214,7 @@
   [config projname]
   (let [ts-path (conf/q config [:agiladmin :budgets :path])
         timesheets (load-all-timesheets config ts-path #".*_timesheet_.*xlsx$")]
-    (load-project-monthly-hours timesheets projname)))
+    (load-project-monthly-hours config timesheets projname)))
 
 (defn project-costs
   [config project-conf projname]

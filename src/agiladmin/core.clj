@@ -188,12 +188,15 @@
 (defn load-project-monthly-hours
   "load the named project hours from a sequence of timesheets and
   return a bidimensional vector: [\"Name\" \"Date\" \"Task\" \"Hours\"]"
-  [timesheets pname]
-  (log/info (str "Loading project hours: " pname))
-  (map-timesheets timesheets load-monthly-hours
-                  (fn [info]
-                    (and (not (strcasecmp (:tag info) "VOL"))
-                         (strcasecmp (:project info) pname)))))
+  ([timesheets pname]
+   (load-project-monthly-hours nil timesheets pname))
+  ([conf timesheets pname]
+   (log/info (str "Loading project hours: " pname))
+   (map-timesheets timesheets
+                   (monthly-hours-loader conf)
+                   (fn [info]
+                     (and (not (strcasecmp (:tag info) "VOL"))
+                          (strcasecmp (:project info) pname))))))
 
 (def time-format (tf/formatter "dd-MM-yyyy"))
 (defn current-proj-month [conf]
