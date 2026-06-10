@@ -7,6 +7,7 @@
                  agiladmin.dev-auth-test
                  agiladmin.graphics-test
                  agiladmin.handlers-test
+                 agiladmin.logging-test
                  agiladmin.pocketbase-integration-test
                  agiladmin.pocketbase-test
                  agiladmin.ring-test
