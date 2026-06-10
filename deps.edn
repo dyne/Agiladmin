@@ -5,8 +5,8 @@
         clj-http/clj-http {:mvn/version "3.9.1"}
         cheshire/cheshire {:mvn/version "5.8.1"}
         com.taoensso/timbre {:mvn/version "4.10.0"}
-        com.fzakaria/slf4j-timbre {:mvn/version "0.3.12"}
         org.slf4j/slf4j-api {:mvn/version "1.7.26"}
+        org.slf4j/slf4j-simple {:mvn/version "1.7.26"}
         org.slf4j/log4j-over-slf4j {:mvn/version "1.7.26"}
         org.slf4j/jul-to-slf4j {:mvn/version "1.7.26"}
         org.slf4j/jcl-over-slf4j {:mvn/version "1.7.26"}
