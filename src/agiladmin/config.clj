@@ -18,6 +18,7 @@
 
 (ns agiladmin.config
   (:require [clojure.pprint :refer [pprint]]
+            [agiladmin.work-policy :as work-policy]
             [clojure.string :as str :refer [upper-case]]
             [clojure.java.io :as io]
             [clojure.walk :refer [keywordize-keys]]
@@ -37,6 +38,7 @@
     (s/optional-key :cache) s/Bool
     (s/optional-key :voluntary-hours) s/Bool
     (s/optional-key :vat-percentage) s/Num
+    (s/optional-key :mcp) work-policy/McpConfig
     (s/optional-key :webserver) {(s/optional-key :port) s/Num
                                  (s/optional-key :host) s/Str
                                  (s/optional-key :base-host) s/Str
@@ -300,7 +302,9 @@
     (if (f/failed? conf)
       conf
       (f/attempt-all
-       [_ (validate-data Config conf "configuration" path-label)]
+       [_ (validate-data Config conf "configuration" path-label)
+        _mcp (work-policy/validate-config (get-in conf [(keyword (:appname conf)) :mcp])
+                                          (get-in conf [(keyword (:appname conf)) :budgets :path]))]
        conf
        (f/when-failed [e]
          e)))))

@@ -8,6 +8,7 @@
                  agiladmin.graphics-test
                  agiladmin.handlers-test
                  agiladmin.logging-test
+                 agiladmin.mcp-compatibility-test
                  agiladmin.pocketbase-integration-test
                  agiladmin.pocketbase-test
                  agiladmin.ring-test
@@ -22,6 +23,8 @@
                  agiladmin.view-reload-test
                  agiladmin.view-timesheet-test
                  agiladmin.webpage-test
+                 agiladmin.work-allocation-test
+                 agiladmin.work-policy-test
                  agiladmin.visualization-test]]
   (require ns-sym))
 

@@ -2,6 +2,11 @@
  :deps {org.clojure/clojure {:mvn/version "1.12.4"}
         org.clojure/data.json {:mvn/version "0.2.6"}
         org.clojure/data.csv {:mvn/version "0.1.4"}
+        io.modelcontextprotocol.sdk/mcp-core {:mvn/version "1.1.3"}
+        io.modelcontextprotocol.sdk/mcp-json-jackson2
+        {:mvn/version "1.1.3"
+         ;; MCP schemas are JSON. Keep legacy io.forward/yaml's SnakeYAML ABI.
+         :exclusions [com.fasterxml.jackson.dataformat/jackson-dataformat-yaml]}
         clj-http/clj-http {:mvn/version "3.9.1"}
         cheshire/cheshire {:mvn/version "5.8.1"}
         com.taoensso/timbre {:mvn/version "4.10.0"}
