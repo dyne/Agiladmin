@@ -84,7 +84,8 @@
                    current-settings (fn [] (let [conf (config-provider)
                                                  current (policy/validate-config (get-in conf [:agiladmin :mcp])
                                                                                  (get-in conf [:agiladmin :budgets :path]))]
-                                             (if (or (f/failed? current) (not= (:data-path settings) (:data-path current)))
+                                             (if (or (f/failed? current) (not (:enabled current))
+                                                     (not= (:data-path settings) (:data-path current)))
                                                (policy/error :invalid-config [] "MCP storage configuration changed or became invalid."
                                                              "Restore valid settings or restart with the new storage configuration.") current)))
                    workbook (workbook/workbook-adapter

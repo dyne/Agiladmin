@@ -31,6 +31,7 @@
    [ring.middleware.session.cookie :refer [cookie-store]]
    [ring.middleware.accept :refer [wrap-accept]]
    [ring.middleware.defaults :refer [wrap-defaults site-defaults]]
+   [ring.middleware.anti-forgery :refer [wrap-anti-forgery]]
 
    [hiccup.form :as hf :refer [hidden-field]]
 
@@ -48,11 +49,24 @@
    [agiladmin.view-reload :as view-reload]
    [agiladmin.view-person :as view-person]
    [agiladmin.view-auth :as view-auth]
+   [agiladmin.view-work :as view-work]
    [agiladmin.webpage :as web]
    [agiladmin.session :as s]
-   [agiladmin.mcp.runtime :as mcp-runtime])
+   [agiladmin.mcp.runtime :as mcp-runtime]
+   [agiladmin.work-publication :as publication])
   (:import java.io.File)
   (:gen-class))
+
+(defonce mcp-state (atom nil))
+
+(defroutes work-routes
+  (GET "/work/review/:id" [id :as request] (view-work/review request @ring/config @mcp-state id))
+  (GET "/work/review/:id/download" [id :as request] (view-work/download request @mcp-state id))
+  (POST "/work/review/:id/confirm" [id :as request] (view-work/confirm request @ring/config @mcp-state id))
+  (POST "/work/review/:id/refresh" [id :as request] (view-work/refresh request @ring/config @mcp-state id))
+  (GET "/work/month/:month" [month :as request] (view-work/month request @ring/config @mcp-state month)))
+
+(def work-handler (wrap-anti-forgery work-routes))
 
 (defroutes app-routes
 
@@ -232,7 +246,11 @@
   ) ;; end of routes
 
 (defn- make-app []
-  (-> (wrap-defaults app-routes (ring/app-defaults))
+  (-> (wrap-defaults (fn [request]
+                       (if (str/starts-with? (:uri request) "/work/")
+                         (work-handler request)
+                         (app-routes request)))
+                     (ring/app-defaults))
       (wrap-accept {:mime ["text/html"]
                     ;; preference in language, fallback to english
                     :language ["en" :qs 0.5
@@ -245,12 +263,18 @@
          {:key (get-in @ring/config [:agiladmin :webserver :salt])})})))
 
 (defonce app-state (atom nil))
-(defonce mcp-state (atom nil))
 
 (defn init-app! []
   (mcp-runtime/stop! @mcp-state)
   (reset! mcp-state nil)
-  (let [runtime (mcp-runtime/start! @ring/config #(deref ring/config))
+  (let [started (mcp-runtime/start! @ring/config #(deref ring/config))
+        runtime (when started
+                  (let [archive (publication/adapter started #(deref ring/config))]
+                    (mcp-runtime/install-publication! started
+                      {:read-baseline #(publication/read-baseline archive %1 %2)
+                       :publication-status #(agiladmin.work-ports/publication-status archive (:owner-id %1) %2)})
+                    (assoc started :publication archive
+                                   :read-approval #(publication/read-approval archive %1 %2))))
         browser (make-app)
         handler (fn [request]
                   (if (or (= "/mcp" (:uri request)) (re-matches #"/mcp/artifacts/[^/]+" (:uri request)))

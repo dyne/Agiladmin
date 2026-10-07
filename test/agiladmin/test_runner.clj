@@ -24,9 +24,11 @@
                  agiladmin.view-project-test
                  agiladmin.view-reload-test
                  agiladmin.view-timesheet-test
+                 agiladmin.view-work-test
                  agiladmin.webpage-test
                  agiladmin.work-allocation-test
                  agiladmin.work-policy-test
+                 agiladmin.work-publication-test
                  agiladmin.work-ledger-test
                  agiladmin.work-service-test
                  agiladmin.work-workbook-test

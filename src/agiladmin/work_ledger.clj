@@ -107,6 +107,16 @@
     (some #(not (str/starts-with? (get-in state [:records % :date]) (str month "-"))) ids) (fail :cross-month-id)
     :else (update state :records #(apply dissoc % ids))))
 
+(defn owner-lock
+  "Same reentrant monitor used by draft writes. Publication takes it before
+  annual/repository locks; reads inside that boundary never acquire an OS lock."
+  [ledger owner]
+  (get (swap! (:locks ledger) #(if (contains? % owner) % (assoc % owner (Object.)))) owner))
+
+(defn with-owner-lock [ledger owner operation]
+  (locking (owner-lock ledger owner)
+    (if @(:closed ledger) (fail :invalid-ledger-read) (operation))))
+
 (defrecord FileLedger [root channel process-lock locks closed]
   Closeable
   (close [_] (when (compare-and-set! closed false true)
@@ -132,7 +142,7 @@
             (not (and (integer? expected) (<= 0 expected))) (not (policy/nonblank-string? request-id)))
       (fail :invalid-command)
       (let [year (subs month 0 4)
-            lock (get (swap! locks #(if (contains? % owner) % (assoc % owner (Object.)))) owner)]
+            lock (owner-lock this owner)]
         (locking lock
           (try
             (let [state (ports/read-year this owner year)
