@@ -56,6 +56,9 @@
 (facts "Empty annual generator has no sample identity or hours"
   (let [artifact (workbook/render-workbook owner (snapshot "2024-02" []))]
     (:filename artifact) => "2024_timesheet_Alice-Example.xlsx"
+    (get-in artifact [:changes :annual-workbook-created]) => true
+    (get-in artifact [:changes :target-sheet-created]) => true
+    (get-in artifact [:changes :preserves-other-months]) => false
     (with-open [wb (open-artifact artifact)]
       (doseq [m (range 1 13)]
         (let [sheet (.getSheet wb (str "2024-" m))]
@@ -119,6 +122,9 @@
         (.createSheet original "Reference")
         (let [source (workbook-bytes original)
               artifact (workbook/render-workbook owner (snapshot "2024-01" [(record "1" "2024-01-01" "A" 60)]) source)]
+          (get-in artifact [:changes :annual-workbook-created]) => false
+          (get-in artifact [:changes :target-sheet-created]) => false
+          (get-in artifact [:changes :preserves-other-months]) => true
           (with-open [rendered (open-artifact artifact)]
             (let [target (.getSheet rendered "2024-1")]
               (value target 43 10) => "Owner signature"

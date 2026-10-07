@@ -104,7 +104,11 @@
           [:p (text (:next-action publication))]])
        (draft-body owner settings snapshot)
        [:section {:class "space-y-3"} [:h2 "Exact workbook changes"]
-        [:p "Only this month changes; other months and the signature area are preserved. Empty cells are shown as blank."]
+        [:p (if (get-in value [:changes :annual-workbook-created])
+              "No annual workbook exists yet. Publication creates a clean twelve-sheet annual workbook; recorded work is written only to this month. Empty cells are shown as blank."
+              (if (get-in value [:changes :target-sheet-created])
+                "This month sheet does not exist yet. Publication creates it from a clean template; other existing sheets are preserved. Empty cells are shown as blank."
+                "Only this existing month sheet changes. Other sheets and the signature area are preserved. Empty cells are shown as blank."))]
         (table "Exact Excel cell changes" ["Cell" "Before" "After"]
                (for [c (get-in value [:changes :cells])] [(:cell c) (:before c) (:after c)]))]
        [:section {:class "space-y-4" :aria-labelledby "work-confirmation"}
@@ -114,12 +118,18 @@
         [:p {:class "text-sm break-all"} "Review expires: " (text (:expires-at value)) " · Digest: " (text (:preview-digest value))]
         [:div {:class "flex flex-wrap gap-3"}
          [:a {:class "btn btn-outline" :href (str path "/download")} "Download reviewed workbook"]
-         (when (and (not failure) (not= "pushed" (:state publication)))
+         (when (and (not failure) (or (nil? publication) (:retryable publication)))
            [:form {:action (str path "/confirm") :method "post"}
             (csrf-field)
             (for [[k v] (approval-fields value)] [:input {:type "hidden" :name (name k) :value (or v "")}])
             [:button {:type "submit" :class "btn btn-primary"}
-             (if publication "Retry approved publication" "Confirm and publish month")]])]]])))
+             (if publication "Retry approved publication" "Confirm and publish month")]])
+         (when (and (not failure) publication (not (:retryable publication))
+                    (not= "pushed" (:state publication)))
+           [:form {:action (str path "/refresh") :method "post"}
+            (csrf-field)
+            [:button {:type "submit" :class "btn btn-primary"}
+             "Create fresh review after reconciliation"]])]]])))
 (defn review [request config runtime id]
   (let [account (get-in request [:session :auth]) owner (browser-owner request)]
     (cond

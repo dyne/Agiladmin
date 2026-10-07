@@ -43,6 +43,7 @@
        (str/includes? body "<script>alert") => false
        (str/includes? body "complete note") => true
        (str/includes? body "Exact workbook changes") => true
+       (str/includes? body "creates a clean twelve-sheet annual workbook") => true
        (str/includes? body "4 / 7 columns") => true
        (str/includes? body (str "/payroll" (:uri env) "/confirm")) => true
        (str/includes? body "failed push") => true
@@ -72,8 +73,32 @@
            (:status (handlers/work-handler (assoc-in req [:params k] "tampered"))) => 409)
          @calls => []
          (:status (handlers/work-handler req)) => 200
-         (count @calls) => 1
-         (second (first @calls)) => (:value env))))))
+       (count @calls) => 1
+       (second (first @calls)) => (:value env))))))
+
+(fact "Terminal publication conflicts offer fresh review instead of a futile retry"
+  (setup
+   (fn [env]
+     (let [runtime (assoc (:runtime env) :read-approval
+                          (fn [_ _] {:state "conflict" :retryable false
+                                     :next-action "Reconcile the workbook, then create a fresh review."}))]
+       (with-redefs [handlers/mcp-state (atom runtime)]
+         (let [body (:body (get-review env))]
+           (str/includes? body "Retry approved publication") => false
+           (str/includes? body "Create fresh review after reconciliation") => true))))))
+
+(fact "Review discloses creation of a missing month sheet without claiming its signature was preserved"
+  (setup
+   (fn [env]
+     (let [value (-> (:value env)
+                     (assoc-in [:changes :annual-workbook-created] false)
+                     (assoc-in [:changes :target-sheet-created] true))]
+       (with-redefs [preview/read-preview (fn [& _] value)
+                     preview/verify-preview (fn [& _] value)]
+         (let [body (:body (get-review env))]
+           (str/includes? body "month sheet does not exist yet") => true
+           (str/includes? body "other existing sheets are preserved") => true
+           (str/includes? body "signature area are preserved") => false))))))
 
 (fact "Draft changes, policy changes and external files disable confirmation and require fresh review"
   (setup

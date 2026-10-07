@@ -89,7 +89,9 @@ token once. Put it directly in the agent's secret store; do not place it in
 Git, examples or logs. Files retain hashes, expiry/revocation and credential IDs;
 list returns no token/hash. Each request re-resolves the active account. An
 expired/revoked token, unverified/removed owner or failed account lookup returns
-401. Production rejects development auth even for an administrator.
+401. Revoking an unknown credential ID fails without changing any credential;
+revoking a listed ID invalidates that token. Production rejects development auth
+even for an administrator.
 
 Configure your client's remote Streamable HTTP URL and manual header using
 that client's supported syntax:
@@ -236,7 +238,7 @@ then run discovery/month/status checks before allowing new confirmation.
 | State or symptom | Action |
 | --- | --- |
 | Lost draft acknowledgement | Retry the identical original mutation/request ID/revision; read the live month separately. |
-| `prepared` after interruption | Reopen the same owner review and retry the approved publication; recovery checks workbook/commit evidence. If nothing was archived and review is stale/expired, create a fresh preview. |
+| `prepared` after interruption | Reopen the same owner review and retry the approved publication; every active annual approval blocks confirmation of a different month. If the review is stale/expired, that retry first proves the target workbook, repository HEAD and index are unchanged. Only a pristine prewrite approval is then closed with nothing archived, after which the owner may create a fresh preview. |
 | `local-committed` or `failed` push | Record the returned commit/revision. Repair network, SSH access or remote availability; reopen the same review and choose **Retry approved publication**. It pushes the recorded commit without another workbook commit. |
 | Stale preview | Correct/reconcile the cause, make a fresh preview and obtain new owner confirmation. |
 | `conflict`, changed workbook/identity/destination | Stop writes, preserve the local workbook, ledger/publication evidence and both Git histories; ask the operator to reconcile. A changed filename/remote or force overwrite is not an automatic recovery. |
@@ -256,6 +258,8 @@ recovery procedure.
 For a normal transient push failure, successful retry reaches `pushed` using
 the same commit. A previously approved local workbook stays official while
 push is pending; corrections are a separate new draft needing new review.
+An approval that wrote or committed workbook content always remains pending until
+its original recovery reaches a terminal result; a fresh preview cannot bypass it.
 
 ## Verify without deployment
 
@@ -264,5 +268,7 @@ then `clojure -M:test`, `npm run build:frontend`, `npm run test:e2e` and
 `npm run test:e2e:base-path`. Use [acceptance evidence](mcp-acceptance.md) for
 exact environment commands, versions, outputs and limitations. These tests use
 temporary storage, not the paths or credentials in your private configuration.
-The independent whole-branch terminal review is a separate required gate and
-remains pending until all milestones have been accepted.
+Independent whole-branch review found and corrected annual prewrite recovery and
+unknown credential-revocation defects. The correction evidence is recorded in
+[acceptance evidence](mcp-acceptance.md); root terminal acceptance remains a
+separate required gate.

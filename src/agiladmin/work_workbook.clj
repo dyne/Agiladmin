@@ -378,7 +378,10 @@
                                                       prior (get before coordinate)]
                                                   (when (not= prior after)
                                                     {:cell (str (char (+ 64 c)) r) :before prior :after after})))) vec)
-                            :preserves-other-months true :notes-column "I"}}))))))
+                            :annual-workbook-created (nil? existing-bytes)
+                            :target-sheet-created (nil? before-sheet)
+                            :preserves-other-months (boolean existing-bytes)
+                            :notes-column "I"}}))))))
       (catch Exception _
         (policy/error :workbook-error [] "Workbook could not be rendered." "Reconcile the workbook and create a new preview."))))))
 

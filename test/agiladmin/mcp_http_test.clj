@@ -61,6 +61,8 @@
      (:owner-id (credentials/authenticate store (:token admin))) => "admin-id"
      (.contains (slurp (str directory "/credentials/tokens.edn")) (:token admin)) => false
      (get (first (credentials/list-credentials store)) :hash) => nil
+     (:code (credentials/revoke! store "missing-credential-id")) => :credential-not-found
+     (:owner-id (credentials/authenticate store (:token admin))) => "admin-id"
      (let [rotated (credentials/provision! store "admin-id" (expiry))]
        (:owner-id (credentials/authenticate store (:token rotated))) => "admin-id"
        (credentials/revoke! store (:id admin))

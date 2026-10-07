@@ -53,6 +53,7 @@
 (defn- guidance [entry]
   (cond
     (= "pushed" (:state entry)) "The reviewed workbook is archived and pushed. Draft corrections require a fresh preview and owner confirmation."
+    (= "prewrite-invalid" (:terminal-reason entry)) "Nothing from this approval was archived. The reviewed draft expired or changed; create a fresh preview and confirm it again."
     (= "conflict" (:state entry)) "External workbook or Git changes need operator reconciliation. No external work has been overwritten."
     (:commit-id entry) "The workbook is official locally, but remote publication is pending. Retry this approved publication; the existing commit will be reused."
     :else "Retry this approved publication to recover an interrupted archive. If the draft changed or the review expired before any workbook was archived, create a fresh review."))
@@ -86,6 +87,20 @@
   (try (let [s (state adapter owner year) e (get-in s [:publications id])]
          (when e (phase! adapter s e phase {})))
        (catch Exception _ nil)))
+(defn- active-publication? [entry]
+  (not (contains? #{"pushed" "conflict"} (:state entry))))
+(defn- pristine-prewrite?
+  "Prove that a retained approval never reached the annual workbook, index, or
+  history. Only then may an expired/stale approval become terminal so a fresh
+  review can supersede it. Call under the annual and repository locks."
+  [git entry fingerprint]
+  (and entry
+       (nil? (:commit-id entry))
+       (= fingerprint (:source-fingerprint entry))
+       (= (:parent-head entry) (archive/head git))
+       (= (:index-fingerprint entry) (archive/index-fingerprint git (:filename entry)))
+       (archive/target-clean? git (:filename entry))
+       (= fingerprint (or (archive/committed-fingerprint git (archive/head git) (:filename entry)) "absent"))))
 (defn- publication-step! [adapter owner value]
   (let [id (:preview-id value) month (get-in value [:snapshot :month]) year (subs month 0 4)
         config ((:config-provider adapter))
@@ -100,10 +115,7 @@
       ;; never restores its old bytes over a newer month or later correction.
       (= "pushed" (:state previous)) (public-status previous)
       (= "conflict" (:state previous)) (refused :publication-conflict)
-      (and (nil? previous)
-           (some #(and (not (contains? #{"pushed" "conflict"} (:state %)))
-                       (or (:commit-id %) (= (:artifact-fingerprint %) (archive/fingerprint target))))
-                 (vals (:publications s))))
+      (and (nil? previous) (some active-publication? (vals (:publications s))))
       (policy/error :publication-pending [] "Another approved month in this annual workbook needs recovery first."
                     "Retry its approved publication before confirming another month.")
       :else
@@ -137,7 +149,14 @@
                   valid (if already-written? value
                             (preview/verify-preview (:ledger (:runtime adapter)) (:workbook (:runtime adapter)) owner settings value))]
               (cond
-                (f/failed? valid) valid
+                (f/failed? valid)
+                (if (and previous
+                         (contains? #{:preview-expired :stale-snapshot} (:code valid))
+                         (pristine-prewrite? git previous fingerprint))
+                  (do (phase! adapter s previous "conflict"
+                              {:terminal-reason "prewrite-invalid" :failure-code (:code valid)})
+                      valid)
+                  valid)
                 (and (not already-written?) (not (archive/target-clean? git filename))) (refused :dirty-workbook)
                 (and previous (not already-written?) (not= fingerprint (:source-fingerprint previous)))
                 (do (fail-state! adapter (:owner-id owner) year id "conflict") (refused :publication-conflict))

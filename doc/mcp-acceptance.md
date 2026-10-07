@@ -121,6 +121,18 @@ Exact managed-environment command (with the environment exports above):
 /tmp/agiladmin-cli/bin/clojure -Sdeps '{:aliases {:onboarding-check {:extra-paths ["test"] :extra-deps {ring/ring-mock {:mvn/version "0.3.2"} midje/midje {:mvn/version "1.10.10"}} :main-opts ["/tmp/l6-onboarding-check.clj"]}}}' -M:onboarding-check
 ```
 
-Independent whole-branch terminal review remains a separate **pending** gate,
-owned by the root after milestone acceptance. This evidence does not claim that
-review has passed.
+Independent whole-branch review found two P1 defects: a pristine `prepared`
+approval could fail to block a different month, and revoking an unknown
+credential ID reported success. Corrections now block every active annual
+approval, terminalize stale/expired prewrite evidence only after proving the
+target workbook, HEAD and index are unchanged, and reject an unknown credential
+without changing valid tokens. Focused publication, credential, workbook,
+schema and review-page tests passed 558 checks; the authoritative root-run
+complete Clojure suite passed 1,391 checks. The frontend build, 35 browser tests (with the existing
+prefix-only skip), and all 6 base-path browser tests also passed. Logs are
+`/tmp/agiladmin-terminal-review-focused.log`,
+`/tmp/agiladmin-terminal-root-final.log`,
+`/tmp/agiladmin-terminal-review-build.log`,
+`/tmp/agiladmin-terminal-review-e2e.log` and
+`/tmp/agiladmin-terminal-review-prefix.log`. Root terminal acceptance remains a
+separate required gate.
