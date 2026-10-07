@@ -49,7 +49,8 @@
    [agiladmin.view-person :as view-person]
    [agiladmin.view-auth :as view-auth]
    [agiladmin.webpage :as web]
-   [agiladmin.session :as s])
+   [agiladmin.session :as s]
+   [agiladmin.mcp.runtime :as mcp-runtime])
   (:import java.io.File)
   (:gen-class))
 
@@ -244,9 +245,21 @@
          {:key (get-in @ring/config [:agiladmin :webserver :salt])})})))
 
 (defonce app-state (atom nil))
+(defonce mcp-state (atom nil))
 
 (defn init-app! []
-  (let [handler (make-app)]
+  (mcp-runtime/stop! @mcp-state)
+  (reset! mcp-state nil)
+  (let [runtime (mcp-runtime/start! @ring/config #(deref ring/config))
+        browser (make-app)
+        handler (fn [request]
+                  (if (or (= "/mcp" (:uri request)) (re-matches #"/mcp/artifacts/[^/]+" (:uri request)))
+                    (if runtime
+                      (if (= "/mcp" (:uri request)) ((:handler runtime) request)
+                          ((:artifact-handler runtime) request (second (re-matches #"/mcp/artifacts/([^/]+)" (:uri request)))))
+                        {:status 404 :headers {"Content-Type" "application/json"} :body "{}"})
+                    (browser request)))]
+    (reset! mcp-state runtime)
     (reset! app-state handler)
     handler))
 

@@ -348,7 +348,13 @@
     (try
       (with-open [wb (if existing-bytes (XSSFWorkbook. (ByteArrayInputStream. existing-bytes)) (XSSFWorkbook.))
                   out (ByteArrayOutputStream.)]
-        (let [year (.getYear (YearMonth/parse (:month snapshot)))]
+        (let [year (.getYear (YearMonth/parse (:month snapshot)))
+              coordinates (concat [[2 2] [3 2] [4 2] [5 2]]
+                                  (for [r [7 8 9] c (range 2 9)] [r c])
+                                  (for [r (range 11 (inc (total-row (:month snapshot)))) c (range 1 10)] [r c]))
+              before-sheet (.getSheet wb (sheet-name (:month snapshot)))
+              before (into {} (map (fn [[r c :as coordinate]]
+                                    [coordinate (when before-sheet (cell-value (existing-cell before-sheet r c)))]) coordinates))]
           (when-not existing-bytes
             (doseq [m (range 1 13)] (clean-sheet! wb owner (format "%04d-%02d" year m))))
           (let [sheet (or (.getSheet wb (sheet-name (:month snapshot)))
@@ -365,7 +371,14 @@
                   :filename (str year "_timesheet_" (str/replace (:person owner) #"\s+" "-") ".xlsx")
                   :capacity (:capacity model) :snapshot-digest (:digest snapshot)
                   :source-inspection inspection
-                  :baseline (dissoc output-inspection :empty?) :report report}))))))
+                  :baseline (dissoc output-inspection :empty?) :report report
+                  :changes {:cells (->> coordinates
+                                        (keep (fn [[r c :as coordinate]]
+                                                (let [after (cell-value (existing-cell (.getSheet reopened (sheet-name (:month snapshot))) r c))
+                                                      prior (get before coordinate)]
+                                                  (when (not= prior after)
+                                                    {:cell (str (char (+ 64 c)) r) :before prior :after after})))) vec)
+                            :preserves-other-months true :notes-column "I"}}))))))
       (catch Exception _
         (policy/error :workbook-error [] "Workbook could not be rendered." "Reconcile the workbook and create a new preview."))))))
 

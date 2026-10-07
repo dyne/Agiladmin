@@ -186,9 +186,24 @@
                                           "perPage" 200}})]
     (mapv session-user (:items (ensure-success response)))))
 
+(defn active-accounts
+  "Fetch verified existing accounts each request. Fail closed on backend errors."
+  [config]
+  (let [token (superuser-token config)]
+    (loop [page 1 accounts []]
+      (let [result (-> (request :get
+                               (endpoint (:base-url config) (auth-collection-path config "/records"))
+                               config {:headers {"Authorization" (str "Bearer " token)}
+                                       :query-params {"filter" "verified = true" "sort" "id"
+                                                      "page" page "perPage" 200}})
+                       ensure-success)
+            all (into accounts (map session-user (:items result)))]
+        (if (< page (:totalPages result 1)) (recur (inc page) all) all)))))
+
 (defn backend
   [config]
-  {:healthy? (fn [] (healthy? config))
+  {:active-accounts (fn [] (active-accounts config))
+   :healthy? (fn [] (healthy? config))
    :sign-in (fn [username password options]
               (sign-in config username password options))
    :sign-up (fn [name email password options other-names]
