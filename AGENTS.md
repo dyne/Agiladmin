@@ -6,6 +6,7 @@
 - The storage model is mixed:
   - project metadata and uploaded spreadsheets live in a Git-backed budgets directory;
   - authentication goes through an auth boundary, with PocketBase currently implemented and a dev-only fallback for local testing.
+  - optional personal MCP work drafts, receipts, credentials, previews and publication evidence live in a private file ledger outside budgets; official reports continue to read Excel.
 
 ## Stack
 - Language: Clojure 1.12.4
@@ -19,8 +20,10 @@
 ## Entry Points
 - Main HTTP routes are in `src/agiladmin/handlers.clj`.
 - Application initialization is in `src/agiladmin/ring.clj`.
-  - `ring/init` loads configuration, ensures the SSH key exists, connects to MongoDB, and initializes auth stores.
+  - `ring/init` loads configuration, ensures the SSH key exists, and initializes/health-checks auth stores.
 - Core spreadsheet and project logic is in `src/agiladmin/core.clj`.
+- MCP composition and transport are in `src/agiladmin/mcp/runtime.clj`, `http.clj` and `tools.clj`; local credential lifecycle is in `credential_cli.clj`.
+- Daily work boundaries are `work_policy.clj`, `work_service.clj`, `work_ledger.clj`, `work_workbook.clj`, `work_preview.clj`, `work_publication.clj` and `work_archive.clj`. Browser review is `view_work.clj`.
 - The main user-facing views are split by domain:
   - `src/agiladmin/view_project.clj`
   - `src/agiladmin/view_person.clj`
@@ -55,6 +58,8 @@
   - `:base-host` and `:base-path` are browser-facing URL parts.
   - `:upload-max-size` configures upload byte limits (default `500000`).
 - Project configs are separate YAML files stored under the configured budgets path and loaded by `load-project`.
+- `:agiladmin :mcp` is disabled by default. Enabled settings require a private `:data-path` outside budgets, production account resolution and an HTTPS `:webserver :base-host`. Policy keys are `:timezone`, `:paid-cap-minutes`, `:person-cap-overrides` (stable account IDs) and `:organization-aliases` (existing project IDs).
+- Config files are loaded on startup; the Reload page refreshes budgets/caches, not application YAML. Restart after editing endpoint/storage/auth settings. Current policy changes invalidate previews.
 - Tests use fixture config under `test/assets/agiladmin.yaml`.
 
 ## Runtime Assumptions
@@ -64,6 +69,8 @@
   - a reachable PocketBase instance for real auth flows, unless `AGILADMIN_DEV_AUTH=1` is enabled.
 - Timesheet upload and commit logic assumes a Unix-style temp path `/tmp/...` in `src/agiladmin/view_timesheet.clj`. That is a portability risk on Windows.
 - Session cookie configuration depends on `@ring/config`; changes to init order can break middleware setup.
+- MCP is single-writer: one process per ledger and budgets checkout. Its process lock does not protect against external checkout edits. Use temporary ledgers/local bare remotes for tests; never use live credentials or a real budgets push.
+- Production rejects dev-auth MCP credentials. The browser harness's verified test-account seam is test-only.
 
 ## Current Role Logic
 - Accounts are normalized from the auth backend response in `src/agiladmin/session.clj`.
@@ -78,6 +85,7 @@
 - Main test path from `deps.edn`:
   - alias: `clj -M:test`
   - Midje runner namespace: `test/agiladmin/test_runner.clj`
+- Focused complete MCP workflow: `clojure -M:test-mcp` (pinned Java client, isolated ledger/auth, session/CSRF confirmation, local Git recovery and production readers).
 - In this environment, Clojure CLI commands need their config/cache paths redirected into writable locations before dependency resolution.
 - Frontend assets now use a minimal Node build:
   - install once with `npm install`
@@ -97,11 +105,12 @@
   - selected route and view behavior
   - minimal `ring/init` smoke test
   - browser login/upload path for admin and manager via Playwright harness
+  - MCP lifecycle, schemas, owner credentials, retries/corrections, integer allocations and immutable previews
+  - temporary Git publication, failed-push/crash recovery, annual/repository serialization and original/generated workbook round trips
+  - browser review/overflow/stale/confirmation matrix at mobile/desktop and 100%/200% font size, with prefix, keyboard and no-JavaScript checks
 - Not well covered:
-  - HTTP route behavior
-  - auth flows
-  - Git push/commit side effects
-  - frontend rendering behavior
+  - live PocketBase, deployed HTTPS proxies and live SSH pushes (opt-in/external checks)
+  - automatic reconciliation of divergent remote history or legacy populated months (unsupported in v1)
 
 ## Codebase Conventions
 - Most domain work happens on Incanter datasets rather than plain sequences.
@@ -124,9 +133,11 @@
 - `src/agiladmin/view_timesheet.clj`
   - upload, temp-file handling, Git add/commit/push, and filesystem assumptions are all coupled.
 - `src/agiladmin/ring.clj`
-  - startup performs real side effects: config load, SSH key generation, Mongo connection, auth initialization.
+  - startup performs real side effects: config load, SSH key generation and auth initialization/health checks.
 - `src/agiladmin/config.clj`
   - config merging and schema handling are permissive and a bit irregular; changes here can affect every feature.
+- `src/agiladmin/work_publication.clj` / `work_archive.clj`
+  - approval evidence binds exact revision/policy/workbook fingerprints. Preserve owner → annual → budgets lock order, exact-commit non-force pushes, staged-path isolation and cache invalidation after local changes even when push fails.
 
 ## Guidance For Future Agents
 - Read the relevant view namespace plus `core.clj` before changing behavior. Many screens are thin wrappers around shared dataset logic.
@@ -143,6 +154,11 @@
 - `resources/public/static/js/app.js` replaces the old Bootstrap JS for navbar toggles and tab switching.
 - Browser-facing app URLs should be generated via `agiladmin.webpage/path` / `asset-path` helpers rather than hard-coded `"/..."` strings; route definitions remain root paths and reverse proxies are expected to strip any configured public `base-path`.
 - DHTMLX Gantt remains a JS island. Do not rewrite it into HTMX; only change the surrounding shell unless the task explicitly calls for deeper work.
+- Daily MCP data uses integer minutes and stable owner-scoped IDs; do not infer daily activity from monthly report totals. Upserts replace complete record fields; corrections need fresh request IDs/current revisions, while uncertain retries keep identical arguments.
+- Keep seven B:H monthly project/task/tag columns and literal complete notes in I. Retain/report overflow; never consolidate automatically or alter original workbook fixtures.
+- MCP bearer credentials cannot approve publication. Browser confirmation requires owner session and CSRF even if general form anti-forgery configuration is disabled.
+- Normalize publication adapter revision/commit fields into the advertised MCP status schema; test real publication results, not only mocked wire-shaped status maps.
+- Operator setup/recovery is documented in `doc/mcp-operation.md`, example config/tool calls in `doc/agiladmin.mcp.yaml` and `doc/mcp-work-example.json`, and verification in `doc/mcp-acceptance.md`. Remote divergence needs operator reconciliation; do not force/reset away remote history or edit private EDN to bypass conflicts.
 
 ## Useful Files
 - [`README.md`](/C:/Users/denis/devel/planb-agiladmin/README.md)

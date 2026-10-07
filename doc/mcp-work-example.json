@@ -1,0 +1,29 @@
+[
+  {"name": "get_work_context", "arguments": {"limit": 50}},
+  {"name": "get_month", "arguments": {"month": "2025-02"}},
+  {"name": "validate_work_entries", "arguments": {
+    "month": "2025-02",
+    "entries": [
+      {"external_id": "example-design", "date": "2025-02-28", "organization": "studio", "task_id": "DEV", "minutes": 360, "note": "Design work"},
+      {"external_id": "example-delivery", "date": "2025-02-28", "project_id": "B", "minutes": 240, "note": "Delivery work"}
+    ]
+  }},
+  {"name": "upsert_work_entries", "arguments": {
+    "month": "2025-02", "expected_revision": 0, "request_id": "example-save-1",
+    "entries": [
+      {"external_id": "example-design", "date": "2025-02-28", "organization": "studio", "task_id": "DEV", "minutes": 360, "note": "Design work"},
+      {"external_id": "example-delivery", "date": "2025-02-28", "project_id": "B", "minutes": 240, "note": "Delivery work"}
+    ]
+  }},
+  {"name": "get_month", "arguments": {"month": "2025-02"}},
+  {"name": "preview_month", "arguments": {"month": "2025-02"}},
+  {"name": "get_publication_status", "arguments": {"month": "2025-02"}},
+  {"name": "upsert_work_entries", "arguments": {
+    "month": "2025-02", "expected_revision": 1, "request_id": "example-correct-2",
+    "entries": [
+      {"external_id": "example-design", "date": "2025-02-28", "organization": "studio", "task_id": "DEV", "minutes": 300, "note": "Corrected design duration"}
+    ]
+  }},
+  {"name": "get_month", "arguments": {"month": "2025-02"}},
+  {"name": "preview_month", "arguments": {"month": "2025-02"}}
+]

@@ -9,6 +9,7 @@
                  agiladmin.handlers-test
                  agiladmin.logging-test
                  agiladmin.mcp-compatibility-test
+                 agiladmin.mcp-acceptance-test
                  agiladmin.mcp-http-test
                  agiladmin.mcp-tools-test
                  agiladmin.pocketbase-integration-test

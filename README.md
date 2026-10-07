@@ -111,6 +111,16 @@ Run the test suite with:
 clj -M:test
 ```
 
+Run the pinned MCP client through owner drafts, browser confirmation, local Git
+publication/recovery and production Excel readers:
+
+```sh
+clojure -M:test-mcp
+```
+
+Exact versions, isolated test commands and the review screenshot matrix are
+recorded in [MCP acceptance evidence](doc/mcp-acceptance.md).
+
 Or:
 
 ```sh
@@ -166,7 +176,11 @@ The current test suite covers:
 - selected view logic
 - `ring/init` startup behavior
 
-It does not comprehensively cover route behavior, Git push side effects, or frontend rendering.
+MCP transport, credentials, daily allocation, durable drafts, seven-column Excel
+round trips and publication recovery have automated coverage. Publication tests
+use local bare Git remotes; browser tests cover owner confirmation, responsive
+review, keyboard access and no-JavaScript fallback. Live SSH pushes, deployed
+TLS proxies and live PocketBase integration require separate environment checks.
 
 ## Building
 
@@ -295,6 +309,27 @@ Notes:
 - task ids are normalized to uppercase internally
 - the loader also accepts a direct-entry file shape where the file contains the project entry itself rather than a top-level project key
 - spreadsheet parsing is position-based and depends on the current Excel template layout
+
+## Personal Agent Work Capture (MCP)
+
+The optional remote MCP endpoint lets a personal agent discover projects/tasks,
+validate and save daily work, correct drafts and create monthly Excel previews.
+The default paid cap is eight hours per day across projects; excess becomes VOL
+proportionally. Saving work leaves official reports unchanged until the owner
+reviews and confirms in an authenticated browser.
+
+MCP is disabled by default. It requires HTTPS public configuration, production
+auth, a private ledger directory outside budgets, and a single writer. Clients
+must support manually provisioned bearer headers; OAuth-only clients are
+unsupported. Neither admin nor manager credentials allow acting for others.
+
+Follow the [operator and agent guide](doc/mcp-operation.md) for configuration,
+token lifecycle, the 6h + 4h workflow, confirmation/correction, backups and
+failed-push recovery. Start from the [example configuration](doc/agiladmin.mcp.yaml)
+and [tool call examples](doc/mcp-work-example.json), replacing illustrative IDs,
+paths and secrets. Seven monthly assignment columns remain the Excel limit;
+overflow drafts are retained, and populated unmanaged legacy months need the
+legacy workflow. No production deployment is implied by the isolated tests.
 
 ## Repository Layout
 

@@ -132,9 +132,15 @@
 (defn- status-data [deps owner month revision]
     (let [status (if-let [read (:publication-status deps)] (read owner month) {:state "draft"})]
       (if (f/failed? status) status
-          (merge {:month month :draft_revision revision :published_revision nil :commit nil
-                  :push_state "not-started" :next_action "Create a preview; the person follows its owner review URL and confirms in the browser."}
-                 (select-keys (public-data status) [:state :published_revision :commit :push_state :next_action])))))
+          (let [status (public-data status)
+                commit (or (:commit status) (:commit_id status))]
+            (merge {:month month :draft_revision revision
+                    :published_revision (when commit (:revision status)) :commit commit
+                    :push_state (case (:state status)
+                                  "pushed" "pushed" "failed" "failed" "conflict" "conflict"
+                                  (if commit "pending" "not-started"))
+                    :next_action "Create a preview; the person follows its owner review URL and confirms in the browser."}
+                   (select-keys status [:state :published_revision :commit :push_state :next_action]))))))
 (defn publication-status [deps owner month]
   (f/attempt-all [snapshot (service/month-snapshot (:ledger deps) owner (settings deps) month)]
     (status-data deps owner month (:revision snapshot))))

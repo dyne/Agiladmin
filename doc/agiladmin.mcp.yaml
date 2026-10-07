@@ -1,0 +1,39 @@
+# Example only. Copy to a private config file and replace paths/account IDs,
+# origins, existing project IDs and secret placeholders before starting.
+appname: agiladmin
+agiladmin:
+  cache: false
+  voluntary-hours: true
+  webserver:
+    host: 127.0.0.1
+    port: 8000
+    base-host: https://payroll.example.test
+    base-path: /agiladmin
+    upload-max-size: 500000
+    anti-forgery: true
+    ssl-redirect: false
+  budgets:
+    path: /var/lib/agiladmin/budgets
+    git: ssh://git@example.test/budgets.git
+    ssh-key: /var/lib/agiladmin/ssh/id_rsa
+  source:
+    git: https://github.com/dyne/agiladmin
+    update: false
+  pocketbase:
+    base-url: http://127.0.0.1:8090
+    users-collection: users
+    superuser-email: operator@example.test
+    superuser-password: REPLACE_WITH_OPERATOR_SECRET
+    connect-timeout-ms: 2000
+    socket-timeout-ms: 2000
+    manage-process: false
+  mcp:
+    enabled: true
+    data-path: /var/lib/agiladmin/work
+    timezone: Europe/Rome
+    paid-cap-minutes: 480
+    person-cap-overrides:
+      manager-id: 300
+    organization-aliases:
+      studio: [A]
+      shared: [A, B]
