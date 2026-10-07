@@ -27,6 +27,7 @@
                  agiladmin.work-policy-test
                  agiladmin.work-ledger-test
                  agiladmin.work-service-test
+                 agiladmin.work-workbook-test
                  agiladmin.visualization-test]]
   (require ns-sym))
 
