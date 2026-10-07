@@ -41,6 +41,9 @@
 (defn candidate [e]
   (preview/create! (get-in e [:runtime :preview-store]) (get-in e [:runtime :ledger])
                    (get-in e [:runtime :workbook]) (:owner e) ((get-in e [:runtime :deps :settings])) "2024-02"))
+(defn candidate-month [e month]
+  (preview/create! (get-in e [:runtime :preview-store]) (get-in e [:runtime :ledger])
+                   (get-in e [:runtime :workbook]) (:owner e) ((get-in e [:runtime :deps :settings])) month))
 (defn publish [e value] (ports/publish-confirmed! (:publication e) (:owner e) value))
 (defn count-commits [e] (parse-long (git (:budgets e) "rev-list" "--count" "HEAD")))
 (defn file [e value] (io/file (:budgets e) (:filename value)))
@@ -117,6 +120,64 @@
            (:state (ports/publish-confirmed! replacement (:owner e) v)) => "pushed"
            (:state (ports/publish-confirmed! replacement (:owner e) v)) => "pushed"
            (count-commits e) => 2))))))
+
+(fact "A pristine prepared approval blocks another month and recovers first"
+  (env
+   (fn [e]
+     (let [feb (candidate e)]
+       (binding [publication/*checkpoint* (fn [point]
+                                            (when (= point :after-prepared)
+                                              (throw (AssertionError. "simulated process death"))))]
+         (try (publish e feb) (catch AssertionError _ nil)))
+       (:state (status e)) => "prepared"
+       (fixtures/save e "march-after-prepared" 0
+                      [(assoc fixtures/entry :date "2024-03-01" :external_id "march-after-prepared")])
+       (let [march (candidate-month e "2024-03")]
+         (:code (publish e march)) => :publication-pending)
+       (:state (publish e feb)) => "pushed"
+       (count-commits e) => 2))))
+
+(fact "Stale or expired pristine prewrite approval becomes terminal and permits a fresh review"
+  (env
+   (fn [e]
+     (let [old (candidate e)]
+       (binding [publication/*checkpoint* (fn [point]
+                                            (when (= point :after-prepared)
+                                              (throw (AssertionError. "simulated process death"))))]
+         (try (publish e old) (catch AssertionError _ nil)))
+       (fixtures/save e "stale-prewrite" 1 [(assoc fixtures/entry :minutes 300)])
+       (:code (publish e old)) => :stale-snapshot
+       (:state (status e)) => "conflict"
+       (:retryable (status e)) => false
+       (str/includes? (:next-action (status e)) "Nothing from this approval was archived") => true
+       (:state (publish e (candidate e))) => "pushed")))
+  (env
+   (fn [e]
+     (let [old (with-redefs [preview/lifetime-seconds 1] (candidate e))]
+       (binding [publication/*checkpoint* (fn [point]
+                                            (when (= point :after-prepared)
+                                              (Thread/sleep 1100)
+                                              (throw (AssertionError. "simulated process death"))))]
+         (try (publish e old) (catch AssertionError _ nil)))
+       (:code (publish e old)) => :preview-expired
+       (:state (status e)) => "conflict"
+       (:state (publish e (candidate e))) => "pushed"))))
+
+(fact "Written and committed pending annual publications still block another month"
+  (doseq [pending [:written :committed]]
+    (env
+     (fn [e]
+       (let [feb (candidate e)]
+         (if (= pending :written)
+           (binding [publication/*checkpoint* (fn [point]
+                                                (when (= point :after-write)
+                                                  (throw (AssertionError. "simulated process death"))))]
+             (try (publish e feb) (catch AssertionError _ nil)))
+           (with-redefs [archive/push-commit! (fn [& _] (throw (ex-info "offline" {})))]
+             (:state (publish e feb)) => "failed"))
+         (fixtures/save e (str "march-" (name pending)) 0
+                        [(assoc fixtures/entry :date "2024-03-01" :external_id (str "march-" (name pending)))])
+         (:code (publish e (candidate-month e "2024-03"))) => :publication-pending)))))
 
 (fact "External workbook edits, stale policies and stale records cannot replace reviewed official data"
   (env

@@ -97,8 +97,11 @@
            :exact_changes (object {:cells (array (object {:cell nonempty :before {:type ["string" "number" "boolean" "null"]}
                                                           :after {:type ["string" "number" "boolean" "null"]}}
                                                          [:cell :before :after]))
-                                   :preserves_other_months {:const true} :notes_column {:const "I"}}
-                                  [:cells :preserves_other_months :notes_column])
+                                   :annual_workbook_created {:type "boolean"}
+                                   :target_sheet_created {:type "boolean"}
+                                   :preserves_other_months {:type "boolean"} :notes_column {:const "I"}}
+                                  [:cells :annual_workbook_created :target_sheet_created
+                                   :preserves_other_months :notes_column])
            :next_action nonempty}
           [:preview_id :month :revision :digest :created_at :expires_at :policy :source_fingerprint
            :target_month_baseline :artifact_fingerprint :filename :owner_review_url :artifact_url

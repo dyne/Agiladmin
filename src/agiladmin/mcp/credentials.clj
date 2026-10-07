@@ -60,7 +60,7 @@
                          (= (count (:tokens state)) (count (set (map :id (:tokens state))))))
             (throw (ex-info "Invalid credential store" {})))
           (let [[updated result] (operation state)]
-            (when change?
+            (when (and change? (not= updated state))
               (when (> (count (.getBytes (pr-str updated) StandardCharsets/UTF_8)) 1048576)
                 (throw (ex-info "Credential store capacity reached" {})))
               (ledger/durable-write! root target (when exists state) updated)
@@ -79,9 +79,14 @@
                     :expires-at (str expiry) :revoked? false}]
         (with-state store true (fn [s] [(update s :tokens conj record) (assoc (dissoc record :hash) :token token)]))))))
 (defn revoke! [store id]
-  (with-state store true (fn [s]
-                          [(update s :tokens (fn [rs] (mapv #(if (= id (:id %)) (assoc % :revoked? true) %) rs)))
-                           {:revoked-id id}])) )
+  (with-state store true
+    (fn [s]
+      (if (some #(= id (:id %)) (:tokens s))
+        [(update s :tokens (fn [rs] (mapv #(if (= id (:id %)) (assoc % :revoked? true) %) rs)))
+         {:revoked-id id}]
+        [s (policy/error :credential-not-found [:credential_id]
+                         "Credential ID was not found; no token was revoked."
+                         "List credentials and retry with the exact credential ID.")]))))
 (defn list-credentials [store]
   (with-state store false (fn [s] [s (mapv #(dissoc % :hash) (:tokens s))])))
 (defn authenticate [store token]
