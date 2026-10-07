@@ -88,7 +88,7 @@ Draft overflow is retained and reported with explicit consolidation guidance.
 No tool automatically drops projects, tasks, notes or hours. A preview refuses
 more than seven monthly project/task/tag combinations or an unmanaged populated
 legacy month. Official reports continue to read the unchanged official workbook
-until browser publication is implemented and the owner confirms.
+until the owner confirms through the authenticated browser publication flow.
 
 ## Immutable previews and the browser integration boundary
 
@@ -105,17 +105,17 @@ tool argument can select a filesystem path.
 Host/Origin and rate guards apply to downloads. Another owner receives the same
 unavailable response as a missing artifact. Downloaded bytes remain the original
 preview even after draft/policy changes. Expired previews require regeneration.
-`owner_review_url` reserves `/work/review/PREVIEW_ID` for the L5 browser flow.
+`owner_review_url` points to `/work/review/PREVIEW_ID` for the owner browser flow.
 There is no bearer or MCP approval operation.
 
 The trusted server interface for that browser flow is
 `work-preview/read-preview`, `artifact`, and `verify-preview`. The retained
 evidence is private server data. `verify-preview` rechecks owner, expiry, current
-draft/policy, source fingerprint and target-month baseline without writes; L5
-must invoke it again under its publication locks before mutation. A live check
+draft/policy, source fingerprint and target-month baseline without writes;
+publication invokes it again under its mutation locks. A live check
 also runs before a newly created preview URL is returned.
 
-L5 installs two server-owned functions through
+The composition root installs two server-owned functions through
 `mcp.runtime/install-publication!`: `read-baseline(owner, month)` and
 `publication-status(owner, month)`. Managed evidence never comes from agents.
 Until installed, no existing populated month can be adopted and status reports
@@ -123,4 +123,9 @@ draft. Status responses allow only month/revisions, publication phase, commit,
 push state and repair guidance; private ledger, filesystem and credential
 details are omitted. The baseline reader must combine the latest annual
 fingerprint with the target month's managed baseline when another month in that
-year has been published.
+year has been published. The MCP adapter maps the actual publication revision and
+commit ID into `published_revision` and `commit`, and reports its real push state.
+
+For complete operator onboarding, confirmation, backups and recovery limits,
+see [the operation guide](mcp-operation.md). Reproducible isolated workflow and
+browser evidence are in [acceptance evidence](mcp-acceptance.md).
