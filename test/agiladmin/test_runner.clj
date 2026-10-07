@@ -25,6 +25,8 @@
                  agiladmin.webpage-test
                  agiladmin.work-allocation-test
                  agiladmin.work-policy-test
+                 agiladmin.work-ledger-test
+                 agiladmin.work-service-test
                  agiladmin.visualization-test]]
   (require ns-sym))
 
