@@ -113,6 +113,14 @@
                (try (.release process-lock) (.close channel)
                     (finally (swap! open-roots disj root)))))
   ports/WorkLedger
+  (lookup-records [_ owner ids]
+    (if (or @closed (not (policy/nonblank-string? owner)) (not (vector? ids)))
+      (fail :invalid-ledger-read)
+      (try
+        (let [years (owner-years root owner)]
+          (if (some f/failed? years) (fail :corrupt-ledger)
+              (select-keys (into {} (mapcat (comp seq :records) years)) ids)))
+        (catch Exception _ (fail :storage-failure)))))
   (read-year [_ owner year]
     (if (or @closed (not (policy/nonblank-string? owner))
             (not (and (string? year) (re-matches #"\d{4}" year) (<= 1 (parse-long year) 9999))))

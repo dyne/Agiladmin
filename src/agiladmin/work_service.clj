@@ -28,7 +28,10 @@
         receipt (ports/transact-month! ledger (:owner-id owner) month expected_revision request_id
                                        {:op :upsert :input command})
         :else
-        (let [records (mapv #(policy/validate-record owner projects settings %) entries)]
+        (let [records (mapv (fn [i entry]
+                             (let [record (policy/validate-record owner projects settings entry)]
+                               (if (f/failed? record) (update record :field #(into [:entries i] %)) record)))
+                           (range) entries)]
           (if-let [failure (first (filter f/failed? records))]
             failure
             (ports/transact-month! ledger (:owner-id owner) month expected_revision request_id

@@ -57,3 +57,11 @@
   (f/attempt-all
    [auth-backend (backend!)]
    (invoke-backend (:list-pending-users auth-backend))))
+
+(defn active-accounts
+  "Server-only identity catalog for credential ownership; never sent to clients."
+  []
+  (f/attempt-all [auth-backend (backend!)]
+    (if (and (not (:development? auth-backend)) (fn? (:active-accounts auth-backend)))
+      (invoke-backend (:active-accounts auth-backend))
+      (f/fail "Production account resolution unavailable."))))

@@ -27,7 +27,8 @@
 
 (defn backend
   []
-  {:healthy? (fn [] true)
+  {:development? true
+   :healthy? (fn [] true)
    :sign-in (fn [username password _options]
               (cond
                 (and (= username "admin")

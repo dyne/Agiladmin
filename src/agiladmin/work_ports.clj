@@ -3,6 +3,7 @@
 
 (defprotocol WorkLedger
   (read-year [ledger owner-id year] "Read versioned owner/year draft and receipts.")
+  (lookup-records [ledger owner-id ids] "Read existing owner-scoped IDs across years for advisory validation; no writes.")
   (transact-month! [ledger owner-id month expected-revision request-id payload]
     "Atomically apply one month's authorized command; persist retry receipts and audit."))
 
