@@ -180,5 +180,5 @@
                                                  :git "git@example.org:repo.git"
                                                  :ssh-key "id_rsa"}}}
                           {:email "admin"})]
-            @invalidations => []
+            (count @invalidations) => 1
             (:body response) => (contains "Error in git-pull: Remote origin did not advertise Ref for branch master.")))))

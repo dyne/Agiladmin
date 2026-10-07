@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { promises as fs } from "node:fs";
 import { createWriteStream } from "node:fs";
 import path from "node:path";
@@ -25,14 +25,17 @@ function normalizeBasePath(basePath) {
   return cleaned ? `/${cleaned}` : "/";
 }
 
-function yamlConfig(budgetsPath, sshKeyPath) {
+function yamlConfig(budgetsPath, sshKeyPath, remotePath) {
   return [
     "appname: agiladmin-e2e",
     "paths: []",
     "filename: agiladmin-e2e.yaml",
     "agiladmin:",
+    "  mcp:",
+    "    enabled: true",
+    `    data-path: ${JSON.stringify(path.join(path.dirname(budgetsPath), "work-data"))}`,
     "  budgets:",
-    "    git: ssh://example.invalid/dyne/budgets",
+    `    git: ${JSON.stringify(remotePath)}`,
     `    path: ${JSON.stringify(`${budgetsPath}/`)}`,
     `    ssh-key: ${JSON.stringify(sshKeyPath)}`,
     "  source:",
@@ -41,7 +44,7 @@ function yamlConfig(budgetsPath, sshKeyPath) {
     "  webserver:",
     "    host: 127.0.0.1",
     "    port: 18080",
-    "    base-host: \"\"",
+    "    base-host: https://app.test",
     `    base-path: ${E2E_BASE_PATH}`,
     "    upload-max-size: 500000",
     "    anti-forgery: false",
@@ -110,8 +113,22 @@ async function prepareEnv() {
   await fs.copyFile(managerFixturePath, path.join(budgetsDir, "2026_timesheet_Manager.xlsx"));
   await fs.copyFile(guestFixturePath, path.join(budgetsDir, "2026_timesheet_Guest.xlsx"));
 
+  const remotePath = path.join(tempRoot, "remote.git");
+  function git(cwd, args) {
+    const result = spawnSync("git", args, { cwd, encoding: "utf8" });
+    if (result.status !== 0) throw new Error(`Local test Git setup failed: ${args[0]}`);
+  }
+  git(tempRoot, ["init", "--bare", "-b", "master", remotePath]);
+  git(budgetsDir, ["init", "-b", "master"]);
+  git(budgetsDir, ["config", "user.name", "Browser test"]);
+  git(budgetsDir, ["config", "user.email", "browser@example.test"]);
+  git(budgetsDir, ["add", "."]);
+  git(budgetsDir, ["commit", "-m", "Seed isolated browser budgets"]);
+  git(budgetsDir, ["remote", "add", "origin", remotePath]);
+  git(budgetsDir, ["push", "-u", "origin", "master"]);
+
   const configPath = path.join(tempRoot, "agiladmin-e2e.yaml");
-  await fs.writeFile(configPath, `${yamlConfig(budgetsDir, sshKeyPath)}\n`, "utf8");
+  await fs.writeFile(configPath, `${yamlConfig(budgetsDir, sshKeyPath, remotePath)}\n`, "utf8");
 
   const state = {
     tempRoot,
@@ -142,7 +159,8 @@ async function prepareEnv() {
 async function start() {
   const state = await prepareEnv();
   const logStream = createWriteStream(LOG_PATH, { flags: "a" });
-  const child = spawn(CLOJURE_CMD, ["-M:run"], {
+  const expression = `(load-file "scripts/e2e/work-server.clj") (agiladmin.e2e.work-server/-main ${JSON.stringify(STATE_PATH)})`;
+  const child = spawn(CLOJURE_CMD, ["-M", "-e", expression], {
     cwd: REPO_ROOT,
     env: {
       ...process.env,

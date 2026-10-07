@@ -28,6 +28,8 @@
    [agiladmin.webpage :as web]
    [agiladmin.config :as conf]
    [agiladmin.session :as s]
+   [agiladmin.budgets-mutation :as mutation]
+   [agiladmin.work-archive :as archive]
    [taoensso.timbre :as log]
    [failjure.core :as f]
    [hiccup.form :as hf]
@@ -365,7 +367,7 @@
     body
     (upload-card config)]))
 
-(defn upload [request config account]
+(defn- upload-unlocked [request config account]
   (let
       [tempfile (get-in request [:params :file :tempfile])
        filename (get-in request [:params :file :filename])
@@ -491,19 +493,17 @@
 (defn- archive-timesheet!
   [gitrepo path dst keypath req]
   (let [base-path (fs/base-name dst)]
-    (io/copy (io/file path) (io/file dst))
+    (try
+      (archive/replace-workbook! (.toPath (io/file dst)) (java.nio.file.Files/readAllBytes (.toPath (io/file path))))
+      (finally (core/invalidate-timesheet-cache! (get-in req [::config :agiladmin :budgets :path]))))
+    ;; Restrict this legacy commit too: unrelated staged work stays staged.
+    (let [identity (git-commit-identity req)]
+      (archive/commit-workbook! gitrepo base-path (str "Updated timesheet " base-path) {:person (:name identity) :email (:email identity)}))
+    (git/with-identity {:name keypath :exclusive true} (git/git-push gitrepo))
     (io/delete-file path)
-    (git/git-add gitrepo base-path)
-    (git/git-status gitrepo)
-    (git/git-commit
-     gitrepo
-     (str "Updated timesheet " base-path)
-     (git-commit-identity req))
-    (git/with-identity {:name keypath :exclusive true}
-      (git/git-push gitrepo))
     base-path))
 
-(defn commit [req conf acct]
+(defn- commit-unlocked [req conf acct]
   (let [path (s/param req :path)]
     (if (.exists (io/file path))
       (let [repo (conf/q conf [:agiladmin :budgets :path])
@@ -513,7 +513,7 @@
            (str "Timesheet submit is unavailable until the budgets directory exists: " repo))
           (if-let [gitrepo (safe-load-repo repo)]
             (let [keypath (conf/q conf [:agiladmin :budgets :ssh-key])
-                  base-path (archive-timesheet! gitrepo path dst keypath req)]
+                  base-path (archive-timesheet! gitrepo path dst keypath (assoc req ::config conf))]
               (core/invalidate-timesheet-cache! repo)
               (render-workspace
                req
@@ -534,3 +534,11 @@
       ;; else
       (web/render-error-page
        (str "Where is this file gone?! " path)))))
+
+(defn upload [request config account]
+  (mutation/with-repository-lock (get-in config [:agiladmin :budgets :path])
+    #(upload-unlocked request config account)))
+
+(defn commit [request config account]
+  (mutation/with-repository-lock (get-in config [:agiladmin :budgets :path])
+    #(commit-unlocked request config account)))

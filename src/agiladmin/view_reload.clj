@@ -23,6 +23,7 @@
    [agiladmin.webpage :as web]
    [agiladmin.core :as core]
    [agiladmin.config :as conf]
+   [agiladmin.budgets-mutation :as mutation]
    [taoensso.timbre :as log]
    [clj-jgit.porcelain :as git]))
 
@@ -123,7 +124,7 @@
     [:div [:h1 {:class "text-3xl font-semibold"} "Log (last 20 changes)"]
      (web/render-git-log repo)]]))
 
-(defn start [request config account]
+(defn- start-unlocked [request config account]
   (let [budgets (conf/q config [:agiladmin :budgets])
         keypath (:ssh-key budgets)
         path (io/file (:path budgets))
@@ -150,7 +151,6 @@
                                     :exclusive true}
                   (git/git-pull repo))]
             ;; Adopted repo state changed, so all derived runtime reads must refresh.
-            (core/invalidate-runtime-caches! config)
             (render-repo-state-with-message
              request
              config
@@ -187,7 +187,6 @@
         (try
           (clone-budgets! budgets)
           ;; First clone creates the live project tree for this budgets path.
-          (core/invalidate-runtime-caches! config)
           (if-let [repo (safe-load-repo (:path budgets))]
             (render-repo-state-with-message
              request
@@ -229,3 +228,9 @@
        (str "Unsupported budgets directory state: " (:path budgets)))
       ;; end of POST /reload
       )))
+
+(defn start [request config account]
+  (mutation/with-repository-lock (get-in config [:agiladmin :budgets :path])
+    #(try (start-unlocked request config account)
+          ;; A failed pull may still adopt local files before failing its merge.
+          (finally (core/invalidate-runtime-caches! config)))))
